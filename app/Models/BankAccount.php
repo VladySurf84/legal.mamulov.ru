@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class BankAccount extends Model
+{
+    protected $table = 'legal.bank_account';
+
+    public $incrementing = false;
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'account_number',
+        'bank_id',
+        'legal_id',
+        'name',
+        'currency',
+        'account_type',
+        'activation_date',
+        'balance_otb',
+        'balance_authorized',
+        'balance_pending_payments',
+        'balance_pending_requisitions',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'activation_date' => 'date',
+            'balance_otb' => 'decimal:2',
+            'balance_authorized' => 'decimal:2',
+            'balance_pending_payments' => 'decimal:2',
+            'balance_pending_requisitions' => 'decimal:2',
+        ];
+    }
+
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class, 'bank_id', 'bank_id');
+    }
+
+    public function legalEntity(): BelongsTo
+    {
+        return $this->belongsTo(LegalEntity::class, 'legal_id', 'legal_id');
+    }
+}
