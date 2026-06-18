@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User as AppUser;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Contracts\User;
 use Laravel\Socialite\Facades\Socialite;
@@ -18,9 +19,12 @@ class AdminAuthTest extends TestCase
 
     public function test_admin_can_login_and_logout(): void
     {
-        config([
-            'admin.auth.user' => 'owner',
-            'admin.auth.password' => 'secret',
+        AppUser::query()->where('email', 'owner@example.com')->delete();
+        $user = AppUser::query()->create([
+            'name' => 'Owner',
+            'email' => 'owner@example.com',
+            'password' => 'secret',
+            'is_active' => true,
         ]);
 
         $this->get(route('login'))
@@ -28,15 +32,18 @@ class AdminAuthTest extends TestCase
             ->assertSee('Вход');
 
         $this->post(route('login.store'), [
-            'login' => 'owner',
+            'login' => 'owner@example.com',
             'password' => 'secret',
         ])
-            ->assertRedirect(route('bank-accounts.index'))
-            ->assertSessionHas('admin_authenticated', true);
+            ->assertRedirect(route('bank-accounts.index'));
 
-        $this->withSession(['admin_authenticated' => true])
+        $this->assertAuthenticatedAs($user);
+
+        $this->actingAs($user)
             ->post(route('logout'))
             ->assertRedirect(route('login'));
+
+        $this->assertGuest();
     }
 
     public function test_google_login_link_is_shown_when_configured(): void
@@ -53,8 +60,9 @@ class AdminAuthTest extends TestCase
 
     public function test_google_login_rejects_email_that_is_not_allowed(): void
     {
+        AppUser::query()->where('email', 'guest@example.com')->delete();
+
         config([
-            'admin.auth.google_allowed_emails' => ['owner@example.com'],
             'services.google.client_id' => 'client-id',
             'services.google.client_secret' => 'secret',
         ]);
@@ -69,14 +77,22 @@ class AdminAuthTest extends TestCase
 
         $this->get(route('auth.google.callback'))
             ->assertRedirect(route('login'))
-            ->assertSessionMissing('admin_authenticated')
             ->assertSessionHasErrors('login');
+
+        $this->assertGuest();
     }
 
     public function test_google_login_allows_configured_email(): void
     {
+        AppUser::query()->where('email', 'owner@example.com')->delete();
+        $user = AppUser::query()->create([
+            'name' => 'Owner',
+            'email' => 'owner@example.com',
+            'password' => null,
+            'is_active' => true,
+        ]);
+
         config([
-            'admin.auth.google_allowed_emails' => ['owner@example.com'],
             'services.google.client_id' => 'client-id',
             'services.google.client_secret' => 'secret',
         ]);
@@ -90,10 +106,13 @@ class AdminAuthTest extends TestCase
             ->andReturn($provider);
 
         $this->get(route('auth.google.callback'))
-            ->assertRedirect(route('bank-accounts.index'))
-            ->assertSessionHas('admin_authenticated', true)
-            ->assertSessionHas('admin_auth_method', 'google')
-            ->assertSessionHas('admin_email', 'owner@example.com');
+            ->assertRedirect(route('bank-accounts.index'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertDatabaseHas('users', [
+            'email' => 'owner@example.com',
+            'google_id' => '1',
+        ]);
     }
 
     private function googleUser(string $email): User

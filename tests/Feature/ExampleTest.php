@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\User;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -11,12 +11,9 @@ class ExampleTest extends TestCase
     {
         parent::setUp();
 
-        $this->withSession(['admin_authenticated' => true]);
+        $this->actingAs($this->testUser());
     }
 
-    /**
-     * A basic test example.
-     */
     public function test_the_application_opens_document_types(): void
     {
         $this->get('/')->assertRedirect(route('bank-accounts.index'));
@@ -38,5 +35,17 @@ class ExampleTest extends TestCase
         $this->get(route('bank-transactions.index'))
             ->assertOk()
             ->assertSee('Банковские транзакции');
+    }
+
+    private function test_user(): User
+    {
+        return User::query()->updateOrCreate(
+            ['email' => 'feature@example.com'],
+            [
+                'name' => 'Feature User',
+                'password' => 'secret',
+                'is_active' => true,
+            ],
+        );
     }
 }

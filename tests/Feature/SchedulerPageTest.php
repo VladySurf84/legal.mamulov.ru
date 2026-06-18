@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -11,7 +12,7 @@ class SchedulerPageTest extends TestCase
     {
         parent::setUp();
 
-        $this->withSession(['admin_authenticated' => true]);
+        $this->actingAs($this->testUser());
     }
 
     public function test_the_application_opens_scheduler(): void
@@ -38,5 +39,17 @@ class SchedulerPageTest extends TestCase
         $this->post(route('scheduler.run', ['task' => 'tinkoff-bank']))
             ->assertRedirect(route('scheduler.index'))
             ->assertSessionHas('status', 'done');
+    }
+
+    private function test_user(): User
+    {
+        return User::query()->updateOrCreate(
+            ['email' => 'scheduler@example.com'],
+            [
+                'name' => 'Scheduler User',
+                'password' => 'secret',
+                'is_active' => true,
+            ],
+        );
     }
 }

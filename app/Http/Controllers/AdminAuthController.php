@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Laravel\Socialite\Facades\Socialite;
 use Throwable;
@@ -12,7 +15,7 @@ class AdminAuthController extends Controller
 {
     public function create(): View|RedirectResponse
     {
-        if (session('admin_authenticated') === true) {
+        if (Auth::check()) {
             return redirect()->route('bank-accounts.index');
         }
 
@@ -26,18 +29,13 @@ class AdminAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $expectedUser = (string) config('admin.auth.user');
-        $expectedPassword = (string) config('admin.auth.password');
-
-        if (
-            $expectedUser !== ''
-            && $expectedPassword !== ''
-            && hash_equals($expectedUser, $credentials['login'])
-            && hash_equals($expectedPassword, $credentials['password'])
-        ) {
+        if (Auth::attempt([
+            'email' => strtolower($credentials['login']),
+            'password' => $credentials['password'],
+            'is_active' => true,
+        ])) {
             $request->session()->regenerate();
-            $request->session()->put('admin_authenticated', true);
-            $request->session()->put('admin_auth_method', 'password');
+            $request->user()?->forceFill(['last_login_at' => now()])->save();
 
             return redirect()->intended(route('bank-accounts.index'));
         }
@@ -62,38 +60,53 @@ class AdminAuthController extends Controller
     {
         try {
             $googleUser = Socialite::driver('google')->user();
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            Log::warning('Google OAuth callback failed.', [
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+                'has_code' => $request->has('code'),
+                'has_state' => $request->has('state'),
+                'redirect_uri' => config('services.google.redirect'),
+            ]);
+
             return redirect()
                 ->route('login')
                 ->withErrors(['login' => 'Не удалось войти через Google. Попробуйте еще раз.']);
         }
 
         $email = strtolower((string) $googleUser->getEmail());
-        $allowedEmails = config('admin.auth.google_allowed_emails', []);
+        $user = $email === ''
+            ? null
+            : User::query()
+                ->whereRaw('lower(email) = ?', [$email])
+                ->where('is_active', true)
+                ->first();
 
-        if ($email === '' || ! in_array($email, $allowedEmails, true)) {
+        if (! $user) {
             return redirect()
                 ->route('login')
                 ->withErrors(['login' => 'Этот Google-аккаунт не имеет доступа.']);
         }
 
+        $user->forceFill([
+            'google_id' => $googleUser->getId() ?: $user->google_id,
+            'name' => $user->name ?: ($googleUser->getName() ?: $email),
+            'avatar' => $googleUser->getAvatar(),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+            'last_login_at' => now(),
+        ])->save();
+
         $request->session()->regenerate();
-        $request->session()->put('admin_authenticated', true);
-        $request->session()->put('admin_auth_method', 'google');
-        $request->session()->put('admin_email', $email);
-        $request->session()->put('admin_name', $googleUser->getName());
+        Auth::login($user);
 
         return redirect()->intended(route('bank-accounts.index'));
     }
 
     public function destroy(Request $request): RedirectResponse
     {
-        $request->session()->forget([
-            'admin_authenticated',
-            'admin_auth_method',
-            'admin_email',
-            'admin_name',
-        ]);
+        Auth::logout();
+
+        $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('login');

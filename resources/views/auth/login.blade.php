@@ -26,8 +26,8 @@
 
             <div class="grid" style="grid-template-columns: 1fr;">
                 <div class="field">
-                    <label for="login">Логин</label>
-                    <input id="login" name="login" value="{{ old('login') }}" autocomplete="username" autofocus>
+                    <label for="login">Email</label>
+                    <input id="login" name="login" value="{{ old('login') }}" autocomplete="email" autofocus>
                 </div>
 
                 <div class="field">
