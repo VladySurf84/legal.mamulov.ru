@@ -17,9 +17,10 @@ class SyncTinkoffBank extends Command
         $summary = $service->sync($days);
 
         $this->info(sprintf(
-            'Tinkoff sync complete: run #%d, %d legal(s), %d account(s), %d operation(s), period %s..%s',
+            'Tinkoff sync complete: run #%d, %d legal(s), %d credential(s), %d account(s), %d operation(s), period %s..%s',
             $summary['sync_run_id'],
             $summary['legals'],
+            $summary['credentials'],
             $summary['accounts'],
             $summary['operations'],
             $summary['from'],

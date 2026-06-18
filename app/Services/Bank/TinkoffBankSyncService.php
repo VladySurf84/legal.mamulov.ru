@@ -2,9 +2,9 @@
 
 namespace App\Services\Bank;
 
+use App\Models\ApiCredential;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Throwable;
 
 class TinkoffBankSyncService
@@ -18,12 +18,13 @@ class TinkoffBankSyncService
 
     public function sync(int $days): array
     {
-        $tokens = $this->tokens();
+        $credentials = $this->credentials();
         $from = now()->subDays($days)->toDateString();
         $till = now()->toDateString();
         $summary = [
             'sync_run_id' => null,
-            'legals' => count($tokens),
+            'legals' => count(array_unique(array_column($credentials, 'legal_id'))),
+            'credentials' => count($credentials),
             'accounts' => 0,
             'operations' => 0,
             'from' => $from,
@@ -33,36 +34,35 @@ class TinkoffBankSyncService
         $summary['sync_run_id'] = $syncRunId;
 
         try {
-            foreach ($tokens as $legalId => $token) {
-                $accounts = $this->client->accounts($token, $syncRunId);
+            foreach ($credentials as $credential) {
+                $accounts = $this->client->accounts($credential['token'], $syncRunId);
                 $summary['accounts'] += count($accounts);
 
-                DB::transaction(function () use ($accounts, $legalId): void {
+                DB::transaction(function () use ($accounts, $credential): void {
                     foreach ($accounts as $account) {
-                        $this->upsertAccount($account, (int) $legalId);
+                        $this->upsertAccount($account, (int) $credential['legal_id']);
                     }
                 });
 
-                foreach ($accounts as $account) {
-                    $accountNumber = (string) data_get($account, 'accountNumber');
+                $statement = $this->client->statement(
+                    $credential['token'],
+                    $syncRunId,
+                    $credential['account_number'],
+                    $from,
+                    $till
+                );
+                $operations = $this->operationsFromStatement($statement);
 
-                    if ($accountNumber === '') {
-                        continue;
+                DB::transaction(function () use ($operations, $credential): void {
+                    DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
+
+                    foreach ($operations as $operation) {
+                        $this->upsertOperation($operation, $credential['account_number']);
                     }
+                });
 
-                    $statement = $this->client->statement($token, $syncRunId, $accountNumber, $from, $till);
-                    $operations = $this->operationsFromStatement($statement);
-
-                    DB::transaction(function () use ($operations, $accountNumber): void {
-                        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
-
-                        foreach ($operations as $operation) {
-                            $this->upsertOperation($operation, $accountNumber);
-                        }
-                    });
-
-                    $summary['operations'] += count($operations);
-                }
+                $this->markCredentialUsed((int) $credential['api_credential_id']);
+                $summary['operations'] += count($operations);
             }
 
             $this->finishRun($syncRunId, 'success', $summary);
@@ -75,15 +75,50 @@ class TinkoffBankSyncService
         }
     }
 
-    private function tokens(): array
+    /**
+     * @return array<int, array{api_credential_id: int, legal_id: int, account_number: string, token: string}>
+     */
+    private function credentials(): array
     {
-        $tokens = config('bank.tinkoff.tokens');
+        $credentials = ApiCredential::query()
+            ->from('legal.api_credentials as c')
+            ->join('legal.bank_account as ba', 'ba.bank_account_id', '=', 'c.owner_id')
+            ->where('c.provider', 'tinkoff')
+            ->where('c.credential_type', 'bank_api_token')
+            ->where('c.owner_type', 'bank_account')
+            ->where('c.status', 'active')
+            ->where('ba.bank_id', self::BANK_ID_TINKOFF)
+            ->orderBy('ba.legal_id')
+            ->orderBy('ba.account_number')
+            ->get([
+                'c.api_credential_id',
+                'c.encrypted_secret',
+                'ba.legal_id',
+                'ba.account_number',
+            ]);
 
-        if (! is_array($tokens) || $tokens === []) {
-            throw new RuntimeException('TINKOFF_BUSINESS_TOKENS is empty. Expected JSON like {"1":"token"}');
+        if ($credentials->isEmpty()) {
+            throw new \RuntimeException('No active Tinkoff bank account API credentials found in legal.api_credentials.');
         }
 
-        return array_filter($tokens, fn (mixed $token): bool => is_string($token) && $token !== '');
+        return $credentials
+            ->map(fn (ApiCredential $credential): array => [
+                'api_credential_id' => (int) $credential->api_credential_id,
+                'legal_id' => (int) $credential->legal_id,
+                'account_number' => (string) $credential->account_number,
+                'token' => $credential->secret(),
+            ])
+            ->all();
+    }
+
+    private function markCredentialUsed(int $credentialId): void
+    {
+        DB::table('legal.api_credentials')
+            ->where('api_credential_id', $credentialId)
+            ->update([
+                'last_used_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     private function startRun(string $from, string $till): int

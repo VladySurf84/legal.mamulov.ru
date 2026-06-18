@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BankAccount extends Model
 {
@@ -49,5 +50,11 @@ class BankAccount extends Model
     public function legalEntity(): BelongsTo
     {
         return $this->belongsTo(LegalEntity::class, 'legal_id', 'legal_id');
+    }
+
+    public function apiCredentials(): HasMany
+    {
+        return $this->hasMany(ApiCredential::class, 'owner_id', 'bank_account_id')
+            ->where('owner_type', 'bank_account');
     }
 }

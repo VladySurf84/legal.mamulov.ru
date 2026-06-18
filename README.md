@@ -37,6 +37,26 @@ TINKOFF_BUSINESS_TOKENS='{"1":"TOKEN_FOR_LEGAL_1"}'
 storage/logs/scheduler.log
 ```
 
+### API Credentials
+
+External API tokens are stored encrypted in `legal.api_credentials`.
+
+For a Tinkoff bank account token use `bank_account_id` from `legal.bank_account`:
+
+```bash
+/opt/php85/bin/php artisan api-credential:set tinkoff bank_account 123 "TOKEN" --type=bank_api_token --name="Tinkoff account 123"
+```
+
+The Tinkoff sync reads active credentials with:
+
+```text
+provider=tinkoff
+credential_type=bank_api_token
+owner_type=bank_account
+owner_id=bank_account_id
+status=active
+```
+
 ### Deploy
 
 From Windows / PhpStorm run:

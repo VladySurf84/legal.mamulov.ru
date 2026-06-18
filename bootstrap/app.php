@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Application;
 use App\Console\Commands\ImportBankDirectories;
+use App\Console\Commands\SetApiCredential;
 use App\Console\Commands\SyncTinkoffBank;
 use App\Http\Middleware\RequireAdminBasicAuth;
 use App\Http\Middleware\RequireAdminSession;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         ImportBankDirectories::class,
+        SetApiCredential::class,
         SyncTinkoffBank::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
