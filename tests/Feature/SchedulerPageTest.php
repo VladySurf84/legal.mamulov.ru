@@ -18,6 +18,7 @@ class SchedulerPageTest extends TestCase
         $this->get(route('scheduler.index'))
             ->assertOk()
             ->assertSee('Планировщик')
+            ->assertSee('задача планировщика')
             ->assertSee('tinkoff:sync-bank');
     }
 }

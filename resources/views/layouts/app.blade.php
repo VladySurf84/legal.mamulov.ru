@@ -46,8 +46,15 @@
 
         .topbar-inner,
         .content {
-            width: min(1180px, calc(100vw - 32px));
+            width: calc(100vw - 32px);
             margin: 0 auto;
+        }
+
+        @media (min-width: 1440px) {
+            .topbar-inner,
+            .content {
+                width: calc(100vw - 48px);
+            }
         }
 
         .topbar-inner {

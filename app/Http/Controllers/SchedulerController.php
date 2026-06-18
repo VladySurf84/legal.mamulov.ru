@@ -8,6 +8,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 class SchedulerController extends Controller
@@ -47,7 +48,45 @@ class SchedulerController extends Controller
             'output_exists' => $outputPath !== null && File::exists($outputPath),
             'output_size' => $this->formatBytes($outputPath),
             'output_updated_at' => $this->outputUpdatedAt($outputPath),
+            'runs' => $this->runsForEvent($event),
         ];
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    private function runsForEvent(Event $event): array
+    {
+        if (! str_contains((string) $event->command, 'tinkoff:sync-bank')) {
+            return [];
+        }
+
+        $runs = DB::table('legal.api_sync_runs')
+            ->where('provider', 'tinkoff')
+            ->where('type', 'bank_sync')
+            ->orderByDesc('started_at')
+            ->limit(10)
+            ->get();
+
+        if ($runs->isEmpty()) {
+            return [];
+        }
+
+        $requests = DB::table('legal.api_sync_requests')
+            ->whereIn('api_sync_run_id', $runs->pluck('api_sync_run_id'))
+            ->orderBy('api_sync_request_id')
+            ->get()
+            ->groupBy('api_sync_run_id');
+
+        return $runs
+            ->map(function (object $run) use ($requests): object {
+                $run->requests = $requests->get($run->api_sync_run_id, collect())->all();
+                $run->started_at_label = $this->formatNullableDate($run->started_at);
+                $run->finished_at_label = $this->formatNullableDate($run->finished_at);
+
+                return $run;
+            })
+            ->all();
     }
 
     private function displayCommand(Event $event): string
@@ -98,5 +137,16 @@ class SchedulerController extends Controller
         return Carbon::createFromTimestamp(File::lastModified($path))
             ->timezone(config('app.timezone'))
             ->format('d.m.Y H:i');
+    }
+
+    private function formatNullableDate(mixed $date): ?string
+    {
+        if ($date === null || $date === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $date)
+            ->timezone(config('app.timezone'))
+            ->format('d.m.Y H:i:s');
     }
 }
