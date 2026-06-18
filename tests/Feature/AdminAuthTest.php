@@ -109,7 +109,7 @@ class AdminAuthTest extends TestCase
             ->assertRedirect(route('bank-accounts.index'));
 
         $this->assertAuthenticatedAs($user);
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('legal.users', [
             'email' => 'owner@example.com',
             'google_id' => '1',
         ]);

@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table): void {
+        Schema::table('legal.users', function (Blueprint $table): void {
             $table->string('google_id')->nullable()->unique();
             $table->string('avatar')->nullable();
             $table->string('role')->default('admin')->index();
@@ -18,18 +18,18 @@ return new class extends Migration
         });
 
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE users ALTER COLUMN password DROP NOT NULL');
+            DB::statement('ALTER TABLE legal.users ALTER COLUMN password DROP NOT NULL');
         }
     }
 
     public function down(): void
     {
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement("UPDATE users SET password = '' WHERE password IS NULL");
-            DB::statement('ALTER TABLE users ALTER COLUMN password SET NOT NULL');
+            DB::statement("UPDATE legal.users SET password = '' WHERE password IS NULL");
+            DB::statement('ALTER TABLE legal.users ALTER COLUMN password SET NOT NULL');
         }
 
-        Schema::table('users', function (Blueprint $table): void {
+        Schema::table('legal.users', function (Blueprint $table): void {
             $table->dropColumn([
                 'google_id',
                 'avatar',
