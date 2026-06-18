@@ -67,6 +67,22 @@
             display: flex;
             flex-wrap: wrap;
             gap: 18px;
+            align-items: center;
+        }
+
+        .nav-form { margin: 0; }
+
+        .nav-button {
+            min-height: auto;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--accent);
+        }
+
+        .nav-button:hover {
+            background: transparent;
+            text-decoration: underline;
         }
 
         .content { padding: 28px 0 44px; }
@@ -287,6 +303,13 @@
                 <a href="{{ route('bank-accounts.index') }}">Банковские счета</a>
                 <a href="{{ route('bank-transactions.index') }}">Банковские транзакции</a>
                 <a href="{{ route('document-types.index') }}">Типы документов</a>
+                <a href="{{ route('scheduler.index') }}">Планировщик</a>
+                @if (session('admin_authenticated') === true)
+                    <form class="nav-form" method="post" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="nav-button" type="submit">Выйти</button>
+                    </form>
+                @endif
             </nav>
         </div>
     </header>

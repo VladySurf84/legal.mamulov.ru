@@ -2,6 +2,9 @@
 
 use Illuminate\Foundation\Application;
 use App\Console\Commands\ImportBankDirectories;
+use App\Console\Commands\SyncTinkoffBank;
+use App\Http\Middleware\RequireAdminBasicAuth;
+use App\Http\Middleware\RequireAdminSession;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
@@ -14,9 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         ImportBankDirectories::class,
+        SyncTinkoffBank::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'admin.basic' => RequireAdminBasicAuth::class,
+            'admin.session' => RequireAdminSession::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

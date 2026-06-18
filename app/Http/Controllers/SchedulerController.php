@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Console\ScheduleDefinitions;
+use Illuminate\Console\Scheduling\Event;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Console\Application as ConsoleApplication;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
+
+class SchedulerController extends Controller
+{
+    public function index(Schedule $schedule): View
+    {
+        if ($schedule->events() === []) {
+            ScheduleDefinitions::define($schedule);
+        }
+
+        $tasks = collect($schedule->events())
+            ->map(fn (Event $event): array => $this->taskFromEvent($event))
+            ->sortBy('next_run_at')
+            ->values();
+
+        return view('scheduler.index', [
+            'tasks' => $tasks,
+        ]);
+    }
+
+    private function taskFromEvent(Event $event): array
+    {
+        $outputPath = $event->output === $this->defaultOutputPath() ? null : $event->output;
+        $nextRunAt = $event->nextRunDate();
+
+        return [
+            'command' => $this->displayCommand($event),
+            'description' => $event->description,
+            'expression' => $event->getExpression(),
+            'next_run_at' => $nextRunAt,
+            'next_run_label' => $this->formatDate($nextRunAt),
+            'next_run_diff' => $nextRunAt->diffForHumans(),
+            'timezone' => $event->timezone ?: config('app.timezone'),
+            'without_overlapping' => $event->withoutOverlapping,
+            'on_one_server' => $event->onOneServer,
+            'output_path' => $outputPath,
+            'output_exists' => $outputPath !== null && File::exists($outputPath),
+            'output_size' => $this->formatBytes($outputPath),
+            'output_updated_at' => $this->outputUpdatedAt($outputPath),
+        ];
+    }
+
+    private function displayCommand(Event $event): string
+    {
+        $command = $event->command ?? $event->getSummaryForDisplay();
+        $artisan = ConsoleApplication::formatCommandString('');
+
+        return trim(str_replace($artisan, 'php artisan', $command));
+    }
+
+    private function defaultOutputPath(): string
+    {
+        return PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    }
+
+    private function formatDate(Carbon $date): string
+    {
+        return $date
+            ->timezone(config('app.timezone'))
+            ->format('d.m.Y H:i');
+    }
+
+    private function formatBytes(?string $path): ?string
+    {
+        if ($path === null || ! File::exists($path)) {
+            return null;
+        }
+
+        $bytes = File::size($path);
+
+        if ($bytes < 1024) {
+            return $bytes.' B';
+        }
+
+        if ($bytes < 1024 * 1024) {
+            return number_format($bytes / 1024, 1, ',', ' ').' KB';
+        }
+
+        return number_format($bytes / 1024 / 1024, 1, ',', ' ').' MB';
+    }
+
+    private function outputUpdatedAt(?string $path): ?string
+    {
+        if ($path === null || ! File::exists($path)) {
+            return null;
+        }
+
+        return Carbon::createFromTimestamp(File::lastModified($path))
+            ->timezone(config('app.timezone'))
+            ->format('d.m.Y H:i');
+    }
+}

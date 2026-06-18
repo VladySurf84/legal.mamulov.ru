@@ -63,7 +63,7 @@ WITH pre AS (
     LEFT JOIN legal.kassa k
         ON k.reconciliation_id = r.reconciliation_id
     WHERE {$where}
-    ORDER BY r.date, r.amount > 0, bt.order_intraday
+    ORDER BY r.date DESC, r.amount < 0, bt.order_intraday DESC
 ),
 main AS (
     SELECT pre.* FROM pre

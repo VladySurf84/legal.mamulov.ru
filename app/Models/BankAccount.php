@@ -9,11 +9,14 @@ class BankAccount extends Model
 {
     protected $table = 'legal.bank_account';
 
-    public $incrementing = false;
+    protected $primaryKey = 'bank_account_id';
+
+    public $incrementing = true;
 
     public $timestamps = false;
 
     protected $fillable = [
+        'bank_account_id',
         'account_number',
         'bank_id',
         'legal_id',
