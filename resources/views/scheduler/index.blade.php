@@ -65,6 +65,14 @@
         </div>
     </div>
 
+    @if (session('status'))
+        <div class="notice">{{ session('status') }}</div>
+    @endif
+
+    @if (session('error'))
+        <div class="errors">{{ session('error') }}</div>
+    @endif
+
     <div class="panel">
         <div class="tree">
             @forelse ($tasks as $task)
@@ -76,6 +84,12 @@
                                 <span class="status">scheduler</span>
                             </div>
                             <div class="subtle code">{{ $task['command'] }}</div>
+                            @if ($task['run_route'])
+                                <form method="post" action="{{ $task['run_route'] }}" style="margin-top: 10px;" onclick="event.stopPropagation();">
+                                    @csrf
+                                    <button type="submit">Запустить задание</button>
+                                </form>
+                            @endif
                         </div>
                         <div>
                             <div class="subtle">Расписание</div>

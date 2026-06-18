@@ -22,4 +22,5 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
+    Route::post('scheduler/run/{task}', [SchedulerController::class, 'run'])->name('scheduler.run');
 });

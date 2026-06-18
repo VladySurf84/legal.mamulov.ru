@@ -8,8 +8,10 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Http\RedirectResponse;
 
 class SchedulerController extends Controller
 {
@@ -27,6 +29,26 @@ class SchedulerController extends Controller
         return view('scheduler.index', [
             'tasks' => $tasks,
         ]);
+    }
+
+    public function run(string $task): RedirectResponse
+    {
+        if ($task !== 'tinkoff-bank') {
+            abort(404);
+        }
+
+        $exitCode = Artisan::call('tinkoff:sync-bank', [
+            '--days' => config('bank.tinkoff.sync_days'),
+        ]);
+
+        $output = trim(Artisan::output());
+
+        return redirect()
+            ->route('scheduler.index')
+            ->with(
+                $exitCode === 0 ? 'status' : 'error',
+                $output !== '' ? $output : 'Задание выполнено.'
+            );
     }
 
     private function taskFromEvent(Event $event): array
@@ -49,6 +71,9 @@ class SchedulerController extends Controller
             'output_size' => $this->formatBytes($outputPath),
             'output_updated_at' => $this->outputUpdatedAt($outputPath),
             'runs' => $this->runsForEvent($event),
+            'run_route' => str_contains((string) $event->command, 'tinkoff:sync-bank')
+                ? route('scheduler.run', ['task' => 'tinkoff-bank'])
+                : null,
         ];
     }
 
