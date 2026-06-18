@@ -12,7 +12,7 @@ class SchedulerPageTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs($this->testUser());
+        $this->actingAs($this->test_user());
     }
 
     public function test_the_application_opens_scheduler(): void
