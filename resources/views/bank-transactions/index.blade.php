@@ -72,47 +72,88 @@
                 <th class="money">Итог</th>
             </tr>
             </thead>
-            <tbody>
-            @forelse ($transactions as $transaction)
-                <tr>
-                    <td>
-                        {{ optional(\Illuminate\Support\Carbon::parse($transaction->date))->format('d.m.Y') }}
-                        <div class="subtle code">#{{ $transaction->bank_transaction_id }}</div>
-                    </td>
-                    <td>
-                        <strong>{{ $transaction->legal_name ?? 'Юрлицо #' . $transaction->legal_id }}</strong>
-                        <div class="subtle">{{ $transaction->bank_account_name }}</div>
-                        <div class="subtle code">{{ $transaction->account_number }} · {{ $transaction->bank_id }}</div>
-                    </td>
-                    <td>
-                        {{ $transaction->name ?: '—' }}
-                        @if ($transaction->contractor_inn)
-                            <div class="subtle">ИНН {{ $transaction->contractor_inn }}</div>
-                        @endif
-                        @if ($transaction->contractor_bank_account)
-                            <div class="subtle code">{{ $transaction->contractor_bank_account }}</div>
-                        @endif
-                        <div class="badges" style="margin-top: 6px;">
-                            @if ((int) $transaction->has_vat === 1)<span class="badge">НДС</span>@endif
-                            @if ((int) $transaction->dohras === 1)<span class="badge">дох/рас</span>@endif
-                            @if ($transaction->type_alias)<span class="badge">{{ $transaction->type_alias }}</span>@endif
-                            @if ($transaction->k_id)<span class="badge">касса</span>@endif
-                        </div>
-                    </td>
-                    <td class="money">{{ $transaction->amount_p !== null ? number_format((float) $transaction->amount_p, 2, ',', ' ') : '' }}</td>
-                    <td class="money">{{ $transaction->amount_m !== null ? number_format((float) $transaction->amount_m, 2, ',', ' ') : '' }}</td>
-                    <td>
-                        {{ $transaction->payment_purpose }}
-                        <div class="subtle code">{{ $transaction->order_intraday }}</div>
-                    </td>
-                    <td class="money">{{ number_format((float) $transaction->total, 2, ',', ' ') }}</td>
-                </tr>
-            @empty
+            <tbody id="bank-transactions-rows">
+            @if (count($transactions) > 0)
+                @include('bank-transactions.partials.rows', ['transactions' => $transactions])
+            @else
                 <tr>
                     <td colspan="7">Банковские транзакции пока не загружены.</td>
                 </tr>
-            @endforelse
+            @endif
             </tbody>
         </table>
     </div>
+
+    <div
+        id="bank-transactions-loader"
+        class="subtle"
+        data-next-page="{{ $nextPage }}"
+        style="padding: 16px 0; text-align: center;"
+    >
+        @if ($nextPage)
+            Загрузка при прокрутке...
+        @endif
+    </div>
+
+    <script>
+        (() => {
+            const rows = document.getElementById('bank-transactions-rows');
+            const loader = document.getElementById('bank-transactions-loader');
+
+            if (!rows || !loader || !loader.dataset.nextPage) {
+                return;
+            }
+
+            let loading = false;
+
+            const loadNextPage = async () => {
+                if (loading || !loader.dataset.nextPage) {
+                    return;
+                }
+
+                loading = true;
+                loader.textContent = 'Загружаем...';
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', loader.dataset.nextPage);
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Request failed');
+                    }
+
+                    const payload = await response.json();
+                    rows.insertAdjacentHTML('beforeend', payload.html);
+
+                    if (payload.has_more && payload.next_page) {
+                        loader.dataset.nextPage = payload.next_page;
+                        loader.textContent = 'Загрузка при прокрутке...';
+                    } else {
+                        delete loader.dataset.nextPage;
+                        loader.textContent = '';
+                        observer.disconnect();
+                    }
+                } catch (error) {
+                    loader.textContent = 'Не удалось загрузить следующую страницу.';
+                } finally {
+                    loading = false;
+                }
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    loadNextPage();
+                }
+            }, { rootMargin: '600px 0px' });
+
+            observer.observe(loader);
+        })();
+    </script>
 @endsection

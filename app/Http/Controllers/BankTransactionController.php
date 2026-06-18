@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class BankTransactionController extends Controller
 {
-    public function index(Request $request): View
+    private const PER_PAGE = 100;
+
+    public function index(Request $request): View|JsonResponse
     {
         $filters = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
@@ -17,11 +20,54 @@ class BankTransactionController extends Controller
             'contractor' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        [$where, $bindings] = $this->whereClause($filters);
+        $page = (int) ($filters['page'] ?? 1);
+        unset($filters['page']);
 
-        $transactions = DB::select(<<<SQL
+        [$where, $bindings] = $this->whereClause($filters);
+        $summary = $this->summary($where, $bindings);
+        $transactions = $this->transactions($where, $bindings, $page);
+        $hasMore = $page * self::PER_PAGE < $summary['count'];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('bank-transactions.partials.rows', [
+                    'transactions' => $transactions,
+                ])->render(),
+                'next_page' => $hasMore ? $page + 1 : null,
+                'has_more' => $hasMore,
+            ]);
+        }
+
+        return view('bank-transactions.index', [
+            'accounts' => BankAccount::query()
+                ->with(['bank', 'legalEntity'])
+                ->orderBy('legal_id')
+                ->orderBy('bank_id')
+                ->orderBy('account_number')
+                ->get(),
+            'filters' => $filters,
+            'transactions' => $transactions,
+            'summary' => $summary,
+            'nextPage' => $hasMore ? $page + 1 : null,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $bindings
+     * @return array<int, object>
+     */
+    private function transactions(string $where, array $bindings, int $page): array
+    {
+        $offset = ($page - 1) * self::PER_PAGE;
+        $queryBindings = $bindings + [
+            'limit' => self::PER_PAGE,
+            'offset' => $offset,
+        ];
+
+        return DB::select(<<<SQL
 WITH pre AS (
     SELECT
         r.reconciliation_id,
@@ -63,31 +109,37 @@ WITH pre AS (
     LEFT JOIN legal.kassa k
         ON k.reconciliation_id = r.reconciliation_id
     WHERE {$where}
-    ORDER BY r.date DESC, r.amount < 0, bt.order_intraday DESC
 ),
 main AS (
     SELECT pre.* FROM pre
 )
 SELECT * FROM main
+ORDER BY date DESC, amount < 0, order_intraday DESC
+LIMIT :limit OFFSET :offset
+SQL, $queryBindings);
+    }
+
+    /**
+     * @param array<string, mixed> $bindings
+     * @return array{count: int, income: float, expense: float}
+     */
+    private function summary(string $where, array $bindings): array
+    {
+        $summary = DB::selectOne(<<<SQL
+SELECT
+    COUNT(*) AS count,
+    COALESCE(SUM(CASE WHEN r.amount >= 0 THEN r.amount ELSE 0 END), 0) AS income,
+    COALESCE(SUM(CASE WHEN r.amount < 0 THEN -r.amount ELSE 0 END), 0) AS expense
+FROM legal.legal_reconciliation r
+JOIN legal.bank_transaction bt USING(reconciliation_type_id, reconciliation_id)
+WHERE {$where}
 SQL, $bindings);
 
-        $summary = [
-            'count' => count($transactions),
-            'income' => array_sum(array_map(fn (object $row): float => (float) ($row->amount_m ?? 0), $transactions)),
-            'expense' => array_sum(array_map(fn (object $row): float => (float) ($row->amount_p ?? 0), $transactions)),
+        return [
+            'count' => (int) $summary->count,
+            'income' => (float) $summary->income,
+            'expense' => (float) $summary->expense,
         ];
-
-        return view('bank-transactions.index', [
-            'accounts' => BankAccount::query()
-                ->with(['bank', 'legalEntity'])
-                ->orderBy('legal_id')
-                ->orderBy('bank_id')
-                ->orderBy('account_number')
-                ->get(),
-            'filters' => $filters,
-            'transactions' => $transactions,
-            'summary' => $summary,
-        ]);
     }
 
     /**
