@@ -9,6 +9,12 @@
     </div>
 
     <div class="panel" style="max-width: 420px;">
+        @if (config('services.google.client_id') && config('services.google.client_secret'))
+            <div class="form-actions" style="margin-bottom: 16px;">
+                <a class="button" href="{{ route('auth.google.redirect') }}">Войти через Google</a>
+            </div>
+        @endif
+
         <form class="form" method="post" action="{{ route('login.store') }}">
             @csrf
 

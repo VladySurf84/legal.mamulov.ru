@@ -1,14 +1,16 @@
 <?php
 
 use App\Http\Controllers\AdminAuthController;
-use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BankTransactionController;
+use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\SchedulerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [AdminAuthController::class, 'create'])->name('login');
 Route::post('login', [AdminAuthController::class, 'store'])->name('login.store');
+Route::get('auth/google', [AdminAuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
+Route::get('auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
 Route::middleware('admin.session')->group(function (): void {
     Route::post('logout', [AdminAuthController::class, 'destroy'])->name('logout');
