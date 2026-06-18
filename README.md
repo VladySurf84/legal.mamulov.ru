@@ -37,6 +37,28 @@ TINKOFF_BUSINESS_TOKENS='{"1":"TOKEN_FOR_LEGAL_1"}'
 storage/logs/scheduler.log
 ```
 
+### Deploy
+
+From Windows / PhpStorm run:
+
+```powershell
+.\scripts\deploy.ps1 -Message "Describe changes"
+```
+
+Useful options:
+
+```powershell
+.\scripts\deploy.ps1 -SkipTests
+.\scripts\deploy.ps1 -SkipComposer
+.\scripts\deploy.ps1 -SkipMigrate
+```
+
+The script pushes `main`, then runs deployment commands on:
+
+```text
+/var/www/eugene/data/www/legal.mamulov.ru
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
