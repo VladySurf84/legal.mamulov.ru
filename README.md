@@ -7,6 +7,30 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Legal Accounting
+
+Laravel-приложение для учета документов, банковских счетов и банковских транзакций.
+
+### Scheduler
+
+Планировщик Laravel описан в `routes/console.php`. Сейчас он ежедневно в `03:10` запускает:
+
+```bash
+legacy:import-bank-directories
+```
+
+На сервере добавь cron для пользователя проекта:
+
+```bash
+* * * * * cd /home/eugene/legal.mamulov.ru && /opt/php85/bin/php artisan schedule:run >> /dev/null 2>&1
+```
+
+Логи задач пишутся в:
+
+```text
+storage/logs/scheduler.log
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
