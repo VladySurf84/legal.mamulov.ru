@@ -13,8 +13,9 @@ return new class extends Migration
 
         DB::statement('CREATE SCHEMA IF NOT EXISTS legal');
 
-        if ($this->tableExists('public', 'migrations') && ! $this->tableExists('legal', 'migrations')) {
+        if ($this->tableExists('public', 'migrations') && ! $this->tableExists('legal', 'laravel_migrations')) {
             DB::statement('ALTER TABLE public.migrations SET SCHEMA legal');
+            DB::statement('ALTER TABLE legal.migrations RENAME TO laravel_migrations');
         }
     }
 
@@ -24,7 +25,8 @@ return new class extends Migration
             return;
         }
 
-        if ($this->tableExists('legal', 'migrations') && ! $this->tableExists('public', 'migrations')) {
+        if ($this->tableExists('legal', 'laravel_migrations') && ! $this->tableExists('public', 'migrations')) {
+            DB::statement('ALTER TABLE legal.laravel_migrations RENAME TO migrations');
             DB::statement('ALTER TABLE legal.migrations SET SCHEMA public');
         }
     }

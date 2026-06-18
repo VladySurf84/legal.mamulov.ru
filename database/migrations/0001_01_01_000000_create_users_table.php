@@ -16,7 +16,7 @@ return new class extends Migration
             DB::statement('CREATE SCHEMA IF NOT EXISTS legal');
         }
 
-        Schema::create('legal.users', function (Blueprint $table) {
+        Schema::create('legal.laravel_users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
@@ -26,13 +26,13 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('legal.password_reset_tokens', function (Blueprint $table) {
+        Schema::create('legal.laravel_password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });
 
-        Schema::create('legal.sessions', function (Blueprint $table) {
+        Schema::create('legal.laravel_sessions', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
@@ -47,8 +47,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('legal.users');
-        Schema::dropIfExists('legal.password_reset_tokens');
-        Schema::dropIfExists('legal.sessions');
+        Schema::dropIfExists('legal.laravel_users');
+        Schema::dropIfExists('legal.laravel_password_reset_tokens');
+        Schema::dropIfExists('legal.laravel_sessions');
     }
 };

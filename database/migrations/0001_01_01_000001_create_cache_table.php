@@ -16,13 +16,13 @@ return new class extends Migration
             DB::statement('CREATE SCHEMA IF NOT EXISTS legal');
         }
 
-        Schema::create('legal.cache', function (Blueprint $table) {
+        Schema::create('legal.laravel_cache', function (Blueprint $table) {
             $table->string('key')->primary();
             $table->mediumText('value');
             $table->bigInteger('expiration')->index();
         });
 
-        Schema::create('legal.cache_locks', function (Blueprint $table) {
+        Schema::create('legal.laravel_cache_locks', function (Blueprint $table) {
             $table->string('key')->primary();
             $table->string('owner');
             $table->bigInteger('expiration')->index();
@@ -34,7 +34,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('legal.cache');
-        Schema::dropIfExists('legal.cache_locks');
+        Schema::dropIfExists('legal.laravel_cache');
+        Schema::dropIfExists('legal.laravel_cache_locks');
     }
 };

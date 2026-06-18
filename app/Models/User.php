@@ -15,7 +15,7 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $table = 'legal.users';
+    protected $table = 'legal.laravel_users';
 
     /**
      * @var list<string>

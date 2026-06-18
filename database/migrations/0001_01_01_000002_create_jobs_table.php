@@ -16,7 +16,7 @@ return new class extends Migration
             DB::statement('CREATE SCHEMA IF NOT EXISTS legal');
         }
 
-        Schema::create('legal.jobs', function (Blueprint $table) {
+        Schema::create('legal.laravel_jobs', function (Blueprint $table) {
             $table->id();
             $table->string('queue')->index();
             $table->longText('payload');
@@ -26,7 +26,7 @@ return new class extends Migration
             $table->unsignedInteger('created_at');
         });
 
-        Schema::create('legal.job_batches', function (Blueprint $table) {
+        Schema::create('legal.laravel_job_batches', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->string('name');
             $table->integer('total_jobs');
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->integer('finished_at')->nullable();
         });
 
-        Schema::create('legal.failed_jobs', function (Blueprint $table) {
+        Schema::create('legal.laravel_failed_jobs', function (Blueprint $table) {
             $table->id();
             $table->string('uuid')->unique();
             $table->string('connection');
@@ -57,8 +57,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('legal.jobs');
-        Schema::dropIfExists('legal.job_batches');
-        Schema::dropIfExists('legal.failed_jobs');
+        Schema::dropIfExists('legal.laravel_jobs');
+        Schema::dropIfExists('legal.laravel_job_batches');
+        Schema::dropIfExists('legal.laravel_failed_jobs');
     }
 };

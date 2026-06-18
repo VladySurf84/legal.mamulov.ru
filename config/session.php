@@ -86,7 +86,7 @@ return [
     |
     */
 
-    'table' => env('SESSION_TABLE', 'legal.sessions'),
+    'table' => env('SESSION_TABLE', 'legal.laravel_sessions'),
 
     /*
     |--------------------------------------------------------------------------
