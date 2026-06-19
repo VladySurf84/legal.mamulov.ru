@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentParty extends Model
 {
@@ -27,5 +28,10 @@ class DocumentParty extends Model
         return [
             'metadata' => 'array',
         ];
+    }
+
+    public function roleDefinition(): BelongsTo
+    {
+        return $this->belongsTo(DocumentPartyRole::class, 'role', 'code');
     }
 }
