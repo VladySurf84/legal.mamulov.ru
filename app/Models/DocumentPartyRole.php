@@ -33,6 +33,6 @@ class DocumentPartyRole extends Model
 
     public function parties(): HasMany
     {
-        return $this->hasMany(DocumentParty::class, 'role', 'code');
+        return $this->hasMany(DocumentParty::class, 'document_party_role_id', 'document_party_role_id');
     }
 }

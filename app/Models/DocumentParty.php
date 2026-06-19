@@ -15,7 +15,6 @@ class DocumentParty extends Model
         'document_id',
         'party_id',
         'document_party_role_id',
-        'role',
         'role_index',
         'name_snapshot',
         'inn_snapshot',

@@ -660,11 +660,12 @@ class TinkoffBankSyncService
             return;
         }
 
+        $documentPartyRoleId = $this->documentPartyRoleId($role);
+
         DB::table('legal.document_parties')->upsert([[
             'document_id' => $documentId,
             'party_id' => null,
-            'document_party_role_id' => $this->documentPartyRoleId($role),
-            'role' => $role,
+            'document_party_role_id' => $documentPartyRoleId,
             'role_index' => 1,
             'name_snapshot' => $name,
             'inn_snapshot' => $this->nullableString($party['inn']),
@@ -678,9 +679,8 @@ class TinkoffBankSyncService
             ]),
             'created_at' => now(),
             'updated_at' => now(),
-        ]], ['document_id', 'role', 'role_index'], [
+        ]], ['document_id', 'document_party_role_id', 'role_index'], [
             'party_id',
-            'document_party_role_id',
             'name_snapshot',
             'inn_snapshot',
             'kpp_snapshot',
