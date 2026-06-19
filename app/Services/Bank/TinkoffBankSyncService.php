@@ -27,11 +27,30 @@ class TinkoffBankSyncService
         private readonly TinkoffBusinessClient $client = new TinkoffBusinessClient,
     ) {}
 
-    public function sync(int $days): array
+    public function sync(int $days, ?string $accountNumber = null, int $chunkDays = 30): array
     {
-        $credentials = $this->credentials();
         $from = now()->subDays($days)->toDateString();
         $till = now()->toDateString();
+
+        return $this->syncPeriod($from, $till, $accountNumber, $chunkDays);
+    }
+
+    public function syncPeriod(string $from, string $till, ?string $accountNumber = null, int $chunkDays = 30): array
+    {
+        $fromDate = Carbon::parse($from)->startOfDay();
+        $tillDate = Carbon::parse($till)->startOfDay();
+
+        if ($fromDate->greaterThan($tillDate)) {
+            throw new RuntimeException('The sync period start date must be less than or equal to the end date.');
+        }
+
+        if ($chunkDays < 1) {
+            throw new RuntimeException('The chunk size must be greater than zero.');
+        }
+
+        $credentials = $this->credentials($accountNumber);
+        $from = $fromDate->toDateString();
+        $till = $tillDate->toDateString();
         $summary = [
             'sync_run_id' => null,
             'legals' => count(array_unique(array_column($credentials, 'legal_id'))),
@@ -55,25 +74,28 @@ class TinkoffBankSyncService
                     }
                 });
 
-                $statement = $this->client->statement(
-                    $credential['token'],
-                    $syncRunId,
-                    $credential['account_number'],
-                    $from,
-                    $till
-                );
-                $operations = $this->operationsFromStatement($statement);
+                foreach ($this->periodChunks($fromDate, $tillDate, $chunkDays) as [$chunkFrom, $chunkTill]) {
+                    $statement = $this->client->statement(
+                        $credential['token'],
+                        $syncRunId,
+                        $credential['account_number'],
+                        $chunkFrom,
+                        $chunkTill
+                    );
+                    $operations = $this->operationsFromStatement($statement);
 
-                DB::transaction(function () use ($operations, $credential): void {
-                    DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
+                    DB::transaction(function () use ($operations, $credential): void {
+                        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
 
-                    foreach ($operations as $operation) {
-                        $this->upsertOperation($operation, $credential['account_number']);
-                    }
-                });
+                        foreach ($operations as $operation) {
+                            $this->upsertOperation($operation, $credential['account_number']);
+                        }
+                    });
+
+                    $summary['operations'] += count($operations);
+                }
 
                 $this->markCredentialUsed((int) $credential['api_credential_id']);
-                $summary['operations'] += count($operations);
             }
 
             $this->finishRun($syncRunId, 'success', $summary);
@@ -89,7 +111,7 @@ class TinkoffBankSyncService
     /**
      * @return array<int, array{api_credential_id: int, legal_id: int, account_number: string, token: string}>
      */
-    private function credentials(): array
+    private function credentials(?string $accountNumber = null): array
     {
         $credentials = ApiCredential::query()
             ->from('legal.api_credentials as c')
@@ -99,6 +121,7 @@ class TinkoffBankSyncService
             ->where('c.owner_type', 'bank_account')
             ->where('c.status', 'active')
             ->where('ba.bank_id', self::BANK_ID_TINKOFF)
+            ->when($accountNumber !== null, fn ($query) => $query->where('ba.account_number', $accountNumber))
             ->orderBy('ba.legal_id')
             ->orderBy('ba.account_number')
             ->get([
@@ -109,7 +132,9 @@ class TinkoffBankSyncService
             ]);
 
         if ($credentials->isEmpty()) {
-            throw new RuntimeException('No active Tinkoff bank account API credentials found in legal.api_credentials.');
+            throw new RuntimeException($accountNumber === null
+                ? 'No active Tinkoff bank account API credentials found in legal.api_credentials.'
+                : "No active Tinkoff API credential found for bank account {$accountNumber}.");
         }
 
         return $credentials
@@ -120,6 +145,28 @@ class TinkoffBankSyncService
                 'token' => $credential->secret(),
             ])
             ->all();
+    }
+
+    /**
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function periodChunks(Carbon $from, Carbon $till, int $chunkDays): array
+    {
+        $chunks = [];
+        $cursor = $from->copy();
+
+        while ($cursor->lessThanOrEqualTo($till)) {
+            $chunkTill = $cursor->copy()->addDays($chunkDays - 1);
+
+            if ($chunkTill->greaterThan($till)) {
+                $chunkTill = $till->copy();
+            }
+
+            $chunks[] = [$cursor->toDateString(), $chunkTill->toDateString()];
+            $cursor = $chunkTill->copy()->addDay();
+        }
+
+        return $chunks;
     }
 
     private function markCredentialUsed(int $credentialId): void
