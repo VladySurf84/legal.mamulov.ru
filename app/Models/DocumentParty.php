@@ -14,6 +14,7 @@ class DocumentParty extends Model
     protected $fillable = [
         'document_id',
         'party_id',
+        'document_party_role_id',
         'role',
         'role_index',
         'name_snapshot',
@@ -32,6 +33,6 @@ class DocumentParty extends Model
 
     public function roleDefinition(): BelongsTo
     {
-        return $this->belongsTo(DocumentPartyRole::class, 'role', 'code');
+        return $this->belongsTo(DocumentPartyRole::class, 'document_party_role_id', 'document_party_role_id');
     }
 }

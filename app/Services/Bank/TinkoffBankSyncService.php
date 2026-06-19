@@ -20,6 +20,9 @@ class TinkoffBankSyncService
 
     private ?int $bankOperationDocumentTypeId = null;
 
+    /** @var array<string, int> */
+    private array $documentPartyRoleIds = [];
+
     public function __construct(
         private readonly TinkoffBusinessClient $client = new TinkoffBusinessClient,
     ) {}
@@ -660,6 +663,7 @@ class TinkoffBankSyncService
         DB::table('legal.document_parties')->upsert([[
             'document_id' => $documentId,
             'party_id' => null,
+            'document_party_role_id' => $this->documentPartyRoleId($role),
             'role' => $role,
             'role_index' => 1,
             'name_snapshot' => $name,
@@ -676,6 +680,7 @@ class TinkoffBankSyncService
             'updated_at' => now(),
         ]], ['document_id', 'role', 'role_index'], [
             'party_id',
+            'document_party_role_id',
             'name_snapshot',
             'inn_snapshot',
             'kpp_snapshot',
@@ -683,6 +688,23 @@ class TinkoffBankSyncService
             'metadata',
             'updated_at',
         ]);
+    }
+
+    private function documentPartyRoleId(string $role): int
+    {
+        if (isset($this->documentPartyRoleIds[$role])) {
+            return $this->documentPartyRoleIds[$role];
+        }
+
+        $id = DB::table('legal.document_party_roles')
+            ->where('code', $role)
+            ->value('document_party_role_id');
+
+        if ($id === null) {
+            throw new RuntimeException("Document party role {$role} was not found in legal.document_party_roles.");
+        }
+
+        return $this->documentPartyRoleIds[$role] = (int) $id;
     }
 
     private function bankOperationDocumentTypeId(): int
