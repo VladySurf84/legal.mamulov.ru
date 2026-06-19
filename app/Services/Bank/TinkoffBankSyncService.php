@@ -5,15 +5,23 @@ namespace App\Services\Bank;
 use App\Models\ApiCredential;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Throwable;
 
 class TinkoffBankSyncService
 {
     private const BANK_ID_TINKOFF = '044525974';
+
     private const RECONCILIATION_TYPE_BANK_TRANSACTION = 1;
 
+    private const DOCUMENT_TYPE_BANK_OPERATION = 'bank_operation';
+
+    private const DOCUMENT_SOURCE_TINKOFF_BANK = 'tinkoff_bank';
+
+    private ?int $bankOperationDocumentTypeId = null;
+
     public function __construct(
-        private readonly TinkoffBusinessClient $client = new TinkoffBusinessClient(),
+        private readonly TinkoffBusinessClient $client = new TinkoffBusinessClient,
     ) {}
 
     public function sync(int $days): array
@@ -98,7 +106,7 @@ class TinkoffBankSyncService
             ]);
 
         if ($credentials->isEmpty()) {
-            throw new \RuntimeException('No active Tinkoff bank account API credentials found in legal.api_credentials.');
+            throw new RuntimeException('No active Tinkoff bank account API credentials found in legal.api_credentials.');
         }
 
         return $credentials
@@ -248,6 +256,7 @@ class TinkoffBankSyncService
         }
 
         $this->upsertBankTransaction1c($operation, $bankTransactionId, $bankId, $accountNumber);
+        $this->upsertDocumentBankTransaction($operation, $bankTransactionId, $account, $bankId, $accountNumber, $signedAmount);
     }
 
     private function insertParents(array $operation, int $legalId, string $bankId, string $accountNumber, float $signedAmount): int
@@ -409,6 +418,307 @@ class TinkoffBankSyncService
         ]);
     }
 
+    private function upsertDocumentBankTransaction(
+        array $operation,
+        int $bankTransactionId,
+        object $account,
+        string $bankId,
+        string $accountNumber,
+        float $signedAmount,
+    ): void {
+        $operationId = (string) data_get($operation, 'operationId');
+        $externalId = $this->documentExternalId($bankId, $accountNumber, $operationId);
+        $operationDate = $this->date(data_get($operation, 'date'));
+        $now = now();
+
+        $document = DB::selectOne('
+            INSERT INTO legal.documents (
+                document_type_id,
+                document_date,
+                document_number,
+                title,
+                amount,
+                currency,
+                status,
+                source_system,
+                external_id,
+                external_hash,
+                metadata,
+                imported_at,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+            ON CONFLICT (document_type_id, source_system, external_id)
+                WHERE source_system IS NOT NULL AND external_id IS NOT NULL
+            DO UPDATE SET
+                document_date = EXCLUDED.document_date,
+                document_number = EXCLUDED.document_number,
+                title = EXCLUDED.title,
+                amount = EXCLUDED.amount,
+                currency = EXCLUDED.currency,
+                status = EXCLUDED.status,
+                external_hash = EXCLUDED.external_hash,
+                metadata = EXCLUDED.metadata,
+                imported_at = EXCLUDED.imported_at,
+                updated_at = EXCLUDED.updated_at
+            RETURNING document_id
+        ', [
+            $this->bankOperationDocumentTypeId(),
+            $operationDate,
+            $operationId,
+            $this->documentTitle($operation, $operationId),
+            data_get($operation, 'amount'),
+            $this->currency($operation, $account),
+            'imported',
+            self::DOCUMENT_SOURCE_TINKOFF_BANK,
+            $externalId,
+            hash('sha256', $externalId.'|'.$this->json($operation)),
+            $this->json([
+                'bank_id' => $bankId,
+                'account_number' => $accountNumber,
+                'bank_account_id' => (int) $account->bank_account_id,
+                'bank_transaction_id' => $bankTransactionId,
+            ]),
+            $now,
+            $now,
+            $now,
+        ]);
+
+        $documentId = (int) $document->document_id;
+
+        DB::statement('
+            INSERT INTO legal.document_bank_transaction (
+                document_id,
+                bank_transaction_id,
+                bank_account_id,
+                bank_id,
+                account_number,
+                external_operation_id,
+                external_id,
+                operation_date,
+                draw_date,
+                charge_date,
+                order_intraday,
+                amount,
+                signed_amount,
+                currency,
+                payer_name,
+                payer_inn,
+                payer_kpp,
+                payer_account,
+                payer_bic,
+                payer_bank,
+                payer_corr_account,
+                recipient_name,
+                recipient_inn,
+                recipient_kpp,
+                recipient_account,
+                recipient_bic,
+                recipient_bank,
+                recipient_corr_account,
+                payment_purpose,
+                payment_type,
+                operation_type,
+                uin,
+                creator_status,
+                kbk,
+                oktmo,
+                tax_evidence,
+                tax_period,
+                tax_doc_number,
+                tax_doc_date,
+                tax_type,
+                execution_order,
+                raw_payload,
+                created_at,
+                updated_at
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?
+            )
+            ON CONFLICT (bank_account_id, external_operation_id)
+            DO UPDATE SET
+                document_id = EXCLUDED.document_id,
+                bank_transaction_id = EXCLUDED.bank_transaction_id,
+                bank_id = EXCLUDED.bank_id,
+                account_number = EXCLUDED.account_number,
+                external_id = EXCLUDED.external_id,
+                operation_date = EXCLUDED.operation_date,
+                draw_date = EXCLUDED.draw_date,
+                charge_date = EXCLUDED.charge_date,
+                order_intraday = EXCLUDED.order_intraday,
+                amount = EXCLUDED.amount,
+                signed_amount = EXCLUDED.signed_amount,
+                currency = EXCLUDED.currency,
+                payer_name = EXCLUDED.payer_name,
+                payer_inn = EXCLUDED.payer_inn,
+                payer_kpp = EXCLUDED.payer_kpp,
+                payer_account = EXCLUDED.payer_account,
+                payer_bic = EXCLUDED.payer_bic,
+                payer_bank = EXCLUDED.payer_bank,
+                payer_corr_account = EXCLUDED.payer_corr_account,
+                recipient_name = EXCLUDED.recipient_name,
+                recipient_inn = EXCLUDED.recipient_inn,
+                recipient_kpp = EXCLUDED.recipient_kpp,
+                recipient_account = EXCLUDED.recipient_account,
+                recipient_bic = EXCLUDED.recipient_bic,
+                recipient_bank = EXCLUDED.recipient_bank,
+                recipient_corr_account = EXCLUDED.recipient_corr_account,
+                payment_purpose = EXCLUDED.payment_purpose,
+                payment_type = EXCLUDED.payment_type,
+                operation_type = EXCLUDED.operation_type,
+                uin = EXCLUDED.uin,
+                creator_status = EXCLUDED.creator_status,
+                kbk = EXCLUDED.kbk,
+                oktmo = EXCLUDED.oktmo,
+                tax_evidence = EXCLUDED.tax_evidence,
+                tax_period = EXCLUDED.tax_period,
+                tax_doc_number = EXCLUDED.tax_doc_number,
+                tax_doc_date = EXCLUDED.tax_doc_date,
+                tax_type = EXCLUDED.tax_type,
+                execution_order = EXCLUDED.execution_order,
+                raw_payload = EXCLUDED.raw_payload,
+                updated_at = EXCLUDED.updated_at
+        ', [
+            $documentId,
+            $bankTransactionId,
+            (int) $account->bank_account_id,
+            $bankId,
+            $accountNumber,
+            $operationId,
+            data_get($operation, 'id'),
+            $operationDate,
+            $this->date(data_get($operation, 'drawDate')),
+            $this->date(data_get($operation, 'chargeDate')),
+            $operationId,
+            data_get($operation, 'amount'),
+            $signedAmount,
+            $this->currency($operation, $account),
+            $this->nullableString(data_get($operation, 'payerName')),
+            $this->nullableString(data_get($operation, 'payerInn')),
+            $this->nullableString(data_get($operation, 'payerKpp')),
+            $this->nullableString(data_get($operation, 'payerAccount')),
+            $this->nullableString(data_get($operation, 'payerBic')),
+            $this->nullableString(data_get($operation, 'payerBank')),
+            $this->nullableString(data_get($operation, 'payerCorrAccount')),
+            $this->nullableString(data_get($operation, 'recipient')),
+            $this->nullableString(data_get($operation, 'recipientInn')),
+            $this->nullableString(data_get($operation, 'recipientKpp')),
+            $this->nullableString(data_get($operation, 'recipientAccount')),
+            $this->nullableString(data_get($operation, 'recipientBic')),
+            $this->nullableString(data_get($operation, 'recipientBank')),
+            $this->nullableString(data_get($operation, 'recipientCorrAccount')),
+            $this->nullableString(data_get($operation, 'paymentPurpose')),
+            $this->nullableString(data_get($operation, 'paymentType')),
+            $this->nullableString(data_get($operation, 'operationType')),
+            $this->nullableString(data_get($operation, 'uin')),
+            $this->nullableString(data_get($operation, 'creatorStatus')),
+            $this->nullableString(data_get($operation, 'kbk')),
+            $this->nullableString(data_get($operation, 'oktmo')),
+            $this->nullableString(data_get($operation, 'taxEvidence')),
+            $this->nullableString(data_get($operation, 'taxPeriod')),
+            $this->nullableString(data_get($operation, 'taxDocNumber')),
+            $this->nullableString(data_get($operation, 'taxDocDate')),
+            $this->nullableString(data_get($operation, 'taxType')),
+            $this->nullableString(data_get($operation, 'executionOrder')),
+            $this->json($operation),
+            $now,
+            $now,
+        ]);
+
+        $this->upsertDocumentParty($documentId, 'payer', [
+            'name' => data_get($operation, 'payerName'),
+            'inn' => data_get($operation, 'payerInn'),
+            'kpp' => data_get($operation, 'payerKpp'),
+            'account' => data_get($operation, 'payerAccount'),
+            'bic' => data_get($operation, 'payerBic'),
+            'bank' => data_get($operation, 'payerBank'),
+            'corr_account' => data_get($operation, 'payerCorrAccount'),
+        ]);
+
+        $this->upsertDocumentParty($documentId, 'recipient', [
+            'name' => data_get($operation, 'recipient'),
+            'inn' => data_get($operation, 'recipientInn'),
+            'kpp' => data_get($operation, 'recipientKpp'),
+            'account' => data_get($operation, 'recipientAccount'),
+            'bic' => data_get($operation, 'recipientBic'),
+            'bank' => data_get($operation, 'recipientBank'),
+            'corr_account' => data_get($operation, 'recipientCorrAccount'),
+        ]);
+    }
+
+    /**
+     * @param  array{name: mixed, inn: mixed, kpp: mixed, account: mixed, bic: mixed, bank: mixed, corr_account: mixed}  $party
+     */
+    private function upsertDocumentParty(int $documentId, string $role, array $party): void
+    {
+        $name = $this->nullableString($party['name']);
+
+        if ($name === null) {
+            return;
+        }
+
+        DB::table('legal.document_parties')->upsert([[
+            'document_id' => $documentId,
+            'party_id' => null,
+            'role' => $role,
+            'role_index' => 1,
+            'name_snapshot' => $name,
+            'inn_snapshot' => $this->nullableString($party['inn']),
+            'kpp_snapshot' => $this->nullableString($party['kpp']),
+            'country_code' => 'RU',
+            'metadata' => $this->json([
+                'account' => $this->nullableString($party['account']),
+                'bic' => $this->nullableString($party['bic']),
+                'bank' => $this->nullableString($party['bank']),
+                'corr_account' => $this->nullableString($party['corr_account']),
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]], ['document_id', 'role', 'role_index'], [
+            'party_id',
+            'name_snapshot',
+            'inn_snapshot',
+            'kpp_snapshot',
+            'country_code',
+            'metadata',
+            'updated_at',
+        ]);
+    }
+
+    private function bankOperationDocumentTypeId(): int
+    {
+        if ($this->bankOperationDocumentTypeId !== null) {
+            return $this->bankOperationDocumentTypeId;
+        }
+
+        $id = DB::table('legal.document_types')
+            ->where('code', self::DOCUMENT_TYPE_BANK_OPERATION)
+            ->value('document_type_id');
+
+        if ($id === null) {
+            throw new RuntimeException('Document type bank_operation was not found in legal.document_types.');
+        }
+
+        return $this->bankOperationDocumentTypeId = (int) $id;
+    }
+
+    private function documentExternalId(string $bankId, string $accountNumber, string $operationId): string
+    {
+        return $bankId.':'.$accountNumber.':'.$operationId;
+    }
+
+    private function documentTitle(array $operation, string $operationId): string
+    {
+        $purpose = $this->nullableString(data_get($operation, 'paymentPurpose'));
+
+        return $purpose !== null ? mb_substr($purpose, 0, 500) : 'Bank operation '.$operationId;
+    }
+
+    private function currency(array $operation, object $account): string
+    {
+        return (string) (data_get($operation, 'currency') ?: ($account->currency ?? 'RUB'));
+    }
+
     private function nextReconciliationId(): int
     {
         return (int) DB::table('legal.legal_reconciliation')->max('reconciliation_id') + 1;
@@ -449,5 +759,21 @@ class TinkoffBankSyncService
         }
 
         return Carbon::parse((string) $date)->toDateString();
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function json(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 }

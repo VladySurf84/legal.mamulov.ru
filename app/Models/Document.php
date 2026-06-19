@@ -48,4 +48,9 @@ class Document extends Model
     {
         return $this->hasMany(DocumentParty::class, 'document_id', 'document_id');
     }
+
+    public function bankTransactions(): HasMany
+    {
+        return $this->hasMany(DocumentBankTransaction::class, 'document_id', 'document_id');
+    }
 }
