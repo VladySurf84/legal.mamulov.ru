@@ -8,6 +8,7 @@ use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\OzonBankStatementController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\VatBookController;
+use App\Http\Controllers\VatLayerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [AdminAuthController::class, 'create'])->name('login');
@@ -31,7 +32,11 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');
     Route::post('money-layer/rebuild', [MoneyLayerController::class, 'rebuild'])->name('money-layer.rebuild');
     Route::get('vat-books', [VatBookController::class, 'index'])->name('vat-books.index');
+    Route::get('vat-book-entries', [VatBookController::class, 'entries'])->name('vat-book-entries.index');
     Route::post('vat-books', [VatBookController::class, 'store'])->name('vat-books.store');
+    Route::get('vat-layer', [VatLayerController::class, 'index'])->name('vat-layer.index');
+    Route::post('vat-layer/rebuild', [VatLayerController::class, 'rebuild'])->name('vat-layer.rebuild');
+    Route::post('vat-layer/rebuild-bank', [VatLayerController::class, 'rebuildBank'])->name('vat-layer.rebuild-bank');
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
     Route::post('scheduler/run/{task}', [SchedulerController::class, 'run'])->name('scheduler.run');
 });
