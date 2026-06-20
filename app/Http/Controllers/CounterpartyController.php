@@ -104,6 +104,7 @@ LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
 LEFT JOIN legal.legal_inn li
     ON btrim(li.legal_inn::text) = ck.contractor_inn
+WHERE {$this->excludeOwnLegalWhere($filters)}
 ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn
 LIMIT 500
 SQL, $bindings);
@@ -177,6 +178,7 @@ LEFT JOIN buh_agg ba
     ON ba.contractor_inn = ck.contractor_inn
 LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
+WHERE {$this->excludeOwnLegalWhere($filters)}
 SQL, $bindings);
 
         return view('counterparties.index', [
@@ -518,6 +520,26 @@ SQL, $bindings);
         }
 
         return implode(' AND ', $where);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function excludeOwnLegalWhere(array $filters): string
+    {
+        if (empty($filters['legal_id'])) {
+            return 'true';
+        }
+
+        return <<<'SQL'
+NOT EXISTS (
+    SELECT 1
+    FROM legal.legal own_legal
+    WHERE own_legal.legal_id = :legal_id
+        AND own_legal.legal_inn IS NOT NULL
+        AND btrim(own_legal.legal_inn::text) = ck.contractor_inn
+)
+SQL;
     }
 
     private function documentMoneySelect(): string

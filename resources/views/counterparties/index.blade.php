@@ -74,10 +74,12 @@
                     <td class="money">{{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->operations_count, 0, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
-                    <td class="actions">
-                        <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}">
-                            Детализация
-                        </a>
+                    <td>
+                        <div class="actions">
+                            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}">
+                                Детализация
+                            </a>
+                        </div>
                     </td>
                 </tr>
             @empty
