@@ -4,8 +4,8 @@ namespace App\Services\Bank;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class TinkoffBusinessClient
@@ -85,6 +85,7 @@ class TinkoffBusinessClient
             'http_status' => $response?->status(),
             'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             'response_hash' => $body !== null ? hash('sha256', $body) : null,
+            'response_body' => $body,
             'response_json' => is_array($json) ? $this->json($json) : null,
             'error' => $exception?->getMessage() ?: ($response?->failed() ? $response->body() : null),
             'requested_at' => $now,

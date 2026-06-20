@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "legal"."api_sync_requests" (
     "http_status" integer,
     "duration_ms" integer,
     "response_hash" char(64),
+    "response_body" text,
     "response_json" jsonb,
     "error" text,
     "requested_at" timestamp(0) without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
