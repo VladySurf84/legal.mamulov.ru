@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\SchedulerController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,8 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
+    Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');
+    Route::post('money-layer/rebuild', [MoneyLayerController::class, 'rebuild'])->name('money-layer.rebuild');
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
     Route::post('scheduler/run/{task}', [SchedulerController::class, 'run'])->name('scheduler.run');
 });
