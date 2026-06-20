@@ -29,6 +29,9 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
     Route::get('counterparties', [CounterpartyController::class, 'index'])->name('counterparties.index');
+    Route::get('counterparties/{contractorInn}', [CounterpartyController::class, 'show'])
+        ->where('contractorInn', '[0-9]{10,12}')
+        ->name('counterparties.show');
     Route::get('ozon-bank-statements/create', [OzonBankStatementController::class, 'create'])->name('ozon-bank-statements.create');
     Route::post('ozon-bank-statements', [OzonBankStatementController::class, 'store'])->name('ozon-bank-statements.store');
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');

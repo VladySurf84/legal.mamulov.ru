@@ -52,6 +52,7 @@
                 <th class="money">Расход</th>
                 <th class="money">Операций</th>
                 <th class="money">Наших юрлиц</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -64,10 +65,15 @@
                     <td class="money">{{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->operations_count, 0, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
+                    <td class="actions">
+                        <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}">
+                            Детализация
+                        </a>
+                    </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7">По этим фильтрам контрагентов нет.</td>
+                    <td colspan="8">По этим фильтрам контрагентов нет.</td>
                 </tr>
             @endforelse
             </tbody>
