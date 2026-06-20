@@ -35,6 +35,10 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('counterparties/{contractorInn}/opening-balances', [CounterpartyController::class, 'storeOpeningBalance'])
         ->where('contractorInn', '[0-9]{10,12}')
         ->name('counterparties.opening-balances.store');
+    Route::delete('counterparties/{contractorInn}/opening-balances/{openingBalanceId}', [CounterpartyController::class, 'destroyOpeningBalance'])
+        ->where('contractorInn', '[0-9]{10,12}')
+        ->whereNumber('openingBalanceId')
+        ->name('counterparties.opening-balances.destroy');
     Route::get('ozon-bank-statements/create', [OzonBankStatementController::class, 'create'])->name('ozon-bank-statements.create');
     Route::post('ozon-bank-statements', [OzonBankStatementController::class, 'store'])->name('ozon-bank-statements.store');
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');

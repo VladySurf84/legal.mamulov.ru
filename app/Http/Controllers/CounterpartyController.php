@@ -453,6 +453,30 @@ SQL, $bindings);
             ->with('status', 'Входящее сальдо сохранено.');
     }
 
+    public function destroyOpeningBalance(Request $request, string $contractorInn, int $openingBalanceId): RedirectResponse
+    {
+        $contractorInn = preg_replace('/\D+/', '', $contractorInn);
+        abort_if($contractorInn === '', 404);
+
+        $openingBalance = DB::table('legal.counterparty_opening_balances')
+            ->where('counterparty_opening_balance_id', $openingBalanceId)
+            ->where('contractor_inn', $contractorInn)
+            ->first(['legal_id']);
+
+        abort_if($openingBalance === null, 404);
+
+        DB::table('legal.counterparty_opening_balances')
+            ->where('counterparty_opening_balance_id', $openingBalanceId)
+            ->delete();
+
+        return redirect()
+            ->route('counterparties.show', [
+                'contractorInn' => $contractorInn,
+                'legal_id' => $request->input('legal_id', $openingBalance->legal_id),
+            ])
+            ->with('status', 'Входящее сальдо удалено.');
+    }
+
     /**
      * @param array<string, mixed> $filters
      * @return array{0: string, 1: string, 2: array<string, mixed>}
