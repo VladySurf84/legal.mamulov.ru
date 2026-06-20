@@ -10,7 +10,7 @@ class AccountantReportLinkBuilder
 
     /**
      * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
-     * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int, inserted: int}
+     * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int, purchase_pair_entries_matched: int, purchase_pair_links_inserted: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int, inserted: int}
      */
     public function rebuild(array $filters = [], bool $dryRun = false): array
     {
@@ -18,7 +18,7 @@ class AccountantReportLinkBuilder
             $stats = $this->stats($filters);
 
             if ($dryRun) {
-                return $stats + $this->salesPairStats($filters) + ['inserted' => 0];
+                return $stats + $this->pairStats($filters) + ['inserted' => 0];
             }
 
             $this->deleteAlgorithmLinks($filters);
@@ -28,9 +28,12 @@ class AccountantReportLinkBuilder
                 self::ALGORITHM,
             ]);
 
+            $purchasePairLinksInserted = $this->insertPurchasePairLinks($filters);
             $salesPairLinksInserted = $this->insertSalesPairLinks($filters);
 
             return $stats + [
+                'purchase_pair_entries_matched' => intdiv($purchasePairLinksInserted, 2),
+                'purchase_pair_links_inserted' => $purchasePairLinksInserted,
                 'sales_pair_entries_matched' => intdiv($salesPairLinksInserted, 2),
                 'sales_pair_links_inserted' => $salesPairLinksInserted,
                 'inserted' => $this->insertedCount($filters),
@@ -133,14 +136,49 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
 
     /**
      * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
-     * @return array{sales_pair_entries_matched: int, sales_pair_links_inserted: int}
+     * @return array{purchase_pair_entries_matched: int, purchase_pair_links_inserted: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int}
      */
-    private function salesPairStats(array $filters): array
+    private function pairStats(array $filters): array
     {
         return [
+            'purchase_pair_entries_matched' => 0,
+            'purchase_pair_links_inserted' => 0,
             'sales_pair_entries_matched' => 0,
             'sales_pair_links_inserted' => 0,
         ];
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     */
+    private function insertPurchasePairLinks(array $filters): int
+    {
+        $linkTypeId = DB::table('legal.accountant_report_link_types')
+            ->where('alias', 'payment_closes_vat_book_entry')
+            ->value('accountant_report_link_type_id');
+
+        if ($linkTypeId === null) {
+            return 0;
+        }
+
+        $inserted = 0;
+
+        foreach ($this->purchaseBookEntries($filters) as $entry) {
+            $pair = $this->purchaseBankTransactionPair($entry);
+
+            if (count($pair) !== 2) {
+                continue;
+            }
+
+            $inserted += $this->insertPairLinks(
+                (int) $linkTypeId,
+                $entry,
+                $pair,
+                'purchase_book_entry_closed_by_two_bank_payments',
+            );
+        }
+
+        return $inserted;
     }
 
     /**
@@ -165,50 +203,66 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
                 continue;
             }
 
-            $amountTotal = (float) $entry->amount_total;
-            $vatTotal = $entry->vat_amount !== null ? (float) $entry->vat_amount : null;
-            $firstAmount = (float) $pair[0]->bank_amount;
-            $firstVat = $vatTotal !== null && $amountTotal > 0
-                ? round($vatTotal * ($firstAmount / $amountTotal), 2)
-                : null;
+            $inserted += $this->insertPairLinks(
+                (int) $linkTypeId,
+                $entry,
+                $pair,
+                'sales_book_entry_closed_by_two_bank_payments',
+            );
+        }
 
-            foreach ($pair as $index => $transaction) {
-                $amount = (float) $transaction->bank_amount;
-                $vatAmount = null;
+        return $inserted;
+    }
 
-                if ($vatTotal !== null) {
-                    $vatAmount = $index === 0
-                        ? $firstVat
-                        : round($vatTotal - (float) $firstVat, 2);
-                }
+    /**
+     * @param list<object> $pair
+     */
+    private function insertPairLinks(int $linkTypeId, object $entry, array $pair, string $rule): int
+    {
+        $amountTotal = (float) $entry->amount_total;
+        $vatTotal = $entry->vat_amount !== null ? (float) $entry->vat_amount : null;
+        $firstAmount = (float) $pair[0]->bank_amount;
+        $firstVat = $vatTotal !== null && $amountTotal > 0
+            ? round($vatTotal * ($firstAmount / $amountTotal), 2)
+            : null;
+        $inserted = 0;
 
-                DB::table('legal.accountant_report_links')->insert([
-                    'accountant_report_link_type_id' => (int) $linkTypeId,
-                    'vat_book_entry_id' => (int) $entry->vat_book_entry_id,
-                    'document_bank_transaction_id' => (int) $transaction->document_bank_transaction_id,
-                    'amount' => $amount,
-                    'vat_amount' => $vatAmount,
-                    'currency' => $transaction->currency ?? 'RUB',
-                    'matched_on' => now()->toDateString(),
-                    'confidence' => 0.9000,
-                    'source' => 'algorithm',
-                    'algorithm' => self::ALGORITHM,
-                    'metadata' => json_encode([
-                        'rule' => 'sales_book_entry_closed_by_two_bank_payments',
-                        'vat_book_date' => $entry->vat_book_date,
-                        'bank_operation_date' => $transaction->bank_operation_date,
-                        'contractor_inn' => $entry->contractor_inn,
-                        'vat_book_amount' => $entry->amount_total,
-                        'pair_total' => $entry->amount_total,
-                        'payment_index' => $index + 1,
-                        'payment_count' => 2,
-                    ], JSON_UNESCAPED_UNICODE),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+        foreach ($pair as $index => $transaction) {
+            $amount = (float) $transaction->bank_amount;
+            $vatAmount = null;
 
-                $inserted++;
+            if ($vatTotal !== null) {
+                $vatAmount = $index === 0
+                    ? $firstVat
+                    : round($vatTotal - (float) $firstVat, 2);
             }
+
+            DB::table('legal.accountant_report_links')->insert([
+                'accountant_report_link_type_id' => $linkTypeId,
+                'vat_book_entry_id' => (int) $entry->vat_book_entry_id,
+                'document_bank_transaction_id' => (int) $transaction->document_bank_transaction_id,
+                'amount' => $amount,
+                'vat_amount' => $vatAmount,
+                'currency' => $transaction->currency ?? 'RUB',
+                'matched_on' => now()->toDateString(),
+                'confidence' => 0.9000,
+                'source' => 'algorithm',
+                'algorithm' => self::ALGORITHM,
+                'metadata' => json_encode([
+                    'rule' => $rule,
+                    'vat_book_date' => $entry->vat_book_date,
+                    'bank_operation_date' => $transaction->bank_operation_date,
+                    'contractor_inn' => $entry->contractor_inn,
+                    'vat_book_amount' => $entry->amount_total,
+                    'pair_total' => $entry->amount_total,
+                    'payment_index' => $index + 1,
+                    'payment_count' => 2,
+                ], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $inserted++;
         }
 
         return $inserted;
@@ -218,7 +272,25 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
      * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
      * @return list<object>
      */
+    private function purchaseBookEntries(array $filters): array
+    {
+        return $this->pairBookEntries($filters, 'purchase');
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @return list<object>
+     */
     private function salesBookEntries(array $filters): array
+    {
+        return $this->pairBookEntries($filters, 'sales');
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @return list<object>
+     */
+    private function pairBookEntries(array $filters, string $bookType): array
     {
         return DB::select(<<<SQL
 SELECT
@@ -232,7 +304,7 @@ FROM legal.vat_book_entries e
 JOIN legal.vat_book_imports i
     ON i.vat_book_import_id = e.vat_book_import_id
 WHERE i.is_active
-  AND e.book_type = 'sales'
+  AND e.book_type = ?
   AND e.amount_total IS NOT NULL
   AND e.amount_total > 0
   AND e.contractor_inn IS NOT NULL
@@ -245,13 +317,37 @@ WHERE i.is_active
   )
   {$this->entryFilterSql($filters, 'e')}
 ORDER BY COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date), e.vat_book_entry_id
-SQL, $this->bindings($filters));
+SQL, $this->bindings($filters, [$bookType]));
+    }
+
+    /**
+     * @return list<object>
+     */
+    private function purchaseBankTransactionPair(object $entry): array
+    {
+        return $this->bankTransactionPair(
+            $entry,
+            'btrim(dbt.recipient_inn::text) = ?',
+            'btrim(dbt.account_number::text) = btrim(dbt.payer_account::text)',
+        );
     }
 
     /**
      * @return list<object>
      */
     private function salesBankTransactionPair(object $entry): array
+    {
+        return $this->bankTransactionPair(
+            $entry,
+            'btrim(dbt.payer_inn::text) = ?',
+            'btrim(dbt.account_number::text) = btrim(dbt.recipient_account::text)',
+        );
+    }
+
+    /**
+     * @return list<object>
+     */
+    private function bankTransactionPair(object $entry, string $contractorInnWhere, string $directionWhere): array
     {
         return DB::select(<<<SQL
 WITH available_transactions AS (
@@ -265,8 +361,9 @@ WITH available_transactions AS (
         ON ba.bank_account_id = dbt.bank_account_id
         AND ba.legal_id = ?
     WHERE dbt.operation_date IS NOT NULL
-      AND btrim(dbt.payer_inn::text) = ?
-      AND btrim(dbt.account_number::text) = btrim(dbt.recipient_account::text)
+      AND {$contractorInnWhere}
+      AND {$directionWhere}
+      AND dbt.operation_date <= ?::date
       AND ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) > 0
       AND NOT EXISTS (
           SELECT 1
@@ -318,6 +415,7 @@ ORDER BY bank_operation_date, document_bank_transaction_id
 SQL, [
             (int) $entry->legal_id,
             (string) $entry->contractor_inn,
+            $entry->vat_book_date,
             $entry->vat_book_date,
             $entry->vat_book_date,
             $entry->amount_total,

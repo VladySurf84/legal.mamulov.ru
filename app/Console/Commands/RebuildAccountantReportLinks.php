@@ -44,6 +44,8 @@ class RebuildAccountantReportLinks extends Command
                 ['Ambiguous entries', $stats['ambiguous_entries']],
                 ['Ambiguous transactions', $stats['ambiguous_transactions']],
                 ['Matched', $stats['matched']],
+                ['Purchase pair entries matched', $stats['purchase_pair_entries_matched']],
+                ['Purchase pair links inserted', $stats['purchase_pair_links_inserted']],
                 ['Sales pair entries matched', $stats['sales_pair_entries_matched']],
                 ['Sales pair links inserted', $stats['sales_pair_links_inserted']],
                 ['Inserted', $stats['inserted']],
