@@ -38,7 +38,9 @@
 
     <div class="badges" style="margin-bottom: 16px;">
         <span class="badge">Операций: {{ number_format($summary['count'], 0, ',', ' ') }}</span>
-        <span class="badge">Сальдо: {{ number_format($summary['saldo'], 2, ',', ' ') }}</span>
+        <span class="badge">Наше сальдо: {{ number_format($summary['saldo'], 2, ',', ' ') }}</span>
+        <span class="badge">Книги покупок: {{ number_format($summary['buh_saldo'], 2, ',', ' ') }}</span>
+        <span class="badge">Разница: {{ number_format($summary['saldo_diff'], 2, ',', ' ') }}</span>
         <span class="badge">Приход: {{ number_format($summary['income_amount'], 2, ',', ' ') }}</span>
         <span class="badge">Расход: {{ number_format($summary['expense_amount'], 2, ',', ' ') }}</span>
     </div>
