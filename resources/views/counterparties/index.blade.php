@@ -27,6 +27,17 @@
                     <label for="contractor_inn">ИНН контрагента</label>
                     <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
                 </div>
+
+                <label class="checkline" for="only_negative_diff">
+                    <input
+                        id="only_negative_diff"
+                        name="only_negative_diff"
+                        type="checkbox"
+                        value="1"
+                        @checked((bool) ($filters['only_negative_diff'] ?? false))
+                    >
+                    <span>Только с отрицательной разницей</span>
+                </label>
             </div>
 
             <div class="form-actions">

@@ -16,10 +16,12 @@ class CounterpartyController extends Controller
         $filters = $request->validate([
             'legal_id' => ['nullable', 'integer'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
+            'only_negative_diff' => ['nullable', 'boolean'],
         ]);
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
         $openingWhere = $this->openingWhereClause($filters);
+        $negativeDiffWhere = $this->negativeDifferenceWhere($filters);
 
         $counterparties = DB::select(<<<SQL
 WITH document_money AS (
@@ -106,6 +108,7 @@ LEFT JOIN opening_agg oa
 LEFT JOIN legal.legal_inn li
     ON btrim(li.legal_inn::text) = ck.contractor_inn
 WHERE {$this->excludeOwnLegalWhere($filters)}
+    AND {$negativeDiffWhere}
 ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn
 LIMIT 500
 SQL, $bindings);
@@ -180,6 +183,7 @@ LEFT JOIN buh_agg ba
 LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
 WHERE {$this->excludeOwnLegalWhere($filters)}
+    AND {$negativeDiffWhere}
 SQL, $bindings);
 
         return view('counterparties.index', [
@@ -587,6 +591,18 @@ NOT EXISTS (
         AND btrim(own_legal.legal_inn::text) = ck.contractor_inn
 )
 SQL;
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function negativeDifferenceWhere(array $filters): string
+    {
+        if (empty($filters['only_negative_diff'])) {
+            return 'true';
+        }
+
+        return '(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) < 0';
     }
 
     private function documentMoneySelect(): string

@@ -263,6 +263,19 @@
             font-family: Consolas, monospace;
         }
 
+        .checkline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            font-weight: 700;
+        }
+
+        .checkline input[type="checkbox"] {
+            width: auto;
+            min-height: 0;
+        }
+
         .checks {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
