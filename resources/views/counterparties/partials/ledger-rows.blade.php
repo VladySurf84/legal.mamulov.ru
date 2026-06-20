@@ -12,6 +12,11 @@
         } elseif ($entry->source_type === 'purchase_book' && $entry->purchase_amount !== null) {
             $ledgerAmount = (float) $entry->purchase_amount;
         }
+
+        $vatRateTitle = null;
+        if ($entry->vat_amount !== null && $ledgerAmount !== null && abs($ledgerAmount) > 0.0) {
+            $vatRateTitle = number_format(abs((float) $entry->vat_amount) / abs($ledgerAmount) * 100, 2, '.', ' ').' %';
+        }
     @endphp
     <tr @class(['linked-ledger-row' => (bool) $entry->is_linked])>
         <td>{{ $entry->event_date ? \Illuminate\Support\Carbon::parse($entry->event_date)->format('d.m.Y') : '—' }}</td>
@@ -39,7 +44,15 @@
             @endif
         </td>
         <td class="money">{{ $ledgerAmount !== null ? number_format($ledgerAmount, 2, ',', ' ') : '—' }}</td>
-        <td class="money">{{ $entry->vat_amount !== null ? number_format((float) $entry->vat_amount, 2, ',', ' ') : '—' }}</td>
+        <td class="money">
+            @if ($entry->vat_amount !== null)
+                <span @if ($vatRateTitle !== null) title="{{ $vatRateTitle }}" @endif>
+                    {{ number_format((float) $entry->vat_amount, 2, ',', ' ') }}
+                </span>
+            @else
+                —
+            @endif
+        </td>
         <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
         <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
         <td>
