@@ -118,7 +118,6 @@
                 <th class="money">В итог</th>
                 <th class="money">Итог</th>
                 <th>Описание</th>
-                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -149,10 +148,10 @@
                     <td class="money">{{ $entry->vat_amount !== null ? number_format((float) $entry->vat_amount, 2, ',', ' ') : '—' }}</td>
                     <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
-                    <td>{{ $entry->description ?: '—' }}</td>
-                    <td class="actions">
+                    <td>
+                        <div>{{ $entry->description ?: '—' }}</div>
                         @if ($entry->source_type === 'opening_balance')
-                            <form method="post" action="{{ route('counterparties.opening-balances.destroy', ['contractorInn' => $contractorInn, 'openingBalanceId' => $entry->source_id]) }}">
+                            <form method="post" action="{{ route('counterparties.opening-balances.destroy', ['contractorInn' => $contractorInn, 'openingBalanceId' => $entry->source_id]) }}" style="margin-top: 8px;">
                                 @csrf
                                 @method('delete')
                                 <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}">
@@ -163,7 +162,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="12">По этому контрагенту нет строк для сверки.</td>
+                    <td colspan="11">По этому контрагенту нет строк для сверки.</td>
                 </tr>
             @endforelse
             </tbody>

@@ -246,7 +246,7 @@ bank_entries AS (
     SELECT
         COALESCE(operation_date, document_date) AS event_date,
         'bank' AS source_type,
-        30 AS sort_order,
+        20 AS sort_order,
         document_bank_transaction_id AS source_id,
         legal_name,
         direction,
@@ -284,7 +284,7 @@ purchase_entries AS (
     SELECT
         COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) AS event_date,
         'purchase_book' AS source_type,
-        20 AS sort_order,
+        30 AS sort_order,
         e.vat_book_entry_id AS source_id,
         l.legal_name,
         'purchase' AS direction,
@@ -339,7 +339,7 @@ numbered_ledger_entries AS (
 )
 SELECT *
 FROM numbered_ledger_entries
-ORDER BY event_date NULLS FIRST, sort_order, source_id
+ORDER BY event_date DESC NULLS LAST, sort_order DESC, source_id DESC
 LIMIT 1000
 SQL, $bindings);
 
