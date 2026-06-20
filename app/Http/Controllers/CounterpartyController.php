@@ -153,7 +153,7 @@ SQL, $bindings);
             'contractor_inn' => $contractorInn,
         ]);
 
-        $operations = DB::select(<<<SQL
+        $ledgerEntries = DB::select(<<<SQL
 WITH document_money AS (
     {$this->documentMoneySelect()}
 ),
@@ -164,43 +164,50 @@ filtered_money AS (
         AND contractor_inn <> ''
         AND {$documentWhere}
 ),
-numbered_money AS (
+bank_entries AS (
     SELECT
-        *,
-        sum(signed_amount) OVER (
-            ORDER BY COALESCE(operation_date, document_date), document_bank_transaction_id
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS running_saldo
+        COALESCE(operation_date, document_date) AS event_date,
+        'bank' AS source_type,
+        document_bank_transaction_id AS source_id,
+        legal_name,
+        direction,
+        income_amount,
+        expense_amount,
+        null::numeric AS purchase_amount,
+        null::numeric AS vat_amount,
+        signed_amount AS source_signed_amount,
+        signed_amount AS reconciliation_amount,
+        account_number AS primary_ref,
+        external_operation_id AS secondary_ref,
+        payment_purpose AS description
     FROM filtered_money
-)
-SELECT *
-FROM numbered_money
-ORDER BY COALESCE(operation_date, document_date) DESC NULLS LAST, document_bank_transaction_id DESC
-LIMIT 1000
-SQL, $bindings);
-
-        $purchaseEntries = DB::select(<<<SQL
-WITH purchase_entries AS (
+),
+purchase_entries AS (
     SELECT
-        e.vat_book_entry_id,
-        e.legal_id,
+        COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) AS event_date,
+        'purchase_book' AS source_type,
+        e.vat_book_entry_id AS source_id,
         l.legal_name,
-        e.year,
-        e.quarter,
-        e.row_number,
-        e.operation_code,
-        e.invoice_number,
-        e.invoice_date,
-        e.acceptance_date,
-        e.payment_doc_number,
-        e.payment_doc_date,
-        e.contractor_name,
-        e.contractor_inn,
-        e.amount_total,
-        e.amount_without_vat,
+        'purchase' AS direction,
+        null::numeric AS income_amount,
+        null::numeric AS expense_amount,
+        e.amount_total AS purchase_amount,
         e.vat_amount,
-        -COALESCE(e.amount_total, 0) AS signed_amount,
-        i.source_file_name
+        -COALESCE(e.amount_total, 0) AS source_signed_amount,
+        COALESCE(e.amount_total, 0) AS reconciliation_amount,
+        e.invoice_number AS primary_ref,
+        concat_ws(' · ',
+            concat(e.year, ' Q', e.quarter),
+            concat('строка ', e.row_number),
+            nullif(e.operation_code, '')
+        ) AS secondary_ref,
+        concat_ws(' · ',
+            nullif(e.contractor_name, ''),
+            CASE WHEN e.acceptance_date IS NOT NULL THEN concat('принят ', to_char(e.acceptance_date, 'DD.MM.YYYY')) END,
+            CASE WHEN e.payment_doc_number IS NOT NULL OR e.payment_doc_date IS NOT NULL
+                THEN concat_ws(' ', nullif(e.payment_doc_number, ''), to_char(e.payment_doc_date, 'DD.MM.YYYY'))
+            END
+        ) AS description
     FROM legal.vat_book_entries e
     JOIN legal.vat_book_imports i
         ON i.vat_book_import_id = e.vat_book_import_id
@@ -211,18 +218,23 @@ WITH purchase_entries AS (
         AND e.contractor_inn IS NOT NULL
         AND {$buhWhere}
 ),
-numbered_purchase_entries AS (
+ledger_entries AS (
+    SELECT * FROM bank_entries
+    UNION ALL
+    SELECT * FROM purchase_entries
+),
+numbered_ledger_entries AS (
     SELECT
         *,
-        sum(signed_amount) OVER (
-            ORDER BY COALESCE(invoice_date, acceptance_date, payment_doc_date), vat_book_entry_id
+        sum(reconciliation_amount) OVER (
+            ORDER BY event_date, source_type, source_id
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS running_saldo
-    FROM purchase_entries
+    FROM ledger_entries
 )
 SELECT *
-FROM numbered_purchase_entries
-ORDER BY COALESCE(invoice_date, acceptance_date, payment_doc_date) DESC NULLS LAST, vat_book_entry_id DESC
+FROM numbered_ledger_entries
+ORDER BY event_date DESC NULLS LAST, source_type, source_id DESC
 LIMIT 1000
 SQL, $bindings);
 
@@ -269,8 +281,7 @@ SQL, $bindings);
             'contractorName' => $summary->contractor_name ?: '—',
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
-            'operations' => $operations,
-            'purchaseEntries' => $purchaseEntries,
+            'ledgerEntries' => $ledgerEntries,
             'summary' => [
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,
