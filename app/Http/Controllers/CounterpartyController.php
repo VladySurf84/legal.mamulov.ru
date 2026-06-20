@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -195,7 +196,7 @@ SQL, $bindings);
         ]);
     }
 
-    public function show(Request $request, string $contractorInn): View
+    public function show(Request $request, string $contractorInn): View|JsonResponse
     {
         $filters = $request->validate([
             'legal_id' => ['nullable', 'integer'],
@@ -358,6 +359,25 @@ SQL, $ledgerBindings);
             array_pop($ledgerEntries);
         }
 
+        $ledgerPagination = [
+            'page' => $page,
+            'per_page' => $perPage,
+            'has_more' => $hasMoreLedgerEntries,
+        ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('counterparties.partials.ledger-rows', [
+                    'contractorInn' => $contractorInn,
+                    'filters' => $filters,
+                    'ledgerEntries' => $ledgerEntries,
+                    'ledgerPagination' => $ledgerPagination,
+                ])->render(),
+                'next_page' => $hasMoreLedgerEntries ? $page + 1 : null,
+                'has_more' => $hasMoreLedgerEntries,
+            ]);
+        }
+
         $summary = DB::selectOne(<<<SQL
 WITH document_money AS (
     {$this->documentMoneySelect()}
@@ -421,11 +441,8 @@ SQL, $bindings);
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
             'ledgerEntries' => $ledgerEntries,
-            'ledgerPagination' => [
-                'page' => $page,
-                'per_page' => $perPage,
-                'has_more' => $hasMoreLedgerEntries,
-            ],
+            'ledgerPagination' => $ledgerPagination,
+            'nextPage' => $hasMoreLedgerEntries ? $page + 1 : null,
             'summary' => [
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,

@@ -111,7 +111,6 @@
                 <th>Источник</th>
                 <th>Наше юрлицо</th>
                 <th>Документ</th>
-                <th class="money">Приход</th>
                 <th class="money">Расход</th>
                 <th class="money">Книга покупок</th>
                 <th class="money">НДС</th>
@@ -120,69 +119,93 @@
                 <th>Описание</th>
             </tr>
             </thead>
-            <tbody>
-            @forelse ($ledgerEntries as $entry)
+            <tbody id="counterparty-ledger-rows">
+            @if (count($ledgerEntries) > 0)
+                @include('counterparties.partials.ledger-rows', [
+                    'contractorInn' => $contractorInn,
+                    'filters' => $filters,
+                    'ledgerEntries' => $ledgerEntries,
+                    'ledgerPagination' => $ledgerPagination,
+                ])
+            @else
                 <tr>
-                    <td>{{ $entry->event_date ? \Illuminate\Support\Carbon::parse($entry->event_date)->format('d.m.Y') : '—' }}</td>
-                    <td>
-                        <span class="badge">
-                            @if ($entry->source_type === 'bank')
-                                Банк
-                            @elseif ($entry->source_type === 'opening_balance')
-                                Входящее
-                            @else
-                                Книга покупок
-                            @endif
-                        </span>
-                    </td>
-                    <td>{{ $entry->legal_name ?? '—' }}</td>
-                    <td>
-                        <div>{{ $entry->primary_ref ?: '—' }}</div>
-                        @if ($entry->secondary_ref)
-                            <div class="subtle code">{{ $entry->secondary_ref }}</div>
-                        @endif
-                    </td>
-                    <td class="money">{{ $entry->income_amount !== null ? number_format((float) $entry->income_amount, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ $entry->expense_amount !== null ? number_format((float) $entry->expense_amount, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ $entry->purchase_amount !== null ? number_format((float) $entry->purchase_amount, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ $entry->vat_amount !== null ? number_format((float) $entry->vat_amount, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
-                    <td>
-                        <div>{{ $entry->description ?: '—' }}</div>
-                        @if ($entry->source_type === 'opening_balance')
-                            <form method="post" action="{{ route('counterparties.opening-balances.destroy', ['contractorInn' => $contractorInn, 'openingBalanceId' => $entry->source_id]) }}" style="margin-top: 8px;">
-                                @csrf
-                                @method('delete')
-                                <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}">
-                                <input type="hidden" name="page" value="{{ $ledgerPagination['page'] }}">
-                                <button class="danger" type="submit">Удалить</button>
-                            </form>
-                        @endif
-                    </td>
+                    <td colspan="10">По этому контрагенту нет строк для сверки.</td>
                 </tr>
-            @empty
-                <tr>
-                    <td colspan="11">По этому контрагенту нет строк для сверки.</td>
-                </tr>
-            @endforelse
+            @endif
             </tbody>
         </table>
     </div>
 
-    <div class="form-actions">
-        @if ($ledgerPagination['page'] > 1)
-            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn, 'legal_id' => $filters['legal_id'] ?? null, 'page' => $ledgerPagination['page'] - 1]) }}">Новее</a>
-        @else
-            <span class="button secondary" style="opacity: .55;">Новее</span>
-        @endif
-
-        <span class="badge">Страница {{ $ledgerPagination['page'] }}, по {{ $ledgerPagination['per_page'] }}</span>
-
-        @if ($ledgerPagination['has_more'])
-            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn, 'legal_id' => $filters['legal_id'] ?? null, 'page' => $ledgerPagination['page'] + 1]) }}">Старее</a>
-        @else
-            <span class="button secondary" style="opacity: .55;">Старее</span>
+    <div
+        id="counterparty-ledger-loader"
+        class="subtle"
+        data-next-page="{{ $nextPage }}"
+        style="padding: 16px 0; text-align: center;"
+    >
+        @if ($nextPage)
+            Загрузка при прокрутке...
         @endif
     </div>
+
+    <script>
+        (() => {
+            const rows = document.getElementById('counterparty-ledger-rows');
+            const loader = document.getElementById('counterparty-ledger-loader');
+
+            if (!rows || !loader || !loader.dataset.nextPage) {
+                return;
+            }
+
+            let loading = false;
+
+            const loadNextPage = async () => {
+                if (loading || !loader.dataset.nextPage) {
+                    return;
+                }
+
+                loading = true;
+                loader.textContent = 'Загружаем...';
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', loader.dataset.nextPage);
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Request failed');
+                    }
+
+                    const payload = await response.json();
+                    rows.insertAdjacentHTML('beforeend', payload.html);
+
+                    if (payload.has_more && payload.next_page) {
+                        loader.dataset.nextPage = payload.next_page;
+                        loader.textContent = 'Загрузка при прокрутке...';
+                    } else {
+                        delete loader.dataset.nextPage;
+                        loader.textContent = '';
+                        observer.disconnect();
+                    }
+                } catch (error) {
+                    loader.textContent = 'Не удалось загрузить следующую страницу.';
+                } finally {
+                    loading = false;
+                }
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    loadNextPage();
+                }
+            }, { rootMargin: '600px 0px' });
+
+            observer.observe(loader);
+        })();
+    </script>
 @endsection
