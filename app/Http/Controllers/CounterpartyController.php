@@ -246,6 +246,7 @@ bank_entries AS (
     SELECT
         COALESCE(operation_date, document_date) AS event_date,
         'bank' AS source_type,
+        30 AS sort_order,
         document_bank_transaction_id AS source_id,
         legal_name,
         direction,
@@ -264,6 +265,7 @@ opening_entries AS (
     SELECT
         starts_on AS event_date,
         'opening_balance' AS source_type,
+        10 AS sort_order,
         counterparty_opening_balance_id AS source_id,
         legal_name,
         'opening' AS direction,
@@ -282,6 +284,7 @@ purchase_entries AS (
     SELECT
         COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) AS event_date,
         'purchase_book' AS source_type,
+        20 AS sort_order,
         e.vat_book_entry_id AS source_id,
         l.legal_name,
         'purchase' AS direction,
@@ -329,14 +332,14 @@ numbered_ledger_entries AS (
     SELECT
         *,
         sum(reconciliation_amount) OVER (
-            ORDER BY event_date, source_type, source_id
+            ORDER BY event_date, sort_order, source_id
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS running_saldo
     FROM ledger_entries
 )
 SELECT *
 FROM numbered_ledger_entries
-ORDER BY event_date DESC NULLS LAST, source_type, source_id DESC
+ORDER BY event_date NULLS FIRST, sort_order, source_id
 LIMIT 1000
 SQL, $bindings);
 
