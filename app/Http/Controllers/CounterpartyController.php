@@ -21,6 +21,7 @@ class CounterpartyController extends Controller
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
         $openingWhere = $this->openingWhereClause($filters);
+        $vatWhere = $this->vatWhereClause($filters);
         $negativeDiffWhere = $this->negativeDifferenceWhere($filters);
 
         $counterparties = DB::select(<<<SQL
@@ -80,12 +81,25 @@ opening_agg AS (
     WHERE {$openingWhere}
     GROUP BY btrim(ob.contractor_inn::text)
 ),
+vat_agg AS (
+    SELECT
+        btrim(ve.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
+        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
+    FROM legal.vat_events ve
+    WHERE ve.contractor_inn IS NOT NULL
+        AND btrim(ve.contractor_inn::text) <> ''
+        AND {$vatWhere}
+    GROUP BY btrim(ve.contractor_inn::text)
+),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
     UNION
     SELECT contractor_inn FROM buh_agg
     UNION
     SELECT contractor_inn FROM opening_agg
+    UNION
+    SELECT contractor_inn FROM vat_agg
 )
 SELECT
     ck.contractor_inn,
@@ -94,6 +108,7 @@ SELECT
     COALESCE(ba.buh_saldo, 0) AS buh_saldo,
     COALESCE(oa.opening_amount, 0) AS opening_amount,
     COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0) AS saldo_diff,
+    COALESCE(va.bank_vat, 0) - COALESCE(va.accountant_vat, 0) AS vat_diff,
     COALESCE(da.income_amount, 0) AS income_amount,
     COALESCE(da.expense_amount, 0) AS expense_amount,
     COALESCE(da.operations_count, 0) AS operations_count,
@@ -105,6 +120,8 @@ LEFT JOIN buh_agg ba
     ON ba.contractor_inn = ck.contractor_inn
 LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
+LEFT JOIN vat_agg va
+    ON va.contractor_inn = ck.contractor_inn
 LEFT JOIN legal.legal_inn li
     ON btrim(li.legal_inn::text) = ck.contractor_inn
 WHERE {$this->excludeOwnLegalWhere($filters)}
@@ -162,19 +179,33 @@ opening_agg AS (
     WHERE {$openingWhere}
     GROUP BY btrim(ob.contractor_inn::text)
 ),
+vat_agg AS (
+    SELECT
+        btrim(ve.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
+        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
+    FROM legal.vat_events ve
+    WHERE ve.contractor_inn IS NOT NULL
+        AND btrim(ve.contractor_inn::text) <> ''
+        AND {$vatWhere}
+    GROUP BY btrim(ve.contractor_inn::text)
+),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
     UNION
     SELECT contractor_inn FROM buh_agg
     UNION
     SELECT contractor_inn FROM opening_agg
+    UNION
+    SELECT contractor_inn FROM vat_agg
 )
 SELECT
     count(*) AS count,
     COALESCE(sum(COALESCE(da.saldo, 0)), 0) AS saldo,
     COALESCE(sum(COALESCE(ba.buh_saldo, 0)), 0) AS buh_saldo,
     COALESCE(sum(COALESCE(oa.opening_amount, 0)), 0) AS opening_amount,
-    COALESCE(sum(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff
+    COALESCE(sum(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff,
+    COALESCE(sum(COALESCE(va.bank_vat, 0) - COALESCE(va.accountant_vat, 0)), 0) AS vat_diff
 FROM contractor_keys ck
 LEFT JOIN doc_agg da
     ON da.contractor_inn = ck.contractor_inn
@@ -182,6 +213,8 @@ LEFT JOIN buh_agg ba
     ON ba.contractor_inn = ck.contractor_inn
 LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
+LEFT JOIN vat_agg va
+    ON va.contractor_inn = ck.contractor_inn
 WHERE {$this->excludeOwnLegalWhere($filters)}
     AND {$negativeDiffWhere}
 SQL, $bindings);
@@ -196,6 +229,7 @@ SQL, $bindings);
                 'buh_saldo' => (float) $summary->buh_saldo,
                 'opening_amount' => (float) $summary->opening_amount,
                 'saldo_diff' => (float) $summary->saldo_diff,
+                'vat_diff' => (float) $summary->vat_diff,
             ],
         ]);
     }
@@ -568,6 +602,24 @@ SQL, $bindings);
 
         if (! empty($filters['contractor_inn'])) {
             $where[] = 'btrim(ob.contractor_inn::text) = :contractor_inn';
+        }
+
+        return implode(' AND ', $where);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function vatWhereClause(array $filters): string
+    {
+        $where = ['true'];
+
+        if (! empty($filters['legal_id'])) {
+            $where[] = 've.legal_id = :legal_id';
+        }
+
+        if (! empty($filters['contractor_inn'])) {
+            $where[] = 'btrim(ve.contractor_inn::text) = :contractor_inn';
         }
 
         return implode(' AND ', $where);

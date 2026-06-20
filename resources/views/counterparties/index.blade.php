@@ -1,6 +1,11 @@
 @extends('layouts.app', ['title' => 'Контрагенты'])
 
 @section('content')
+    @php
+        $showLegalEntitiesCount = empty($filters['legal_id']);
+        $emptyColspan = $showLegalEntitiesCount ? 12 : 11;
+    @endphp
+
     <div class="page-head">
         <div>
             <h1>Контрагенты</h1>
@@ -53,6 +58,7 @@
         <span class="badge">Наше сальдо: {{ number_format($summary['saldo'], 2, ',', ' ') }}</span>
         <span class="badge">Книги покупок: {{ number_format($summary['buh_saldo'], 2, ',', ' ') }}</span>
         <span class="badge">Разница: {{ number_format($summary['saldo_diff'], 2, ',', ' ') }}</span>
+        <span class="badge">Разница НДС: {{ number_format($summary['vat_diff'], 2, ',', ' ') }}</span>
     </div>
 
     <div class="panel">
@@ -65,10 +71,13 @@
                 <th class="money">Наше сальдо</th>
                 <th class="money">Книги покупок</th>
                 <th class="money">Разница</th>
+                <th class="money">Разница НДС</th>
                 <th class="money">Приход</th>
                 <th class="money">Расход</th>
                 <th class="money">Операций</th>
-                <th class="money">Наших юрлиц</th>
+                @if ($showLegalEntitiesCount)
+                    <th class="money">Наших юрлиц</th>
+                @endif
                 <th></th>
             </tr>
             </thead>
@@ -81,10 +90,13 @@
                     <td class="money">{{ number_format((float) $counterparty->saldo, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->buh_saldo, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->saldo_diff, 2, ',', ' ') }}</td>
+                    <td class="money">{{ number_format((float) $counterparty->vat_diff, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->income_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->operations_count, 0, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
+                    @if ($showLegalEntitiesCount)
+                        <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
+                    @endif
                     <td>
                         <div class="actions">
                             <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}">
@@ -95,7 +107,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11">По этим фильтрам контрагентов нет.</td>
+                    <td colspan="{{ $emptyColspan }}">По этим фильтрам контрагентов нет.</td>
                 </tr>
             @endforelse
             </tbody>
