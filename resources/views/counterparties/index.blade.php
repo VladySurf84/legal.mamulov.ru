@@ -4,7 +4,7 @@
     <div class="page-head">
         <div>
             <h1>Контрагенты</h1>
-            <div class="subtle">Сводка по ИНН из банка, книг бухгалтера и бухгалтерского сальдо.</div>
+            <div class="subtle">Сводка по контрагентам из новых документов: legal.documents и legal.document_bank_transaction.</div>
         </div>
     </div>
 
@@ -48,8 +48,9 @@
                 <th>Контрагент</th>
                 <th>ИНН</th>
                 <th class="money">Сальдо</th>
-                <th class="money">Строк источников</th>
-                <th class="money">Источников</th>
+                <th class="money">Приход</th>
+                <th class="money">Расход</th>
+                <th class="money">Операций</th>
                 <th class="money">Наших юрлиц</th>
             </tr>
             </thead>
@@ -59,13 +60,14 @@
                     <td><strong>{{ $counterparty->contractor_name }}</strong></td>
                     <td class="code">{{ $counterparty->contractor_inn }}</td>
                     <td class="money">{{ number_format((float) $counterparty->saldo, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((int) $counterparty->source_rows_count, 0, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((int) $counterparty->source_systems_count, 0, ',', ' ') }}</td>
+                    <td class="money">{{ number_format((float) $counterparty->income_amount, 2, ',', ' ') }}</td>
+                    <td class="money">{{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}</td>
+                    <td class="money">{{ number_format((int) $counterparty->operations_count, 0, ',', ' ') }}</td>
                     <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6">По этим фильтрам контрагентов нет.</td>
+                    <td colspan="7">По этим фильтрам контрагентов нет.</td>
                 </tr>
             @endforelse
             </tbody>
