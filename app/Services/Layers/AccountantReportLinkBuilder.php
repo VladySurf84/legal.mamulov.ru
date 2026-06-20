@@ -202,7 +202,7 @@ SELECT
     e.amount_total AS amount,
     e.vat_amount,
     COALESCE(dbt.currency, 'RUB') AS currency,
-    ABS(COALESCE(dbt.signed_amount, dbt.amount, 0)) AS bank_amount
+    ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) AS bank_amount
 FROM legal.vat_book_entries e
 JOIN legal.vat_book_imports i
     ON i.vat_book_import_id = e.vat_book_import_id
@@ -219,8 +219,8 @@ WHERE i.is_active
   AND btrim(e.contractor_inn::text) <> ''
   AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) IS NOT NULL
   AND dbt.operation_date IS NOT NULL
-  AND dbt.signed_amount < 0
-  AND ABS(COALESCE(dbt.signed_amount, dbt.amount, 0)) = e.amount_total
+  AND btrim(dbt.account_number::text) = btrim(dbt.payer_account::text)
+  AND ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) = e.amount_total
   AND dbt.operation_date < COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date)
   {$this->entryFilterSql($filters, 'e')}
 SQL;
