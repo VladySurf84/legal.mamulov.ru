@@ -155,6 +155,7 @@
                                 @csrf
                                 @method('delete')
                                 <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}">
+                                <input type="hidden" name="page" value="{{ $ledgerPagination['page'] }}">
                                 <button class="danger" type="submit">Удалить</button>
                             </form>
                         @endif
@@ -167,5 +168,21 @@
             @endforelse
             </tbody>
         </table>
+    </div>
+
+    <div class="form-actions">
+        @if ($ledgerPagination['page'] > 1)
+            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn, 'legal_id' => $filters['legal_id'] ?? null, 'page' => $ledgerPagination['page'] - 1]) }}">Новее</a>
+        @else
+            <span class="button secondary" style="opacity: .55;">Новее</span>
+        @endif
+
+        <span class="badge">Страница {{ $ledgerPagination['page'] }}, по {{ $ledgerPagination['per_page'] }}</span>
+
+        @if ($ledgerPagination['has_more'])
+            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn, 'legal_id' => $filters['legal_id'] ?? null, 'page' => $ledgerPagination['page'] + 1]) }}">Старее</a>
+        @else
+            <span class="button secondary" style="opacity: .55;">Старее</span>
+        @endif
     </div>
 @endsection

@@ -199,7 +199,11 @@ SQL, $bindings);
     {
         $filters = $request->validate([
             'legal_id' => ['nullable', 'integer'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $page = (int) ($filters['page'] ?? 1);
+        $perPage = 30;
+        $offset = ($page - 1) * $perPage;
 
         $contractorInn = preg_replace('/\D+/', '', $contractorInn);
         abort_if($contractorInn === '', 404);
@@ -210,6 +214,10 @@ SQL, $bindings);
         $openingWhere = $this->openingWhereClause($filters + [
             'contractor_inn' => $contractorInn,
         ]);
+        $ledgerBindings = $bindings + [
+            'limit' => $perPage + 1,
+            'offset' => $offset,
+        ];
 
         $ledgerEntries = DB::select(<<<SQL
 WITH document_money AS (
@@ -342,8 +350,13 @@ numbered_ledger_entries AS (
 SELECT *
 FROM numbered_ledger_entries
 ORDER BY event_date DESC NULLS LAST, sort_order DESC, source_id DESC
-LIMIT 1000
-SQL, $bindings);
+LIMIT :limit OFFSET :offset
+SQL, $ledgerBindings);
+
+        $hasMoreLedgerEntries = count($ledgerEntries) > $perPage;
+        if ($hasMoreLedgerEntries) {
+            array_pop($ledgerEntries);
+        }
 
         $summary = DB::selectOne(<<<SQL
 WITH document_money AS (
@@ -408,6 +421,11 @@ SQL, $bindings);
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
             'ledgerEntries' => $ledgerEntries,
+            'ledgerPagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'has_more' => $hasMoreLedgerEntries,
+            ],
             'summary' => [
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,
@@ -475,6 +493,7 @@ SQL, $bindings);
             ->route('counterparties.show', [
                 'contractorInn' => $contractorInn,
                 'legal_id' => $request->input('legal_id', $openingBalance->legal_id),
+                'page' => $request->input('page', 1),
             ])
             ->with('status', 'Входящее сальдо удалено.');
     }
