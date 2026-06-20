@@ -1,6 +1,11 @@
 @extends('layouts.app', ['title' => 'Детализация контрагента'])
 
 @section('content')
+    @php
+        $showLegalEntityColumn = empty($filters['legal_id']);
+        $emptyColspan = $showLegalEntityColumn ? 9 : 8;
+    @endphp
+
     <div class="page-head">
         <div>
             <h1>{{ $contractorName }}</h1>
@@ -109,10 +114,11 @@
             <tr>
                 <th>Дата</th>
                 <th>Источник</th>
-                <th>Наше юрлицо</th>
+                @if ($showLegalEntityColumn)
+                    <th>Наше юрлицо</th>
+                @endif
                 <th>Документ</th>
-                <th class="money">Расход</th>
-                <th class="money">Книга покупок</th>
+                <th class="money">Сумма</th>
                 <th class="money">НДС</th>
                 <th class="money">В итог</th>
                 <th class="money">Итог</th>
@@ -129,7 +135,7 @@
                 ])
             @else
                 <tr>
-                    <td colspan="10">По этому контрагенту нет строк для сверки.</td>
+                    <td colspan="{{ $emptyColspan }}">По этому контрагенту нет строк для сверки.</td>
                 </tr>
             @endif
             </tbody>

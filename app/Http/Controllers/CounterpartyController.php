@@ -323,7 +323,13 @@ bank_entries AS (
         income_amount,
         expense_amount,
         null::numeric AS purchase_amount,
-        null::numeric AS vat_amount,
+        (
+            SELECT abs(ve.vat_amount)
+            FROM legal.vat_events ve
+            WHERE ve.source_system = 'bank_payment_vat'
+                AND ve.source_document_bank_transaction_id = filtered_money.document_bank_transaction_id
+            LIMIT 1
+        ) AS vat_amount,
         signed_amount AS source_signed_amount,
         signed_amount AS reconciliation_amount,
         account_number AS primary_ref,

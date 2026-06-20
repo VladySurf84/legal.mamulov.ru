@@ -1,11 +1,16 @@
 @foreach ($ledgerEntries as $entry)
     @php
         $bankAmount = null;
+        $ledgerAmount = null;
+        $showLegalEntityColumn = empty($filters['legal_id']);
 
         if ($entry->source_type === 'bank') {
             $incomeAmount = (float) ($entry->income_amount ?? 0);
             $expenseAmount = (float) ($entry->expense_amount ?? 0);
             $bankAmount = $incomeAmount !== 0.0 ? $incomeAmount : -$expenseAmount;
+            $ledgerAmount = $bankAmount;
+        } elseif ($entry->source_type === 'purchase_book' && $entry->purchase_amount !== null) {
+            $ledgerAmount = (float) $entry->purchase_amount;
         }
     @endphp
     <tr @class(['linked-ledger-row' => (bool) $entry->is_linked])>
@@ -24,15 +29,16 @@
                 <span class="badge linked-ledger-badge">связано</span>
             @endif
         </td>
-        <td>{{ $entry->legal_name ?? '—' }}</td>
+        @if ($showLegalEntityColumn)
+            <td>{{ $entry->legal_name ?? '—' }}</td>
+        @endif
         <td>
             <div>{{ $entry->primary_ref ?: '—' }}</div>
             @if ($entry->secondary_ref)
                 <div class="subtle code">{{ $entry->secondary_ref }}</div>
             @endif
         </td>
-        <td class="money">{{ $bankAmount !== null ? number_format($bankAmount, 2, ',', ' ') : '—' }}</td>
-        <td class="money">{{ $entry->purchase_amount !== null ? number_format((float) $entry->purchase_amount, 2, ',', ' ') : '—' }}</td>
+        <td class="money">{{ $ledgerAmount !== null ? number_format($ledgerAmount, 2, ',', ' ') : '—' }}</td>
         <td class="money">{{ $entry->vat_amount !== null ? number_format((float) $entry->vat_amount, 2, ',', ' ') : '—' }}</td>
         <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
         <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
