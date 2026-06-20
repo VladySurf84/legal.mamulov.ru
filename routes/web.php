@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BankTransactionController;
+use App\Http\Controllers\CounterpartyController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\OzonBankStatementController;
@@ -27,6 +28,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
+    Route::get('counterparties', [CounterpartyController::class, 'index'])->name('counterparties.index');
     Route::get('ozon-bank-statements/create', [OzonBankStatementController::class, 'create'])->name('ozon-bank-statements.create');
     Route::post('ozon-bank-statements', [OzonBankStatementController::class, 'store'])->name('ozon-bank-statements.store');
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');
