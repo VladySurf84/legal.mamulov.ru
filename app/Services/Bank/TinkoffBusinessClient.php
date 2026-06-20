@@ -92,7 +92,7 @@ INSERT INTO legal.api_sync_requests (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ? IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
 )
 SQL, [
             $syncRunId,
