@@ -7,6 +7,7 @@ use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\OzonBankStatementController;
 use App\Http\Controllers\SchedulerController;
+use App\Http\Controllers\VatBookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [AdminAuthController::class, 'create'])->name('login');
@@ -29,6 +30,8 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('ozon-bank-statements', [OzonBankStatementController::class, 'store'])->name('ozon-bank-statements.store');
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');
     Route::post('money-layer/rebuild', [MoneyLayerController::class, 'rebuild'])->name('money-layer.rebuild');
+    Route::get('vat-books', [VatBookController::class, 'index'])->name('vat-books.index');
+    Route::post('vat-books', [VatBookController::class, 'store'])->name('vat-books.store');
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
     Route::post('scheduler/run/{task}', [SchedulerController::class, 'run'])->name('scheduler.run');
 });

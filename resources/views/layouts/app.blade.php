@@ -311,6 +311,7 @@
                 <a href="{{ route('bank-transactions.index') }}">Банковские транзакции</a>
                 <a href="{{ route('ozon-bank-statements.create') }}">Импорт Ozon</a>
                 <a href="{{ route('money-layer.index') }}">Money layer</a>
+                <a href="{{ route('vat-books.index') }}">Книги НДС</a>
                 <a href="{{ route('document-types.index') }}">Типы документов</a>
                 <a href="{{ route('scheduler.index') }}">Планировщик</a>
                 @if (session('admin_authenticated') === true)

@@ -45,9 +45,9 @@ SQL, $bindings);
         $summary = DB::selectOne(<<<SQL
 SELECT
     COUNT(*) AS count,
-    COALESCE(SUM(amount), 0) AS total_amount,
-    MIN(occurred_on) AS min_date,
-    MAX(occurred_on) AS max_date
+    COALESCE(SUM(me.amount), 0) AS total_amount,
+    MIN(me.occurred_on) AS min_date,
+    MAX(me.occurred_on) AS max_date
 FROM legal.money_edges me
 JOIN legal.document_bank_transaction dbt
     ON dbt.document_bank_transaction_id = me.source_document_bank_transaction_id
