@@ -44,18 +44,31 @@ class AccountantReportLinkBuilder
 WITH candidates AS (
     {$this->candidatesSql($filters)}
 ),
+ranked_candidates AS (
+    SELECT
+        *,
+        count(*) OVER (PARTITION BY document_bank_transaction_id) AS transaction_candidate_count,
+        row_number() OVER (
+            PARTITION BY document_bank_transaction_id
+            ORDER BY vat_book_date - bank_operation_date, vat_book_date, vat_book_entry_id
+        ) AS transaction_choice_rank
+    FROM candidates
+),
+transaction_best_candidates AS (
+    SELECT *
+    FROM ranked_candidates
+    WHERE transaction_choice_rank = 1
+),
 counted_candidates AS (
     SELECT
         *,
-        count(*) OVER (PARTITION BY vat_book_entry_id) AS entry_candidate_count,
-        count(*) OVER (PARTITION BY document_bank_transaction_id) AS transaction_candidate_count
-    FROM candidates
+        count(*) OVER (PARTITION BY vat_book_entry_id) AS entry_candidate_count
+    FROM transaction_best_candidates
 ),
 matched_candidates AS (
     SELECT *
     FROM counted_candidates c
     WHERE entry_candidate_count = 1
-      AND transaction_candidate_count = 1
       AND NOT EXISTS (
           SELECT 1
           FROM legal.accountant_report_links existing
@@ -67,10 +80,10 @@ matched_candidates AS (
       )
 )
 SELECT
-    count(*) AS candidates,
-    count(DISTINCT vat_book_entry_id) AS entries_with_candidates,
+    (SELECT count(*) FROM candidates) AS candidates,
+    (SELECT count(DISTINCT vat_book_entry_id) FROM candidates) AS entries_with_candidates,
     count(DISTINCT vat_book_entry_id) FILTER (WHERE entry_candidate_count > 1) AS ambiguous_entries,
-    count(DISTINCT document_bank_transaction_id) FILTER (WHERE transaction_candidate_count > 1) AS ambiguous_transactions,
+    (SELECT count(DISTINCT document_bank_transaction_id) FROM ranked_candidates WHERE transaction_candidate_count > 1) AS ambiguous_transactions,
     (SELECT count(*) FROM matched_candidates) AS matched
 FROM counted_candidates
 SQL, $this->bindings($filters));
@@ -123,18 +136,31 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
 WITH candidates AS (
     {$this->candidatesSql($filters)}
 ),
+ranked_candidates AS (
+    SELECT
+        *,
+        count(*) OVER (PARTITION BY document_bank_transaction_id) AS transaction_candidate_count,
+        row_number() OVER (
+            PARTITION BY document_bank_transaction_id
+            ORDER BY vat_book_date - bank_operation_date, vat_book_date, vat_book_entry_id
+        ) AS transaction_choice_rank
+    FROM candidates
+),
+transaction_best_candidates AS (
+    SELECT *
+    FROM ranked_candidates
+    WHERE transaction_choice_rank = 1
+),
 counted_candidates AS (
     SELECT
         *,
-        count(*) OVER (PARTITION BY vat_book_entry_id) AS entry_candidate_count,
-        count(*) OVER (PARTITION BY document_bank_transaction_id) AS transaction_candidate_count
-    FROM candidates
+        count(*) OVER (PARTITION BY vat_book_entry_id) AS entry_candidate_count
+    FROM transaction_best_candidates
 ),
 matched_candidates AS (
     SELECT *
     FROM counted_candidates c
     WHERE entry_candidate_count = 1
-      AND transaction_candidate_count = 1
       AND NOT EXISTS (
           SELECT 1
           FROM legal.accountant_report_links existing
@@ -172,11 +198,13 @@ SELECT
     'algorithm',
     ?,
     jsonb_build_object(
-        'rule', 'exact_purchase_payment_before_upd',
+        'rule', 'exact_purchase_payment_nearest_vat_book_on_or_after_payment',
         'vat_book_date', m.vat_book_date,
         'bank_operation_date', m.bank_operation_date,
         'contractor_inn', m.contractor_inn,
-        'bank_amount', m.bank_amount
+        'bank_amount', m.bank_amount,
+        'transaction_candidate_count', m.transaction_candidate_count,
+        'date_gap_days', m.vat_book_date - m.bank_operation_date
     ),
     now(),
     now()
@@ -221,7 +249,7 @@ WHERE i.is_active
   AND dbt.operation_date IS NOT NULL
   AND btrim(dbt.account_number::text) = btrim(dbt.payer_account::text)
   AND ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) = e.amount_total
-  AND dbt.operation_date < COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date)
+  AND dbt.operation_date <= COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date)
   {$this->entryFilterSql($filters, 'e')}
 SQL;
     }
