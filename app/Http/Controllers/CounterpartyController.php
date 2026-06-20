@@ -338,6 +338,22 @@ bank_entries AS (
                 AND ve.source_document_bank_transaction_id = filtered_money.document_bank_transaction_id
             LIMIT 1
         ) AS vat_amount,
+        CASE
+            WHEN signed_amount < 0 THEN -COALESCE((
+                SELECT abs(ve.vat_amount)
+                FROM legal.vat_events ve
+                WHERE ve.source_system = 'bank_payment_vat'
+                    AND ve.source_document_bank_transaction_id = filtered_money.document_bank_transaction_id
+                LIMIT 1
+            ), 0)
+            ELSE COALESCE((
+                SELECT abs(ve.vat_amount)
+                FROM legal.vat_events ve
+                WHERE ve.source_system = 'bank_payment_vat'
+                    AND ve.source_document_bank_transaction_id = filtered_money.document_bank_transaction_id
+                LIMIT 1
+            ), 0)
+        END AS vat_reconciliation_amount,
         signed_amount AS source_signed_amount,
         signed_amount AS reconciliation_amount,
         account_number AS primary_ref,
@@ -362,6 +378,7 @@ opening_entries AS (
         null::numeric AS expense_amount,
         null::numeric AS purchase_amount,
         null::numeric AS vat_amount,
+        0::numeric AS vat_reconciliation_amount,
         amount AS source_signed_amount,
         amount AS reconciliation_amount,
         source AS primary_ref,
@@ -382,6 +399,7 @@ purchase_entries AS (
         null::numeric AS expense_amount,
         e.amount_total AS purchase_amount,
         e.vat_amount,
+        COALESCE(e.vat_amount, 0) AS vat_reconciliation_amount,
         -COALESCE(e.amount_total, 0) AS source_signed_amount,
         COALESCE(e.amount_total, 0) AS reconciliation_amount,
         e.invoice_number AS primary_ref,
@@ -429,7 +447,11 @@ numbered_ledger_entries AS (
         sum(reconciliation_amount) OVER (
             ORDER BY event_date, sort_order, source_id
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS running_saldo
+        ) AS running_saldo,
+        sum(vat_reconciliation_amount) OVER (
+            ORDER BY event_date, sort_order, source_id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS running_vat_saldo
     FROM ledger_entries
 )
 SELECT *

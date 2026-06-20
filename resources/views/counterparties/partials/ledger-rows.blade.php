@@ -49,6 +49,8 @@
             @endif
         </td>
         <td class="money">{{ $ledgerAmount !== null ? number_format($ledgerAmount, 2, ',', ' ') : '—' }}</td>
+        <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
+        <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
         <td class="money">
             @if ($entry->vat_amount !== null)
                 <span @if ($vatRateTitle !== null) title="{{ $vatRateTitle }}" @endif>
@@ -58,8 +60,7 @@
                 —
             @endif
         </td>
-        <td class="money">{{ number_format((float) $entry->reconciliation_amount, 2, ',', ' ') }}</td>
-        <td class="money">{{ number_format((float) $entry->running_saldo, 2, ',', ' ') }}</td>
+        <td class="money">{{ number_format((float) $entry->running_vat_saldo, 2, ',', ' ') }}</td>
         <td>
             <div>{{ $entry->description ?: '—' }}</div>
             @if ($entry->source_type === 'opening_balance')

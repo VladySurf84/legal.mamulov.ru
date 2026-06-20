@@ -3,7 +3,7 @@
 @section('content')
     @php
         $showLegalEntityColumn = empty($filters['legal_id']);
-        $emptyColspan = $showLegalEntityColumn ? 9 : 8;
+        $emptyColspan = $showLegalEntityColumn ? 10 : 9;
     @endphp
 
     <div class="page-head">
@@ -119,9 +119,10 @@
                 @endif
                 <th>Документ</th>
                 <th class="money">Сумма</th>
-                <th class="money">НДС</th>
                 <th class="money">В итог</th>
                 <th class="money">Итог</th>
+                <th class="money">НДС</th>
+                <th class="money">НДС итог</th>
                 <th>Описание</th>
             </tr>
             </thead>
