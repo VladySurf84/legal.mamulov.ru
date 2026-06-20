@@ -38,6 +38,7 @@
 
     <div class="badges" style="margin-bottom: 16px;">
         <span class="badge">Контрагентов: {{ number_format($summary['count'], 0, ',', ' ') }}</span>
+        <span class="badge">Входящее: {{ number_format($summary['opening_amount'], 2, ',', ' ') }}</span>
         <span class="badge">Наше сальдо: {{ number_format($summary['saldo'], 2, ',', ' ') }}</span>
         <span class="badge">Книги покупок: {{ number_format($summary['buh_saldo'], 2, ',', ' ') }}</span>
         <span class="badge">Разница: {{ number_format($summary['saldo_diff'], 2, ',', ' ') }}</span>
@@ -49,6 +50,7 @@
             <tr>
                 <th>Контрагент</th>
                 <th>ИНН</th>
+                <th class="money">Входящее</th>
                 <th class="money">Наше сальдо</th>
                 <th class="money">Книги покупок</th>
                 <th class="money">Разница</th>
@@ -64,6 +66,7 @@
                 <tr>
                     <td><strong>{{ $counterparty->contractor_name }}</strong></td>
                     <td class="code">{{ $counterparty->contractor_inn }}</td>
+                    <td class="money">{{ number_format((float) $counterparty->opening_amount, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->saldo, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->buh_saldo, 2, ',', ' ') }}</td>
                     <td class="money">{{ number_format((float) $counterparty->saldo_diff, 2, ',', ' ') }}</td>
@@ -79,7 +82,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10">По этим фильтрам контрагентов нет.</td>
+                    <td colspan="11">По этим фильтрам контрагентов нет.</td>
                 </tr>
             @endforelse
             </tbody>

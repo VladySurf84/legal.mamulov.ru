@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -17,6 +18,7 @@ class CounterpartyController extends Controller
         ]);
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
+        $openingWhere = $this->openingWhereClause($filters);
 
         $counterparties = DB::select(<<<SQL
 WITH document_money AS (
@@ -28,6 +30,12 @@ filtered_money AS (
     WHERE contractor_inn IS NOT NULL
         AND contractor_inn <> ''
         AND {$documentWhere}
+        AND COALESCE(operation_date, document_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = document_money.legal_id
+                AND btrim(ob.contractor_inn::text) = document_money.contractor_inn
+        ), '-infinity'::date)
 ),
 doc_agg AS (
     SELECT
@@ -53,19 +61,36 @@ buh_agg AS (
         AND e.book_type = 'purchase'
         AND e.contractor_inn IS NOT NULL
         AND {$buhWhere}
+        AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = e.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(e.contractor_inn::text)
+        ), '-infinity'::date)
     GROUP BY btrim(e.contractor_inn::text)
+),
+opening_agg AS (
+    SELECT
+        btrim(ob.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(ob.amount), 0) AS opening_amount
+    FROM legal.counterparty_opening_balances ob
+    WHERE {$openingWhere}
+    GROUP BY btrim(ob.contractor_inn::text)
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
     UNION
     SELECT contractor_inn FROM buh_agg
+    UNION
+    SELECT contractor_inn FROM opening_agg
 )
 SELECT
     ck.contractor_inn,
     COALESCE(da.contractor_name, ba.contractor_name, nullif(btrim(li.legal_name), ''), '—') AS contractor_name,
     COALESCE(da.saldo, 0) AS saldo,
     COALESCE(ba.buh_saldo, 0) AS buh_saldo,
-    COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0) AS saldo_diff,
+    COALESCE(oa.opening_amount, 0) AS opening_amount,
+    COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0) AS saldo_diff,
     COALESCE(da.income_amount, 0) AS income_amount,
     COALESCE(da.expense_amount, 0) AS expense_amount,
     COALESCE(da.operations_count, 0) AS operations_count,
@@ -75,9 +100,11 @@ LEFT JOIN doc_agg da
     ON da.contractor_inn = ck.contractor_inn
 LEFT JOIN buh_agg ba
     ON ba.contractor_inn = ck.contractor_inn
+LEFT JOIN opening_agg oa
+    ON oa.contractor_inn = ck.contractor_inn
 LEFT JOIN legal.legal_inn li
     ON btrim(li.legal_inn::text) = ck.contractor_inn
-ORDER BY abs(COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn
+ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn
 LIMIT 500
 SQL, $bindings);
 
@@ -91,6 +118,12 @@ filtered_money AS (
     WHERE contractor_inn IS NOT NULL
         AND contractor_inn <> ''
         AND {$documentWhere}
+        AND COALESCE(operation_date, document_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = document_money.legal_id
+                AND btrim(ob.contractor_inn::text) = document_money.contractor_inn
+        ), '-infinity'::date)
 ),
 doc_agg AS (
     SELECT contractor_inn, sum(signed_amount) AS saldo
@@ -108,23 +141,42 @@ buh_agg AS (
         AND e.book_type = 'purchase'
         AND e.contractor_inn IS NOT NULL
         AND {$buhWhere}
+        AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = e.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(e.contractor_inn::text)
+        ), '-infinity'::date)
     GROUP BY btrim(e.contractor_inn::text)
+),
+opening_agg AS (
+    SELECT
+        btrim(ob.contractor_inn::text) AS contractor_inn,
+        sum(ob.amount) AS opening_amount
+    FROM legal.counterparty_opening_balances ob
+    WHERE {$openingWhere}
+    GROUP BY btrim(ob.contractor_inn::text)
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
     UNION
     SELECT contractor_inn FROM buh_agg
+    UNION
+    SELECT contractor_inn FROM opening_agg
 )
 SELECT
     count(*) AS count,
     COALESCE(sum(COALESCE(da.saldo, 0)), 0) AS saldo,
     COALESCE(sum(COALESCE(ba.buh_saldo, 0)), 0) AS buh_saldo,
-    COALESCE(sum(COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff
+    COALESCE(sum(COALESCE(oa.opening_amount, 0)), 0) AS opening_amount,
+    COALESCE(sum(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff
 FROM contractor_keys ck
 LEFT JOIN doc_agg da
     ON da.contractor_inn = ck.contractor_inn
 LEFT JOIN buh_agg ba
     ON ba.contractor_inn = ck.contractor_inn
+LEFT JOIN opening_agg oa
+    ON oa.contractor_inn = ck.contractor_inn
 SQL, $bindings);
 
         return view('counterparties.index', [
@@ -135,6 +187,7 @@ SQL, $bindings);
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,
                 'buh_saldo' => (float) $summary->buh_saldo,
+                'opening_amount' => (float) $summary->opening_amount,
                 'saldo_diff' => (float) $summary->saldo_diff,
             ],
         ]);
@@ -152,10 +205,31 @@ SQL, $bindings);
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters + [
             'contractor_inn' => $contractorInn,
         ]);
+        $openingWhere = $this->openingWhereClause($filters + [
+            'contractor_inn' => $contractorInn,
+        ]);
 
         $ledgerEntries = DB::select(<<<SQL
 WITH document_money AS (
     {$this->documentMoneySelect()}
+),
+opening_balances AS (
+    SELECT
+        ob.counterparty_opening_balance_id,
+        ob.legal_id,
+        l.legal_name,
+        ob.starts_on,
+        ob.amount,
+        ob.source,
+        ob.comment
+    FROM legal.counterparty_opening_balances ob
+    LEFT JOIN legal.legal l
+        ON l.legal_id = ob.legal_id
+    WHERE {$openingWhere}
+),
+opening_cutoff AS (
+    SELECT max(starts_on) AS starts_on
+    FROM opening_balances
 ),
 filtered_money AS (
     SELECT *
@@ -163,6 +237,10 @@ filtered_money AS (
     WHERE contractor_inn IS NOT NULL
         AND contractor_inn <> ''
         AND {$documentWhere}
+        AND (
+            (SELECT starts_on FROM opening_cutoff) IS NULL
+            OR COALESCE(operation_date, document_date) >= (SELECT starts_on FROM opening_cutoff)
+        )
 ),
 bank_entries AS (
     SELECT
@@ -181,6 +259,24 @@ bank_entries AS (
         external_operation_id AS secondary_ref,
         payment_purpose AS description
     FROM filtered_money
+),
+opening_entries AS (
+    SELECT
+        starts_on AS event_date,
+        'opening_balance' AS source_type,
+        counterparty_opening_balance_id AS source_id,
+        legal_name,
+        'opening' AS direction,
+        null::numeric AS income_amount,
+        null::numeric AS expense_amount,
+        null::numeric AS purchase_amount,
+        null::numeric AS vat_amount,
+        amount AS source_signed_amount,
+        amount AS reconciliation_amount,
+        source AS primary_ref,
+        'акт сверки' AS secondary_ref,
+        comment AS description
+    FROM opening_balances
 ),
 purchase_entries AS (
     SELECT
@@ -217,8 +313,14 @@ purchase_entries AS (
         AND e.book_type = 'purchase'
         AND e.contractor_inn IS NOT NULL
         AND {$buhWhere}
+        AND (
+            (SELECT starts_on FROM opening_cutoff) IS NULL
+            OR COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= (SELECT starts_on FROM opening_cutoff)
+        )
 ),
 ledger_entries AS (
+    SELECT * FROM opening_entries
+    UNION ALL
     SELECT * FROM bank_entries
     UNION ALL
     SELECT * FROM purchase_entries
@@ -253,6 +355,12 @@ doc_summary AS (
     WHERE contractor_inn IS NOT NULL
         AND contractor_inn <> ''
         AND {$documentWhere}
+        AND (
+            SELECT max(ob.starts_on) IS NULL
+                OR COALESCE(document_money.operation_date, document_money.document_date) >= max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE {$openingWhere}
+        )
 ),
 buh_summary AS (
     SELECT COALESCE(-sum(e.amount_total), 0) AS buh_saldo
@@ -263,17 +371,30 @@ buh_summary AS (
         AND e.book_type = 'purchase'
         AND e.contractor_inn IS NOT NULL
         AND {$buhWhere}
+        AND (
+            SELECT max(ob.starts_on) IS NULL
+                OR COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE {$openingWhere}
+        )
+),
+opening_summary AS (
+    SELECT COALESCE(sum(ob.amount), 0) AS opening_amount
+    FROM legal.counterparty_opening_balances ob
+    WHERE {$openingWhere}
 )
 SELECT
     ds.count,
     ds.saldo,
     bs.buh_saldo,
-    ds.saldo - bs.buh_saldo AS saldo_diff,
+    os.opening_amount,
+    os.opening_amount + ds.saldo - bs.buh_saldo AS saldo_diff,
     ds.income_amount,
     ds.expense_amount,
     ds.contractor_name
 FROM doc_summary ds
 CROSS JOIN buh_summary bs
+CROSS JOIN opening_summary os
 SQL, $bindings);
 
         return view('counterparties.show', [
@@ -286,11 +407,47 @@ SQL, $bindings);
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,
                 'buh_saldo' => (float) $summary->buh_saldo,
+                'opening_amount' => (float) $summary->opening_amount,
                 'saldo_diff' => (float) $summary->saldo_diff,
                 'income_amount' => (float) $summary->income_amount,
                 'expense_amount' => (float) $summary->expense_amount,
             ],
         ]);
+    }
+
+    public function storeOpeningBalance(Request $request, string $contractorInn): RedirectResponse
+    {
+        $contractorInn = preg_replace('/\D+/', '', $contractorInn);
+        abort_if($contractorInn === '', 404);
+
+        $validated = $request->validate([
+            'legal_id' => ['required', 'integer'],
+            'starts_on' => ['required', 'date'],
+            'amount' => ['required', 'numeric'],
+            'source' => ['nullable', 'string', 'max:255'],
+            'comment' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        DB::table('legal.counterparty_opening_balances')->updateOrInsert(
+            [
+                'legal_id' => (int) $validated['legal_id'],
+                'contractor_inn' => $contractorInn,
+                'starts_on' => $validated['starts_on'],
+            ],
+            [
+                'amount' => $validated['amount'],
+                'source' => $validated['source'] ?? null,
+                'comment' => $validated['comment'] ?? null,
+                'updated_at' => now(),
+            ],
+        );
+
+        return redirect()
+            ->route('counterparties.show', [
+                'contractorInn' => $contractorInn,
+                'legal_id' => (int) $validated['legal_id'],
+            ])
+            ->with('status', 'Входящее сальдо сохранено.');
     }
 
     /**
@@ -316,6 +473,24 @@ SQL, $bindings);
         }
 
         return [implode(' AND ', $documentWhere), implode(' AND ', $buhWhere), $bindings];
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function openingWhereClause(array $filters): string
+    {
+        $where = ['true'];
+
+        if (! empty($filters['legal_id'])) {
+            $where[] = 'ob.legal_id = :legal_id';
+        }
+
+        if (! empty($filters['contractor_inn'])) {
+            $where[] = 'btrim(ob.contractor_inn::text) = :contractor_inn';
+        }
+
+        return implode(' AND ', $where);
     }
 
     private function documentMoneySelect(): string
