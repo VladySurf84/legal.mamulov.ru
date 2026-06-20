@@ -90,7 +90,7 @@ SQL);
     {
         $purpose = $this->normalizePurpose((string) $transaction->payment_purpose);
 
-        if ($purpose === '' || preg_match('/без\s+ндс/ui', $purpose)) {
+        if ($purpose === '' || $this->hasWithoutVatMarker($purpose)) {
             return null;
         }
 
@@ -121,21 +121,15 @@ SQL);
 
     private function explicitVatAmount(string $purpose): ?float
     {
-        $position = mb_stripos($purpose, 'ндс');
-
-        if ($position === false) {
+        if (! preg_match_all(
+            '/(?:сумма\s+)?ндс\s*(?:\(?\d{1,2}(?:[,.]\d{1,2})?\s*%\)?\s*)?(?:[:\-—–]\s*)?(\d[\d\s]*(?:[,.]\d{1,2}|-\d{2}))(?=\s*(?:руб|р\.?|\(|[.;,]|$))/ui',
+            $purpose,
+            $matches
+        )) {
             return null;
         }
 
-        $tail = mb_substr($purpose, $position);
-        $tail = preg_replace('/\b(?:20|18|10|7|5|0)\s*%/ui', ' ', $tail) ?? $tail;
-        $tail = preg_replace('/ставк[аеуы]?\s*\d+/ui', ' ', $tail) ?? $tail;
-
-        if (! preg_match_all('/\d[\d\s]*(?:[,.]\d{1,2}|-\d{2})?/u', $tail, $matches)) {
-            return null;
-        }
-
-        foreach ($matches[0] as $match) {
+        foreach ($matches[1] as $match) {
             $amount = $this->parseAmount($match);
 
             if ($amount !== null && $amount > 0) {
@@ -148,8 +142,8 @@ SQL);
 
     private function vatRate(string $purpose): ?float
     {
-        if (preg_match('/(?:ндс[^\d]{0,30}|)(20|18|10|7|5)\s*%/ui', $purpose, $match)) {
-            return (float) $match[1];
+        if (preg_match('/(?:ндс[^\d]{0,30}|)(20|18|10|7|5)(?:[,.]0{1,2})?\s*%/ui', $purpose, $match)) {
+            return (float) str_replace(',', '.', $match[1]);
         }
 
         return null;
@@ -162,8 +156,13 @@ SQL);
         return [
             'explicit_amount' => $this->explicitVatAmount($purpose),
             'rate' => $this->vatRate($purpose),
-            'has_without_vat_marker' => (bool) preg_match('/без\s+ндс/ui', $purpose),
+            'has_without_vat_marker' => $this->hasWithoutVatMarker($purpose),
         ];
+    }
+
+    private function hasWithoutVatMarker(string $purpose): bool
+    {
+        return (bool) preg_match('/(?:без\s+ндс|без\s+налога\s*\(?\s*ндс\s*\)?|ндс\s+не\s+облагается|не\s+облагается\s+ндс)/ui', $purpose);
     }
 
     private function parseAmount(string $value): ?float
