@@ -254,9 +254,10 @@ SQL, $bindings);
                 'only_negative_diff' => ! empty($filters['only_negative_diff']) ? 1 : null,
             ], static fn ($value) => $value !== null && $value !== ''))
             ->with('status', sprintf(
-                'Связи пересчитаны: кандидатов %d, однозначных %d, вставлено %d.',
+                'Связи пересчитаны: кандидатов %d, однозначных %d, продаж 1 к 2: %d, вставлено %d.',
                 $stats['candidates'],
                 $stats['matched'],
+                $stats['sales_pair_entries_matched'],
                 $stats['inserted'],
             ));
     }

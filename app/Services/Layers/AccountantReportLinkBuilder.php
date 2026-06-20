@@ -10,7 +10,7 @@ class AccountantReportLinkBuilder
 
     /**
      * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
-     * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int, inserted: int}
+     * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int, inserted: int}
      */
     public function rebuild(array $filters = [], bool $dryRun = false): array
     {
@@ -18,7 +18,7 @@ class AccountantReportLinkBuilder
             $stats = $this->stats($filters);
 
             if ($dryRun) {
-                return $stats + ['inserted' => 0];
+                return $stats + $this->salesPairStats($filters) + ['inserted' => 0];
             }
 
             $this->deleteAlgorithmLinks($filters);
@@ -28,7 +28,11 @@ class AccountantReportLinkBuilder
                 self::ALGORITHM,
             ]);
 
+            $salesPairLinksInserted = $this->insertSalesPairLinks($filters);
+
             return $stats + [
+                'sales_pair_entries_matched' => intdiv($salesPairLinksInserted, 2),
+                'sales_pair_links_inserted' => $salesPairLinksInserted,
                 'inserted' => $this->insertedCount($filters),
             ];
         });
@@ -125,6 +129,199 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
             ->when($filters['year'] ?? null, fn ($query, $year) => $query->where('e.year', (int) $year))
             ->when($filters['quarter'] ?? null, fn ($query, $quarter) => $query->where('e.quarter', (int) $quarter))
             ->count();
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @return array{sales_pair_entries_matched: int, sales_pair_links_inserted: int}
+     */
+    private function salesPairStats(array $filters): array
+    {
+        return [
+            'sales_pair_entries_matched' => 0,
+            'sales_pair_links_inserted' => 0,
+        ];
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     */
+    private function insertSalesPairLinks(array $filters): int
+    {
+        $linkTypeId = DB::table('legal.accountant_report_link_types')
+            ->where('alias', 'payment_closes_vat_book_entry')
+            ->value('accountant_report_link_type_id');
+
+        if ($linkTypeId === null) {
+            return 0;
+        }
+
+        $inserted = 0;
+
+        foreach ($this->salesBookEntries($filters) as $entry) {
+            $pair = $this->salesBankTransactionPair($entry);
+
+            if (count($pair) !== 2) {
+                continue;
+            }
+
+            $amountTotal = (float) $entry->amount_total;
+            $vatTotal = $entry->vat_amount !== null ? (float) $entry->vat_amount : null;
+            $firstAmount = (float) $pair[0]->bank_amount;
+            $firstVat = $vatTotal !== null && $amountTotal > 0
+                ? round($vatTotal * ($firstAmount / $amountTotal), 2)
+                : null;
+
+            foreach ($pair as $index => $transaction) {
+                $amount = (float) $transaction->bank_amount;
+                $vatAmount = null;
+
+                if ($vatTotal !== null) {
+                    $vatAmount = $index === 0
+                        ? $firstVat
+                        : round($vatTotal - (float) $firstVat, 2);
+                }
+
+                DB::table('legal.accountant_report_links')->insert([
+                    'accountant_report_link_type_id' => (int) $linkTypeId,
+                    'vat_book_entry_id' => (int) $entry->vat_book_entry_id,
+                    'document_bank_transaction_id' => (int) $transaction->document_bank_transaction_id,
+                    'amount' => $amount,
+                    'vat_amount' => $vatAmount,
+                    'currency' => $transaction->currency ?? 'RUB',
+                    'matched_on' => now()->toDateString(),
+                    'confidence' => 0.9000,
+                    'source' => 'algorithm',
+                    'algorithm' => self::ALGORITHM,
+                    'metadata' => json_encode([
+                        'rule' => 'sales_book_entry_closed_by_two_bank_payments',
+                        'vat_book_date' => $entry->vat_book_date,
+                        'bank_operation_date' => $transaction->bank_operation_date,
+                        'contractor_inn' => $entry->contractor_inn,
+                        'vat_book_amount' => $entry->amount_total,
+                        'pair_total' => $entry->amount_total,
+                        'payment_index' => $index + 1,
+                        'payment_count' => 2,
+                    ], JSON_UNESCAPED_UNICODE),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $inserted++;
+            }
+        }
+
+        return $inserted;
+    }
+
+    /**
+     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @return list<object>
+     */
+    private function salesBookEntries(array $filters): array
+    {
+        return DB::select(<<<SQL
+SELECT
+    e.vat_book_entry_id,
+    e.legal_id,
+    btrim(e.contractor_inn::text) AS contractor_inn,
+    COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) AS vat_book_date,
+    e.amount_total,
+    e.vat_amount
+FROM legal.vat_book_entries e
+JOIN legal.vat_book_imports i
+    ON i.vat_book_import_id = e.vat_book_import_id
+WHERE i.is_active
+  AND e.book_type = 'sales'
+  AND e.amount_total IS NOT NULL
+  AND e.amount_total > 0
+  AND e.contractor_inn IS NOT NULL
+  AND btrim(e.contractor_inn::text) <> ''
+  AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM legal.accountant_report_links existing
+      WHERE existing.vat_book_entry_id = e.vat_book_entry_id
+  )
+  {$this->entryFilterSql($filters, 'e')}
+ORDER BY COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date), e.vat_book_entry_id
+SQL, $this->bindings($filters));
+    }
+
+    /**
+     * @return list<object>
+     */
+    private function salesBankTransactionPair(object $entry): array
+    {
+        return DB::select(<<<SQL
+WITH available_transactions AS (
+    SELECT
+        dbt.document_bank_transaction_id,
+        dbt.operation_date AS bank_operation_date,
+        ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) AS bank_amount,
+        COALESCE(dbt.currency, 'RUB') AS currency
+    FROM legal.document_bank_transaction dbt
+    JOIN legal.bank_account ba
+        ON ba.bank_account_id = dbt.bank_account_id
+        AND ba.legal_id = ?
+    WHERE dbt.operation_date IS NOT NULL
+      AND btrim(dbt.payer_inn::text) = ?
+      AND btrim(dbt.account_number::text) = btrim(dbt.recipient_account::text)
+      AND ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) > 0
+      AND NOT EXISTS (
+          SELECT 1
+          FROM legal.accountant_report_links existing
+          WHERE existing.document_bank_transaction_id = dbt.document_bank_transaction_id
+      )
+),
+matching_pairs AS (
+    SELECT
+        first_payment.document_bank_transaction_id AS first_document_bank_transaction_id,
+        second_payment.document_bank_transaction_id AS second_document_bank_transaction_id,
+        first_payment.bank_operation_date AS first_bank_operation_date,
+        second_payment.bank_operation_date AS second_bank_operation_date,
+        first_payment.bank_amount AS first_bank_amount,
+        second_payment.bank_amount AS second_bank_amount,
+        first_payment.currency AS first_currency,
+        second_payment.currency AS second_currency,
+        GREATEST(
+            ABS(first_payment.bank_operation_date - ?::date),
+            ABS(second_payment.bank_operation_date - ?::date)
+        ) AS max_date_gap
+    FROM available_transactions first_payment
+    JOIN available_transactions second_payment
+        ON first_payment.document_bank_transaction_id < second_payment.document_bank_transaction_id
+        AND first_payment.currency = second_payment.currency
+    WHERE round(first_payment.bank_amount + second_payment.bank_amount, 2) = round(?::numeric, 2)
+    ORDER BY
+        max_date_gap,
+        LEAST(first_payment.bank_operation_date, second_payment.bank_operation_date),
+        GREATEST(first_payment.bank_operation_date, second_payment.bank_operation_date),
+        first_payment.document_bank_transaction_id,
+        second_payment.document_bank_transaction_id
+    LIMIT 1
+)
+SELECT
+    first_document_bank_transaction_id AS document_bank_transaction_id,
+    first_bank_operation_date AS bank_operation_date,
+    first_bank_amount AS bank_amount,
+    first_currency AS currency
+FROM matching_pairs
+UNION ALL
+SELECT
+    second_document_bank_transaction_id AS document_bank_transaction_id,
+    second_bank_operation_date AS bank_operation_date,
+    second_bank_amount AS bank_amount,
+    second_currency AS currency
+FROM matching_pairs
+ORDER BY bank_operation_date, document_bank_transaction_id
+SQL, [
+            (int) $entry->legal_id,
+            (string) $entry->contractor_inn,
+            $entry->vat_book_date,
+            $entry->vat_book_date,
+            $entry->amount_total,
+        ]);
     }
 
     /**
