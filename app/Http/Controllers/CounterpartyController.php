@@ -156,13 +156,73 @@ SQL, $bindings);
         $operations = DB::select(<<<SQL
 WITH document_money AS (
     {$this->documentMoneySelect()}
+),
+filtered_money AS (
+    SELECT *
+    FROM document_money
+    WHERE contractor_inn IS NOT NULL
+        AND contractor_inn <> ''
+        AND {$documentWhere}
+),
+numbered_money AS (
+    SELECT
+        *,
+        sum(signed_amount) OVER (
+            ORDER BY COALESCE(operation_date, document_date), document_bank_transaction_id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS running_saldo
+    FROM filtered_money
 )
 SELECT *
-FROM document_money
-WHERE contractor_inn IS NOT NULL
-    AND contractor_inn <> ''
-    AND {$documentWhere}
+FROM numbered_money
 ORDER BY COALESCE(operation_date, document_date) DESC NULLS LAST, document_bank_transaction_id DESC
+LIMIT 1000
+SQL, $bindings);
+
+        $purchaseEntries = DB::select(<<<SQL
+WITH purchase_entries AS (
+    SELECT
+        e.vat_book_entry_id,
+        e.legal_id,
+        l.legal_name,
+        e.year,
+        e.quarter,
+        e.row_number,
+        e.operation_code,
+        e.invoice_number,
+        e.invoice_date,
+        e.acceptance_date,
+        e.payment_doc_number,
+        e.payment_doc_date,
+        e.contractor_name,
+        e.contractor_inn,
+        e.amount_total,
+        e.amount_without_vat,
+        e.vat_amount,
+        -COALESCE(e.amount_total, 0) AS signed_amount,
+        i.source_file_name
+    FROM legal.vat_book_entries e
+    JOIN legal.vat_book_imports i
+        ON i.vat_book_import_id = e.vat_book_import_id
+    LEFT JOIN legal.legal l
+        ON l.legal_id = e.legal_id
+    WHERE i.is_active
+        AND e.book_type = 'purchase'
+        AND e.contractor_inn IS NOT NULL
+        AND {$buhWhere}
+),
+numbered_purchase_entries AS (
+    SELECT
+        *,
+        sum(signed_amount) OVER (
+            ORDER BY COALESCE(invoice_date, acceptance_date, payment_doc_date), vat_book_entry_id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS running_saldo
+    FROM purchase_entries
+)
+SELECT *
+FROM numbered_purchase_entries
+ORDER BY COALESCE(invoice_date, acceptance_date, payment_doc_date) DESC NULLS LAST, vat_book_entry_id DESC
 LIMIT 1000
 SQL, $bindings);
 
@@ -210,6 +270,7 @@ SQL, $bindings);
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
             'operations' => $operations,
+            'purchaseEntries' => $purchaseEntries,
             'summary' => [
                 'count' => (int) $summary->count,
                 'saldo' => (float) $summary->saldo,
