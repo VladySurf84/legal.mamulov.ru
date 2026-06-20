@@ -72,25 +72,45 @@ class TinkoffBusinessClient
         ?Throwable $exception = null,
     ): void {
         $body = $response?->body();
-        $json = $response?->json();
         $now = now();
 
-        DB::table('legal.api_sync_requests')->insert([
-            'api_sync_run_id' => $syncRunId,
-            'provider' => 'tinkoff',
-            'method' => $method,
-            'endpoint' => $endpoint,
-            'url' => $url,
-            'params' => $this->json($params),
-            'http_status' => $response?->status(),
-            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-            'response_hash' => $body !== null ? hash('sha256', $body) : null,
-            'response_body' => $body,
-            'response_json' => is_array($json) ? $this->json($json) : null,
-            'error' => $exception?->getMessage() ?: ($response?->failed() ? $response->body() : null),
-            'requested_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
+        DB::insert(<<<'SQL'
+INSERT INTO legal.api_sync_requests (
+    api_sync_run_id,
+    provider,
+    method,
+    endpoint,
+    url,
+    params,
+    http_status,
+    duration_ms,
+    response_hash,
+    response_body,
+    response_json,
+    error,
+    requested_at,
+    created_at,
+    updated_at
+) VALUES (
+    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ? IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
+)
+SQL, [
+            $syncRunId,
+            'tinkoff',
+            $method,
+            $endpoint,
+            $url,
+            $this->json($params),
+            $response?->status(),
+            (int) round((microtime(true) - $startedAt) * 1000),
+            $body !== null ? hash('sha256', $body) : null,
+            $body,
+            $body,
+            $body,
+            $exception?->getMessage() ?: ($response?->failed() ? $response->body() : null),
+            $now,
+            $now,
+            $now,
         ]);
     }
 
