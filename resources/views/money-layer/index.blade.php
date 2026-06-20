@@ -20,6 +20,21 @@
         <form class="form" method="get" action="{{ route('money-layer.index') }}">
             <div class="grid">
                 <div class="field">
+                    <label for="legal_id">Наше юрлицо</label>
+                    <select id="legal_id" name="legal_id">
+                        <option value="">Все юрлица</option>
+                        @foreach ($legalEntities as $legalEntity)
+                            <option value="{{ $legalEntity->legal_id }}" @selected((string) ($filters['legal_id'] ?? '') === (string) $legalEntity->legal_id)>
+                                {{ $legalEntity->legal_name }}@if ($legalEntity->legal_inn) · ИНН {{ $legalEntity->legal_inn }}@endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="contractor_inn">ИНН контрагента</label>
+                    <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
+                </div>
+                <div class="field">
                     <label for="party">Участник / ИНН</label>
                     <input id="party" name="party" value="{{ $filters['party'] ?? '' }}">
                 </div>

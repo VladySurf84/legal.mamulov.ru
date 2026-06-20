@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LegalEntity;
 use App\Services\Layers\MoneyLayerBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,17 @@ class MoneyLayerController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate([
+            'legal_id' => ['nullable', 'integer'],
+            'contractor_inn' => ['nullable', 'string', 'max:12'],
             'party' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
 
         [$where, $bindings] = $this->whereClause($filters);
+        $legalEntities = LegalEntity::query()
+            ->orderBy('legal_name')
+            ->get(['legal_id', 'legal_name', 'legal_inn']);
 
         $edges = DB::select(<<<SQL
 SELECT
@@ -29,6 +35,8 @@ SELECT
 FROM legal.money_edges me
 JOIN legal.document_bank_transaction dbt
     ON dbt.document_bank_transaction_id = me.source_document_bank_transaction_id
+JOIN legal.bank_account ba
+    ON ba.bank_account_id = dbt.bank_account_id
 WHERE {$where}
 ORDER BY me.occurred_on DESC, me.money_edge_id DESC
 LIMIT 500
@@ -41,11 +49,16 @@ SELECT
     MIN(occurred_on) AS min_date,
     MAX(occurred_on) AS max_date
 FROM legal.money_edges me
+JOIN legal.document_bank_transaction dbt
+    ON dbt.document_bank_transaction_id = me.source_document_bank_transaction_id
+JOIN legal.bank_account ba
+    ON ba.bank_account_id = dbt.bank_account_id
 WHERE {$where}
 SQL, $bindings);
 
         return view('money-layer.index', [
             'filters' => $filters,
+            'legalEntities' => $legalEntities,
             'edges' => $edges,
             'summary' => [
                 'count' => (int) $summary->count,
@@ -73,6 +86,16 @@ SQL, $bindings);
     {
         $where = ['true'];
         $bindings = [];
+
+        if (! empty($filters['legal_id'])) {
+            $where[] = 'ba.legal_id = :legal_id';
+            $bindings['legal_id'] = (int) $filters['legal_id'];
+        }
+
+        if (! empty($filters['contractor_inn'])) {
+            $where[] = '(me.payer_inn_snapshot = :contractor_inn OR me.recipient_inn_snapshot = :contractor_inn)';
+            $bindings['contractor_inn'] = preg_replace('/\D+/', '', (string) $filters['contractor_inn']);
+        }
 
         if (! empty($filters['party'])) {
             $where[] = '(me.payer_name_snapshot ILIKE :party OR me.recipient_name_snapshot ILIKE :party OR me.payer_inn_snapshot ILIKE :party OR me.recipient_inn_snapshot ILIKE :party)';
