@@ -8,7 +8,7 @@
             $bankAmount = $incomeAmount !== 0.0 ? $incomeAmount : -$expenseAmount;
         }
     @endphp
-    <tr>
+    <tr @class(['linked-ledger-row' => (bool) $entry->is_linked])>
         <td>{{ $entry->event_date ? \Illuminate\Support\Carbon::parse($entry->event_date)->format('d.m.Y') : '—' }}</td>
         <td>
             <span class="badge">
@@ -20,6 +20,9 @@
                     Книга покупок
                 @endif
             </span>
+            @if ((bool) $entry->is_linked)
+                <span class="badge linked-ledger-badge">связано</span>
+            @endif
         </td>
         <td>{{ $entry->legal_name ?? '—' }}</td>
         <td>

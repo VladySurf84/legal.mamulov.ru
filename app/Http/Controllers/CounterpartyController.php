@@ -269,7 +269,12 @@ bank_entries AS (
         signed_amount AS reconciliation_amount,
         account_number AS primary_ref,
         external_operation_id AS secondary_ref,
-        payment_purpose AS description
+        payment_purpose AS description,
+        EXISTS (
+            SELECT 1
+            FROM legal.accountant_report_links arl
+            WHERE arl.document_bank_transaction_id = filtered_money.document_bank_transaction_id
+        ) AS is_linked
     FROM filtered_money
 ),
 opening_entries AS (
@@ -288,7 +293,8 @@ opening_entries AS (
         amount AS reconciliation_amount,
         source AS primary_ref,
         'акт сверки' AS secondary_ref,
-        comment AS description
+        comment AS description,
+        false AS is_linked
     FROM opening_balances
 ),
 purchase_entries AS (
@@ -317,7 +323,12 @@ purchase_entries AS (
             CASE WHEN e.payment_doc_number IS NOT NULL OR e.payment_doc_date IS NOT NULL
                 THEN concat_ws(' ', nullif(e.payment_doc_number, ''), to_char(e.payment_doc_date, 'DD.MM.YYYY'))
             END
-        ) AS description
+        ) AS description,
+        EXISTS (
+            SELECT 1
+            FROM legal.accountant_report_links arl
+            WHERE arl.vat_book_entry_id = e.vat_book_entry_id
+        ) AS is_linked
     FROM legal.vat_book_entries e
     JOIN legal.vat_book_imports i
         ON i.vat_book_import_id = e.vat_book_import_id

@@ -182,6 +182,17 @@
 
         tr:last-child td { border-bottom: 0; }
 
+        tr.linked-ledger-row td {
+            background: #ecfdf3;
+            border-bottom-color: #b7e4c7;
+        }
+
+        .linked-ledger-badge {
+            margin-left: 6px;
+            background: #d1fadf;
+            color: #027a48;
+        }
+
         .code {
             font-family: Consolas, monospace;
             font-size: 13px;
