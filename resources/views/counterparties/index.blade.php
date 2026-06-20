@@ -13,6 +13,10 @@
         </div>
     </div>
 
+    @if (session('status'))
+        <div class="notice">{{ session('status') }}</div>
+    @endif
+
     <div class="panel" style="margin-bottom: 16px;">
         <form class="form" method="get" action="{{ route('counterparties.index') }}">
             <div class="grid">
@@ -49,6 +53,16 @@
                 <a class="button secondary" href="{{ route('counterparties.index') }}">Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
+        </form>
+
+        <form class="form-actions" method="post" action="{{ route('counterparties.rebuild-links') }}" style="margin-top: 12px;">
+            @csrf
+            <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}">
+            <input type="hidden" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}">
+            @if (! empty($filters['only_negative_diff']))
+                <input type="hidden" name="only_negative_diff" value="1">
+            @endif
+            <button type="submit">Пересчитать связи</button>
         </form>
     </div>
 

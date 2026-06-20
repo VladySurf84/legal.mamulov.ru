@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
+use App\Services\Layers\AccountantReportLinkBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -232,6 +233,32 @@ SQL, $bindings);
                 'vat_diff' => (float) $summary->vat_diff,
             ],
         ]);
+    }
+
+    public function rebuildLinks(Request $request, AccountantReportLinkBuilder $builder): RedirectResponse
+    {
+        $filters = $request->validate([
+            'legal_id' => ['nullable', 'integer'],
+            'contractor_inn' => ['nullable', 'string', 'max:12'],
+            'only_negative_diff' => ['nullable', 'boolean'],
+        ]);
+
+        $stats = $builder->rebuild([
+            'legal_id' => ! empty($filters['legal_id']) ? (int) $filters['legal_id'] : null,
+        ]);
+
+        return redirect()
+            ->route('counterparties.index', array_filter([
+                'legal_id' => $filters['legal_id'] ?? null,
+                'contractor_inn' => $filters['contractor_inn'] ?? null,
+                'only_negative_diff' => ! empty($filters['only_negative_diff']) ? 1 : null,
+            ], static fn ($value) => $value !== null && $value !== ''))
+            ->with('status', sprintf(
+                'Связи пересчитаны: кандидатов %d, однозначных %d, вставлено %d.',
+                $stats['candidates'],
+                $stats['matched'],
+                $stats['inserted'],
+            ));
     }
 
     public function show(Request $request, string $contractorInn): View|JsonResponse
