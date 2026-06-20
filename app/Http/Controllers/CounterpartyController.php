@@ -21,7 +21,6 @@ class CounterpartyController extends Controller
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
         $openingWhere = $this->openingWhereClause($filters);
-        $vatWhere = $this->vatWhereClause($filters);
         $negativeDiffWhere = $this->negativeDifferenceWhere($filters);
 
         $counterparties = DB::select(<<<SQL
@@ -83,14 +82,25 @@ opening_agg AS (
 ),
 vat_agg AS (
     SELECT
-        btrim(ve.contractor_inn::text) AS contractor_inn,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
-    FROM legal.vat_events ve
-    WHERE ve.contractor_inn IS NOT NULL
-        AND btrim(ve.contractor_inn::text) <> ''
-        AND {$vatWhere}
-    GROUP BY btrim(ve.contractor_inn::text)
+        btrim(e.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(bank_vat.signed_vat_amount), 0) AS bank_vat,
+        -COALESCE(sum(COALESCE(e.vat_amount, accountant_vat.vat_amount, 0)), 0) AS accountant_vat
+    FROM legal.accountant_report_links arl
+    JOIN legal.vat_book_entries e
+        ON e.vat_book_entry_id = arl.vat_book_entry_id
+    JOIN legal.vat_book_imports i
+        ON i.vat_book_import_id = e.vat_book_import_id
+    LEFT JOIN legal.vat_events bank_vat
+        ON bank_vat.source_system = 'bank_payment_vat'
+        AND bank_vat.source_document_bank_transaction_id = arl.document_bank_transaction_id
+    LEFT JOIN legal.vat_events accountant_vat
+        ON accountant_vat.source_system = 'accountant_vat_book'
+        AND accountant_vat.source_vat_book_entry_id = e.vat_book_entry_id
+    WHERE i.is_active
+        AND e.book_type = 'purchase'
+        AND e.contractor_inn IS NOT NULL
+        AND {$buhWhere}
+    GROUP BY btrim(e.contractor_inn::text)
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
@@ -181,14 +191,25 @@ opening_agg AS (
 ),
 vat_agg AS (
     SELECT
-        btrim(ve.contractor_inn::text) AS contractor_inn,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
-    FROM legal.vat_events ve
-    WHERE ve.contractor_inn IS NOT NULL
-        AND btrim(ve.contractor_inn::text) <> ''
-        AND {$vatWhere}
-    GROUP BY btrim(ve.contractor_inn::text)
+        btrim(e.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(bank_vat.signed_vat_amount), 0) AS bank_vat,
+        -COALESCE(sum(COALESCE(e.vat_amount, accountant_vat.vat_amount, 0)), 0) AS accountant_vat
+    FROM legal.accountant_report_links arl
+    JOIN legal.vat_book_entries e
+        ON e.vat_book_entry_id = arl.vat_book_entry_id
+    JOIN legal.vat_book_imports i
+        ON i.vat_book_import_id = e.vat_book_import_id
+    LEFT JOIN legal.vat_events bank_vat
+        ON bank_vat.source_system = 'bank_payment_vat'
+        AND bank_vat.source_document_bank_transaction_id = arl.document_bank_transaction_id
+    LEFT JOIN legal.vat_events accountant_vat
+        ON accountant_vat.source_system = 'accountant_vat_book'
+        AND accountant_vat.source_vat_book_entry_id = e.vat_book_entry_id
+    WHERE i.is_active
+        AND e.book_type = 'purchase'
+        AND e.contractor_inn IS NOT NULL
+        AND {$buhWhere}
+    GROUP BY btrim(e.contractor_inn::text)
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
@@ -602,24 +623,6 @@ SQL, $bindings);
 
         if (! empty($filters['contractor_inn'])) {
             $where[] = 'btrim(ob.contractor_inn::text) = :contractor_inn';
-        }
-
-        return implode(' AND ', $where);
-    }
-
-    /**
-     * @param array<string, mixed> $filters
-     */
-    private function vatWhereClause(array $filters): string
-    {
-        $where = ['true'];
-
-        if (! empty($filters['legal_id'])) {
-            $where[] = 've.legal_id = :legal_id';
-        }
-
-        if (! empty($filters['contractor_inn'])) {
-            $where[] = 'btrim(ve.contractor_inn::text) = :contractor_inn';
         }
 
         return implode(' AND ', $where);
