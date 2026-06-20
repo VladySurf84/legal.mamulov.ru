@@ -14,8 +14,13 @@
         }
 
         $vatRateTitle = null;
-        if ($entry->vat_amount !== null && $ledgerAmount !== null && abs($ledgerAmount) > 0.0) {
-            $vatRateTitle = number_format(abs((float) $entry->vat_amount) / abs($ledgerAmount) * 100, 2, '.', ' ').' %';
+        if ($entry->vat_amount !== null && $ledgerAmount !== null) {
+            $vatAmount = abs((float) $entry->vat_amount);
+            $amountWithoutVat = abs($ledgerAmount) - $vatAmount;
+
+            if ($amountWithoutVat > 0.0) {
+                $vatRateTitle = number_format($vatAmount / $amountWithoutVat * 100, 2, '.', ' ').' %';
+            }
         }
     @endphp
     <tr @class(['linked-ledger-row' => (bool) $entry->is_linked])>
