@@ -88,7 +88,12 @@ class TinkoffBankSyncService
                         DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
 
                         foreach ($operations as $operation) {
-                            $this->upsertOperation($operation, $credential['account_number']);
+                            $this->upsertOperation(
+                                $operation,
+                                $credential['account_number'],
+                                self::BANK_ID_TINKOFF,
+                                self::DOCUMENT_SOURCE_TINKOFF_BANK
+                            );
                         }
                     });
 
@@ -272,7 +277,36 @@ class TinkoffBankSyncService
         return is_array($operations) ? $operations : [];
     }
 
-    private function upsertOperation(array $operation, string $accountNumber): void
+    public function upsertImportedOperations(
+        array $operations,
+        string $bankId,
+        string $accountNumber,
+        string $sourceSystem,
+    ): int {
+        if ($operations === []) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($operations, $bankId, $accountNumber, $sourceSystem): int {
+            DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
+
+            $count = 0;
+
+            foreach ($operations as $operation) {
+                $this->upsertOperation($operation, $accountNumber, $bankId, $sourceSystem);
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    private function upsertOperation(
+        array $operation,
+        string $accountNumber,
+        string $bankId,
+        string $sourceSystem,
+    ): void
     {
         $operationId = (string) data_get($operation, 'operationId');
 
@@ -280,7 +314,6 @@ class TinkoffBankSyncService
             return;
         }
 
-        $bankId = self::BANK_ID_TINKOFF;
         $existing = DB::table('legal.bank_transaction_1c')
             ->where('1c_bank_id', $bankId)
             ->where('1c_account_number', $accountNumber)
@@ -293,7 +326,7 @@ class TinkoffBankSyncService
             ->first();
 
         if ($account === null) {
-            throw new RuntimeException("Bank account {$accountNumber} was not found for Tinkoff");
+            throw new RuntimeException("Bank account {$accountNumber} was not found for bank {$bankId}");
         }
 
         $signedAmount = $this->signedAmount($operation, $accountNumber);
@@ -306,7 +339,15 @@ class TinkoffBankSyncService
         }
 
         $this->upsertBankTransaction1c($operation, $bankTransactionId, $bankId, $accountNumber);
-        $this->upsertDocumentBankTransaction($operation, $bankTransactionId, $account, $bankId, $accountNumber, $signedAmount);
+        $this->upsertDocumentBankTransaction(
+            $operation,
+            $bankTransactionId,
+            $account,
+            $bankId,
+            $accountNumber,
+            $signedAmount,
+            $sourceSystem
+        );
     }
 
     private function insertParents(array $operation, int $legalId, string $bankId, string $accountNumber, float $signedAmount): int
@@ -475,6 +516,7 @@ class TinkoffBankSyncService
         string $bankId,
         string $accountNumber,
         float $signedAmount,
+        string $sourceSystem,
     ): void {
         $operationId = (string) data_get($operation, 'operationId');
         $externalId = $this->documentExternalId($bankId, $accountNumber, $operationId);
@@ -520,7 +562,7 @@ class TinkoffBankSyncService
             data_get($operation, 'amount'),
             $this->currency($operation, $account),
             'imported',
-            self::DOCUMENT_SOURCE_TINKOFF_BANK,
+            $sourceSystem,
             $externalId,
             hash('sha256', $externalId.'|'.$this->json($operation)),
             $this->json([
