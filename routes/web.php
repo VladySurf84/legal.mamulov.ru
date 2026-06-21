@@ -16,6 +16,7 @@ Route::get('login', [AdminAuthController::class, 'create'])->name('login');
 Route::post('login', [AdminAuthController::class, 'store'])->name('login.store');
 Route::get('auth/google', [AdminAuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
 Route::get('auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+Route::post('internal/tinkoff/sync', [BankTransactionController::class, 'proxySync'])->name('bank-transactions.proxy-sync');
 
 Route::middleware('admin.session')->group(function (): void {
     Route::post('logout', [AdminAuthController::class, 'destroy'])->name('logout');

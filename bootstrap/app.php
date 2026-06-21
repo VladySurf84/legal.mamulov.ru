@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.basic' => RequireAdminBasicAuth::class,
             'admin.session' => RequireAdminSession::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'internal/tinkoff/sync',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
