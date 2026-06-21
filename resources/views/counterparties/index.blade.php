@@ -50,7 +50,7 @@
             </div>
 
             <div class="form-actions">
-                <a class="button secondary" href="{{ route('counterparties.index') }}">Сбросить</a>
+                <a class="button secondary" href="{{ route('counterparties.index') }}" wire:navigate>Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
         </form>
@@ -113,7 +113,7 @@
                     @endif
                     <td>
                         <div class="actions">
-                            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}">
+                            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}" wire:navigate>
                                 Детализация
                             </a>
                         </div>

@@ -6,7 +6,7 @@
             <h1>Типы документов</h1>
             <div class="subtle">Справочник документов для бухгалтерского, управленческого и налогового учета.</div>
         </div>
-        <a class="button" href="{{ route('document-types.create') }}">Создать тип</a>
+        <a class="button" href="{{ route('document-types.create') }}" wire:navigate>Создать тип</a>
     </div>
 
     @if (session('status'))
@@ -49,7 +49,7 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary" href="{{ route('document-types.edit', $documentType) }}">Изменить</a>
+                            <a class="button secondary" href="{{ route('document-types.edit', $documentType) }}" wire:navigate>Изменить</a>
                             <form method="post" action="{{ route('document-types.destroy', $documentType) }}" onsubmit="return confirm('Удалить тип документа?')">
                                 @csrf
                                 @method('delete')

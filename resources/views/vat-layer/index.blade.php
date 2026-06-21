@@ -70,7 +70,7 @@
                 </div>
             </div>
             <div class="form-actions">
-                <a class="button secondary" href="{{ route('vat-layer.index') }}">Сбросить</a>
+                <a class="button secondary" href="{{ route('vat-layer.index') }}" wire:navigate>Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
         </form>

@@ -47,7 +47,7 @@
                 </div>
             </div>
             <div class="form-actions">
-                <a class="button secondary" href="{{ route('money-layer.index') }}">Сбросить</a>
+                <a class="button secondary" href="{{ route('money-layer.index') }}" wire:navigate>Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
         </form>
@@ -85,8 +85,8 @@
                     </td>
                     <td class="money">{{ number_format((float) $edge->amount, 2, ',', ' ') }} {{ $edge->currency }}</td>
                     <td>
-                        <div class="code">{{ $edge->account_number }}</div>
-                        <div class="subtle code">{{ $edge->external_operation_id }}</div>
+                        <div class="code">{{ $edge->account_number ?? $edge->algorithm }}</div>
+                        <div class="subtle code">{{ $edge->external_operation_id ?? 'document #'.$edge->source_document_id }}</div>
                     </td>
                     <td>{{ $edge->payment_purpose }}</td>
                 </tr>

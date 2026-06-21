@@ -7,7 +7,7 @@
             <div class="subtle">Книги покупок и продаж от бухгалтера для последующей сверки с нашими документами.</div>
         </div>
         <div class="actions">
-            <a class="button secondary" href="{{ route('vat-book-entries.index') }}">Содержание книг</a>
+            <a class="button secondary" href="{{ route('vat-book-entries.index') }}" wire:navigate>Содержание книг</a>
         </div>
     </div>
 

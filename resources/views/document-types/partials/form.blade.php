@@ -73,6 +73,6 @@
 </div>
 
 <div class="form-actions">
-    <a class="button secondary" href="{{ route('document-types.index') }}">Отмена</a>
+    <a class="button secondary" href="{{ route('document-types.index') }}" wire:navigate>Отмена</a>
     <button type="submit">Сохранить</button>
 </div>

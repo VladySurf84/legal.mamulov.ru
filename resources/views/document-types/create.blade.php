@@ -6,7 +6,7 @@
             <h1>Создать тип документа</h1>
             <div class="subtle">Добавление нового типа в справочник.</div>
         </div>
-        <a class="button secondary" href="{{ route('document-types.index') }}">Назад</a>
+        <a class="button secondary" href="{{ route('document-types.index') }}" wire:navigate>Назад</a>
     </div>
 
     <div class="panel">

@@ -155,7 +155,7 @@
             </div>
 
             <div class="mt-4 flex justify-end gap-2">
-                <a class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50" href="{{ route('bank-transactions.index') }}">
+                <a class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50" href="{{ route('bank-transactions.index') }}" wire:navigate>
                     Сбросить
                 </a>
                 <button class="inline-flex h-9 items-center rounded-md bg-cyan-800 px-4 text-sm font-medium text-white shadow-sm hover:bg-cyan-900" type="submit">

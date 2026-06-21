@@ -41,6 +41,8 @@ Interpretation Layers
 | `legal.import_runs` | Запуски файловых и ручных импортов. |
 | `legal.uploaded_files` | Архив оригинальных загруженных файлов. |
 | `legal.vat_book_imports` | Импорты XML книг покупок и продаж бухгалтера. |
+| `legal.kassa` | Ручной ввод денежных операций; синхронизируется в канонические документы. |
+| `legal.kassa_article` | Справочник статей ручных денежных операций. |
 
 **Source Layer** - что именно пришло из источников.
 
@@ -56,6 +58,7 @@ Interpretation Layers
 | `legal.source_record_vat_book_details` | Детали строки книги покупок или продаж. |
 | `legal.document_bank_transaction` | Текущая банковская detail-таблица, пока частично играет роль source layer. |
 | `legal.vat_book_entries` | Строки книг покупок и продаж бухгалтера. |
+| `legal.kassa` | Ручная source-запись для типа `manual_cash_operation`. |
 
 **Canonical Layer** - что мы считаем бизнес-документами.
 
@@ -184,6 +187,18 @@ response_json = распарсенный JSON
 - `file_size`;
 - `uploaded_by_user_id`;
 - `uploaded_at`.
+
+### `legal.kassa` и `legal.kassa_article`
+
+Ручной ввод денежных операций. Таблица `legal.kassa` остается acquisition/source-таблицей, потому что данные в нее могут вноситься вручную. После миграции она связана с каноническим слоем:
+
+- `legal.kassa.legal_id` хранит ИНН нашего юрлица;
+- `legal.kassa.document_id` указывает на созданный канонический документ;
+- тип канонического документа - `manual_cash_operation` / `Ручная денежная операция`;
+- триггер `legal.sync_kassa_document()` создает или обновляет `legal.documents`, `legal.source_records`, `legal.document_sources` и `legal.document_parties`;
+- `legal.kassa_article` используется как статья операции и как имя второй стороны, если явный контрагент не задан.
+
+По умолчанию старое поле `user_id` заменено на `legal_id = 504025873801`.
 
 ### Будущие таблицы Acquisition Layer
 
@@ -539,7 +554,10 @@ Interpretation layers - это расчетные слои. Их должно б
 
 Денежный слой.
 
-Сейчас строится из банковских документов сервисом `App\Services\Layers\MoneyLayerBuilder`.
+Сейчас строится сервисом `App\Services\Layers\MoneyLayerBuilder` из:
+
+- банковских документов через `legal.document_bank_transaction`;
+- ручных денежных операций `manual_cash_operation`, которые приходят из `legal.kassa`.
 
 Смысл:
 

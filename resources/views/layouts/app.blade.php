@@ -4,14 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Бухгалтерия' }}</title>
-    <script>
-        (function () {
-            var stored = localStorage.getItem('site-template') || 'blade';
-            var aliases = {classic: 'blade', studio: 'tailwind', dark: 'shadcn'};
-            var template = aliases[stored] || stored;
-            document.documentElement.dataset.siteTemplate = template;
-        })();
-    </script>
     <style>
         :root {
             color-scheme: light;
@@ -31,47 +23,13 @@
             --radius: 8px;
         }
 
-        html[data-site-template="tailwind"] {
-            --bg: #f3f4f6;
-            --panel: #ffffff;
-            --panel-soft: #f8fafc;
-            --text: #111827;
-            --muted: #64748b;
-            --line: #cbd5e1;
-            --accent: #0f766e;
-            --accent-strong: #115e59;
-            --accent-soft: #ccfbf1;
-            --danger: #be123c;
-            --success-bg: #dcfce7;
-            --success-text: #166534;
-            --shadow: 0 10px 24px rgba(15, 23, 42, .07);
-            --radius: 6px;
-        }
-
-        html[data-site-template="shadcn"] {
-            --bg: oklch(1 0 0);
-            --panel: oklch(1 0 0);
-            --panel-soft: oklch(0.97 0 0);
-            --text: oklch(0.145 0 0);
-            --muted: oklch(0.556 0 0);
-            --line: oklch(0.922 0 0);
-            --accent: oklch(0.205 0 0);
-            --accent-strong: oklch(0.269 0 0);
-            --accent-soft: oklch(0.97 0 0);
-            --danger: oklch(0.577 0.245 27.325);
-            --success-bg: oklch(0.97 0.03 145);
-            --success-text: oklch(0.32 0.09 145);
-            --shadow: none;
-            --radius: 10px;
-        }
-
         * { box-sizing: border-box; }
 
         body {
             margin: 0;
             background: var(--bg);
             color: var(--text);
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: var(--font-sans, "Inter Variable", ui-sans-serif, system-ui, sans-serif);
             font-size: 14px;
             line-height: 1.45;
         }
@@ -83,80 +41,10 @@
 
         a:hover { text-decoration: underline; }
 
-        .shell { min-height: 100vh; }
-
-        .topbar {
-            background: var(--panel);
-            border-bottom: 1px solid var(--line);
-            box-shadow: var(--shadow);
+        .app-shell a,
+        .app-shell a:hover {
+            text-decoration: none;
         }
-
-        .topbar-inner,
-        .content {
-            width: calc(100vw - 32px);
-            margin: 0 auto;
-        }
-
-        @media (min-width: 1440px) {
-            .topbar-inner,
-            .content {
-                width: calc(100vw - 48px);
-            }
-        }
-
-        .topbar-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 58px;
-            gap: 20px;
-        }
-
-        .brand {
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .brand-zone {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 280px;
-        }
-
-        .template-select {
-            width: 176px;
-            min-height: 34px;
-            padding: 6px 30px 6px 10px;
-            border-radius: var(--radius);
-            background: var(--panel-soft);
-            color: var(--text);
-            font-size: 13px;
-        }
-
-        .nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 18px;
-            align-items: center;
-        }
-
-        .nav-form { margin: 0; }
-
-        .nav-button {
-            min-height: auto;
-            padding: 0;
-            border: 0;
-            background: transparent;
-            color: var(--accent);
-        }
-
-        .nav-button:hover {
-            background: transparent;
-            text-decoration: underline;
-        }
-
-        .content { padding: 28px 0 44px; }
 
         .page-head {
             display: flex;
@@ -376,16 +264,10 @@
         }
 
         @media (max-width: 760px) {
-            .page-head,
-            .topbar-inner {
+            .page-head {
                 flex-direction: column;
                 align-items: stretch;
                 padding: 14px 0;
-            }
-
-            .brand-zone {
-                min-width: 0;
-                justify-content: space-between;
             }
 
             .grid,
@@ -395,57 +277,104 @@
         }
     </style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
 </head>
-<body>
-<div class="shell">
-    <header class="topbar">
-        <div class="topbar-inner">
-            <div class="brand-zone">
-                <a class="brand" href="{{ route('bank-accounts.index') }}">Бухгалтерия</a>
-                <select class="template-select" data-site-template-select title="Шаблон сайта">
-                    <option value="blade">Blade</option>
-                    <option value="tailwind">Tailwind</option>
-                    <option value="shadcn">shadcn/ui</option>
-                </select>
+<body class="font-sans antialiased">
+<div class="app-shell min-h-full bg-slate-50">
+    @php
+        $navItems = [
+            ['label' => 'Банковские счета', 'route' => 'bank-accounts.index', 'active' => 'bank-accounts.*'],
+            ['label' => 'Транзакции', 'route' => 'bank-transactions.index', 'active' => 'bank-transactions.*'],
+            ['label' => 'Контрагенты', 'route' => 'counterparties.index', 'active' => 'counterparties.*'],
+            ['label' => 'Money layer', 'route' => 'money-layer.index', 'active' => 'money-layer.*'],
+            ['label' => 'Книги НДС', 'route' => 'vat-books.index', 'active' => 'vat-books.*'],
+            ['label' => 'Содержание книг', 'route' => 'vat-book-entries.index', 'active' => 'vat-book-entries.*'],
+            ['label' => 'VAT layer', 'route' => 'vat-layer.index', 'active' => 'vat-layer.*'],
+            ['label' => 'Типы документов', 'route' => 'document-types.index', 'active' => 'document-types.*'],
+            ['label' => 'Планировщик', 'route' => 'scheduler.index', 'active' => 'scheduler.*'],
+        ];
+    @endphp
+
+    <header class="relative z-30">
+        <nav class="bg-slate-800">
+            <div class="px-4 sm:px-6 lg:px-8">
+                <div class="flex h-16 items-center justify-between gap-4">
+                    <div class="flex min-w-0 items-center gap-8">
+                        <a class="flex shrink-0 items-center gap-3 text-white hover:no-underline" href="{{ route('bank-accounts.index') }}" wire:navigate>
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-cyan-500 text-sm font-bold text-white">Б</span>
+                            <span class="text-base font-semibold">Бухгалтерия</span>
+                        </a>
+
+                        <nav class="hidden items-center gap-1 lg:flex" aria-label="Основная навигация">
+                            @foreach ($navItems as $item)
+                                @php($isActive = request()->routeIs($item['active']))
+                                <a
+                                    class="{{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white' }} rounded-md px-3 py-2 text-sm font-medium hover:no-underline"
+                                    href="{{ route($item['route']) }}"
+                                    wire:navigate
+                                >
+                                    {{ $item['label'] }}
+                                </a>
+                            @endforeach
+                        </nav>
+                    </div>
+
+                    <div class="hidden shrink-0 items-center gap-3 lg:flex">
+                        @if (session('admin_authenticated') === true)
+                            <form class="m-0" method="post" action="{{ route('logout') }}">
+                                @csrf
+                                <button class="!h-9 !min-h-0 rounded-md border border-slate-600 !bg-slate-900 px-3 text-sm font-medium !text-slate-100 shadow-sm hover:!bg-slate-700" type="submit">Выйти</button>
+                            </form>
+                        @endif
+                    </div>
+
+                    <details class="relative lg:hidden">
+                        <summary class="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-slate-600 bg-slate-900 text-slate-100 shadow-sm hover:bg-slate-700 [&::-webkit-details-marker]:hidden" title="Меню">
+                            <span class="sr-only">Открыть меню</span>
+                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M2 5.5A.75.75 0 0 1 2.75 4.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 5.5Zm0 4.5a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 4.5a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 14.5Z" clip-rule="evenodd" />
+                            </svg>
+                        </summary>
+
+                        <div class="absolute right-0 z-40 mt-2 w-[min(340px,calc(100vw-32px))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                            <nav class="grid p-2" aria-label="Мобильная навигация">
+                                @foreach ($navItems as $item)
+                                    @php($isActive = request()->routeIs($item['active']))
+                                    <a
+                                        class="{{ $isActive ? 'bg-slate-100 text-slate-950' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950' }} rounded-md px-3 py-2 text-sm font-medium hover:no-underline"
+                                        href="{{ route($item['route']) }}"
+                                        wire:navigate
+                                    >
+                                        {{ $item['label'] }}
+                                    </a>
+                                @endforeach
+                            </nav>
+
+                            <div class="border-t border-slate-200 p-2">
+                                @if (session('admin_authenticated') === true)
+                                    <form method="post" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button class="!h-9 w-full !min-h-0 rounded-md border border-slate-300 !bg-white px-3 text-sm font-medium !text-slate-700 shadow-sm hover:!bg-slate-50" type="submit">Выйти</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </div>
+                    </details>
+                </div>
             </div>
-            <nav class="nav">
-                <a href="{{ route('bank-accounts.index') }}">Банковские счета</a>
-                <a href="{{ route('bank-transactions.index') }}">Банковские транзакции</a>
-                <a href="{{ route('counterparties.index') }}">Контрагенты</a>
-                <a href="{{ route('money-layer.index') }}">Money layer</a>
-                <a href="{{ route('vat-books.index') }}">Книги НДС</a>
-                <a href="{{ route('vat-book-entries.index') }}">Содержание книг</a>
-                <a href="{{ route('vat-layer.index') }}">VAT layer</a>
-                <a href="{{ route('document-types.index') }}">Типы документов</a>
-                <a href="{{ route('scheduler.index') }}">Планировщик</a>
-                @if (session('admin_authenticated') === true)
-                    <form class="nav-form" method="post" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="nav-button" type="submit">Выйти</button>
-                    </form>
-                @endif
-            </nav>
+        </nav>
+
+        <div class="bg-white shadow-sm">
+            <div class="px-4 py-5 sm:px-6 lg:px-8">
+                <h1 class="!m-0 !text-2xl !font-semibold !tracking-normal text-slate-950">{{ $title ?? 'Бухгалтерия' }}</h1>
+            </div>
         </div>
     </header>
-    <main class="content">
+
+    <main class="px-4 py-6 sm:px-6 lg:px-8">
         @yield('content')
     </main>
 </div>
-<script>
-    (function () {
-        var select = document.querySelector('[data-site-template-select]');
-        if (!select) {
-            return;
-        }
-
-        var current = document.documentElement.dataset.siteTemplate || 'blade';
-        select.value = current;
-
-        select.addEventListener('change', function () {
-            document.documentElement.dataset.siteTemplate = select.value;
-            localStorage.setItem('site-template', select.value);
-        });
-    })();
-</script>
+@livewireScripts
 </body>
 </html>

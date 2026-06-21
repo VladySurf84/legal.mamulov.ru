@@ -12,7 +12,7 @@
             <div class="subtle">ИНН {{ $contractorInn }} · сверка банка и книги покупок в одной ленте.</div>
         </div>
         <div class="actions">
-            <a class="button secondary" href="{{ route('counterparties.index', ['legal_id' => $filters['legal_id'] ?? null, 'contractor_inn' => $contractorInn]) }}">
+            <a class="button secondary" href="{{ route('counterparties.index', ['legal_id' => $filters['legal_id'] ?? null, 'contractor_inn' => $contractorInn]) }}" wire:navigate>
                 К списку
             </a>
         </div>
@@ -35,7 +35,7 @@
             </div>
 
             <div class="form-actions">
-                <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn]) }}">Сбросить</a>
+                <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $contractorInn]) }}" wire:navigate>Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
         </form>

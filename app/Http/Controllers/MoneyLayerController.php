@@ -33,9 +33,9 @@ SELECT
     dbt.bank_id,
     dbt.external_operation_id
 FROM legal.money_edges me
-JOIN legal.document_bank_transaction dbt
+LEFT JOIN legal.document_bank_transaction dbt
     ON dbt.document_bank_transaction_id = me.source_document_bank_transaction_id
-JOIN legal.bank_account ba
+LEFT JOIN legal.bank_account ba
     ON ba.bank_account_id = dbt.bank_account_id
 WHERE {$where}
 ORDER BY me.occurred_on DESC, me.money_edge_id DESC
@@ -49,9 +49,9 @@ SELECT
     MIN(me.occurred_on) AS min_date,
     MAX(me.occurred_on) AS max_date
 FROM legal.money_edges me
-JOIN legal.document_bank_transaction dbt
+LEFT JOIN legal.document_bank_transaction dbt
     ON dbt.document_bank_transaction_id = me.source_document_bank_transaction_id
-JOIN legal.bank_account ba
+LEFT JOIN legal.bank_account ba
     ON ba.bank_account_id = dbt.bank_account_id
 WHERE {$where}
 SQL, $bindings);
@@ -88,7 +88,7 @@ SQL, $bindings);
         $bindings = [];
 
         if (! empty($filters['legal_id'])) {
-            $where[] = 'ba.legal_id = :legal_id';
+            $where[] = '(ba.legal_id = :legal_id OR me.payer_inn_snapshot = :legal_id OR me.recipient_inn_snapshot = :legal_id)';
             $bindings['legal_id'] = (string) $filters['legal_id'];
         }
 

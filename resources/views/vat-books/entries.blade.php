@@ -14,7 +14,7 @@
             <div class="subtle">Строки из книг покупок и продаж, которые загрузил бухгалтер.</div>
         </div>
         <div class="actions">
-            <a class="button secondary" href="{{ route('vat-books.index') }}">Импорт книг</a>
+            <a class="button secondary" href="{{ route('vat-books.index') }}" wire:navigate>Импорт книг</a>
         </div>
     </div>
 
@@ -75,7 +75,7 @@
             </div>
 
             <div class="form-actions">
-                <a class="button secondary" href="{{ route('vat-book-entries.index') }}">Сбросить</a>
+                <a class="button secondary" href="{{ route('vat-book-entries.index') }}" wire:navigate>Сбросить</a>
                 <button type="submit">Показать</button>
             </div>
         </form>
@@ -157,13 +157,13 @@
         @if ($entries->onFirstPage())
             <span class="button secondary" style="opacity: .55;">Назад</span>
         @else
-            <a class="button secondary" href="{{ $entries->previousPageUrl() }}">Назад</a>
+            <a class="button secondary" href="{{ $entries->previousPageUrl() }}" wire:navigate>Назад</a>
         @endif
 
         <span class="badge">Страница {{ $entries->currentPage() }} из {{ $entries->lastPage() }}</span>
 
         @if ($entries->hasMorePages())
-            <a class="button secondary" href="{{ $entries->nextPageUrl() }}">Дальше</a>
+            <a class="button secondary" href="{{ $entries->nextPageUrl() }}" wire:navigate>Дальше</a>
         @else
             <span class="button secondary" style="opacity: .55;">Дальше</span>
         @endif
