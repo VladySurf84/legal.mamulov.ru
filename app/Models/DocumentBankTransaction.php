@@ -13,7 +13,6 @@ class DocumentBankTransaction extends Model
 
     protected $fillable = [
         'document_id',
-        'bank_transaction_id',
         'bank_account_id',
         'bank_id',
         'account_number',

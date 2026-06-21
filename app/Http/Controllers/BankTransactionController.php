@@ -125,44 +125,48 @@ class BankTransactionController extends Controller
         return DB::select(<<<SQL
 WITH pre AS (
     SELECT
-        r.reconciliation_id,
-        bt.bank_id,
-        bt.dohras,
-        bt.account_number,
+        dbt.document_bank_transaction_id AS reconciliation_id,
+        dbt.bank_id,
+        NULL::int AS dohras,
+        dbt.account_number,
         ba.name AS bank_account_name,
-        to_char(r.date, 'DD Mon YY') AS date_format,
-        bt.contractor_name AS name,
-        r.contractor_inn,
-        bt.contractor_bank_account,
-        CASE WHEN r.amount < 0 THEN -r.amount ELSE NULL END AS amount_p,
-        CASE WHEN r.amount >= 0 THEN r.amount ELSE NULL END AS amount_m,
-        bt.payment_purpose,
-        bt.order_intraday,
-        r.date,
-        r.amount,
-        bt.type_alias,
-        r.legal_id,
+        to_char(dbt.operation_date, 'DD Mon YY') AS date_format,
+        CASE
+            WHEN dbt.signed_amount < 0 THEN COALESCE(dbt.recipient_name, dbt.payer_name)
+            ELSE COALESCE(dbt.payer_name, dbt.recipient_name)
+        END AS name,
+        CASE
+            WHEN dbt.signed_amount < 0 THEN dbt.recipient_inn
+            ELSE dbt.payer_inn
+        END AS contractor_inn,
+        CASE
+            WHEN dbt.signed_amount < 0 THEN dbt.recipient_account
+            ELSE dbt.payer_account
+        END AS contractor_bank_account,
+        CASE WHEN dbt.signed_amount < 0 THEN -dbt.signed_amount ELSE NULL END AS amount_p,
+        CASE WHEN dbt.signed_amount >= 0 THEN dbt.signed_amount ELSE NULL END AS amount_m,
+        dbt.payment_purpose,
+        dbt.order_intraday,
+        dbt.operation_date AS date,
+        dbt.signed_amount AS amount,
+        dbt.operation_type AS type_alias,
+        ba.legal_id,
         l.legal_name,
         l.legal_color,
-        lbs.saldo,
-        bt.has_vat,
-        bt.inner_ip,
-        bt.bank_transaction_id,
-        k.kassa_id AS k_id,
-        -SUM(r.amount) OVER(ORDER BY r.date, r.amount > 0, bt.order_intraday) AS total
-    FROM legal.legal_reconciliation r
-    JOIN legal.bank_transaction bt USING(reconciliation_type_id, reconciliation_id)
+        NULL::numeric AS saldo,
+        CASE
+            WHEN dbt.payment_purpose ILIKE '%НДС%' OR dbt.payment_purpose ILIKE '%VAT%' THEN 1
+            ELSE 0
+        END AS has_vat,
+        NULL::int AS inner_ip,
+        dbt.document_bank_transaction_id AS bank_transaction_id,
+        NULL::bigint AS k_id,
+        -SUM(dbt.signed_amount) OVER(ORDER BY dbt.operation_date, dbt.signed_amount > 0, dbt.order_intraday) AS total
+    FROM legal.document_bank_transaction dbt
     LEFT JOIN legal.bank_account ba
-        ON ba.bank_id = bt.bank_id
-        AND ba.account_number = bt.account_number
-        AND ba.legal_id = r.legal_id
+        ON ba.bank_account_id = dbt.bank_account_id
     LEFT JOIN legal.legal l
-        ON l.legal_id = r.legal_id
-    LEFT JOIN legal.legal_buh_saldo lbs
-        ON lbs.legal_id = r.legal_id
-        AND lbs.contractor_inn = r.contractor_inn
-    LEFT JOIN legal.kassa k
-        ON k.reconciliation_id = r.reconciliation_id
+        ON l.legal_id = ba.legal_id
     WHERE {$where}
 ),
 main AS (
@@ -183,10 +187,11 @@ SQL, $queryBindings);
         $summary = DB::selectOne(<<<SQL
 SELECT
     COUNT(*) AS count,
-    COALESCE(SUM(CASE WHEN r.amount >= 0 THEN r.amount ELSE 0 END), 0) AS income,
-    COALESCE(SUM(CASE WHEN r.amount < 0 THEN -r.amount ELSE 0 END), 0) AS expense
-FROM legal.legal_reconciliation r
-JOIN legal.bank_transaction bt USING(reconciliation_type_id, reconciliation_id)
+    COALESCE(SUM(CASE WHEN dbt.signed_amount >= 0 THEN dbt.signed_amount ELSE 0 END), 0) AS income,
+    COALESCE(SUM(CASE WHEN dbt.signed_amount < 0 THEN -dbt.signed_amount ELSE 0 END), 0) AS expense
+FROM legal.document_bank_transaction dbt
+LEFT JOIN legal.bank_account ba
+    ON ba.bank_account_id = dbt.bank_account_id
 WHERE {$where}
 SQL, $bindings);
 
@@ -207,30 +212,35 @@ SQL, $bindings);
         $bindings = [];
 
         if (! empty($filters['account_number'])) {
-            $where[] = 'bt.account_number = :account_number';
+            $where[] = 'dbt.account_number = :account_number';
             $bindings['account_number'] = $filters['account_number'];
         }
 
         if (($filters['type'] ?? null) === 'income') {
-            $where[] = 'r.amount >= 0';
+            $where[] = 'dbt.signed_amount >= 0';
         }
 
         if (($filters['type'] ?? null) === 'expense') {
-            $where[] = 'r.amount < 0';
+            $where[] = 'dbt.signed_amount < 0';
         }
 
         if (! empty($filters['contractor'])) {
-            $where[] = '(bt.contractor_name ILIKE :contractor OR r.contractor_inn::text ILIKE :contractor)';
+            $where[] = '(
+                dbt.payer_name ILIKE :contractor
+                OR dbt.recipient_name ILIKE :contractor
+                OR dbt.payer_inn ILIKE :contractor
+                OR dbt.recipient_inn ILIKE :contractor
+            )';
             $bindings['contractor'] = '%'.$filters['contractor'].'%';
         }
 
         if (! empty($filters['date_from'])) {
-            $where[] = 'r.date >= :date_from';
+            $where[] = 'dbt.operation_date >= :date_from';
             $bindings['date_from'] = $filters['date_from'];
         }
 
         if (! empty($filters['date_to'])) {
-            $where[] = 'r.date <= :date_to';
+            $where[] = 'dbt.operation_date <= :date_to';
             $bindings['date_to'] = $filters['date_to'];
         }
 

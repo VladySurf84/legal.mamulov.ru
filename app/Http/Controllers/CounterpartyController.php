@@ -140,7 +140,7 @@ contractor_keys AS (
 )
 SELECT
     ck.contractor_inn,
-    COALESCE(da.contractor_name, ba.contractor_name, nullif(btrim(li.legal_name), ''), '—') AS contractor_name,
+    COALESCE(da.contractor_name, ba.contractor_name, '—') AS contractor_name,
     COALESCE(da.saldo, 0) AS saldo,
     COALESCE(ba.buh_saldo, 0) AS buh_saldo,
     COALESCE(oa.opening_amount, 0) AS opening_amount,
@@ -159,8 +159,6 @@ LEFT JOIN opening_agg oa
     ON oa.contractor_inn = ck.contractor_inn
 LEFT JOIN vat_agg va
     ON va.contractor_inn = ck.contractor_inn
-LEFT JOIN legal.legal_inn li
-    ON btrim(li.legal_inn::text) = ck.contractor_inn
 WHERE {$this->excludeOwnLegalWhere($filters)}
     AND {$negativeDiffWhere}
 ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn

@@ -68,7 +68,6 @@ SQL);
                     'metadata' => json_encode([
                         'source' => 'document_bank_transaction',
                         'bank_account_id' => (int) $transaction->bank_account_id,
-                        'bank_transaction_id' => $transaction->bank_transaction_id !== null ? (int) $transaction->bank_transaction_id : null,
                         'external_operation_id' => $transaction->external_operation_id,
                         'payment_purpose' => $transaction->payment_purpose,
                         'vat_detection' => $this->vatDetectionMetadata($transaction),

@@ -12,8 +12,6 @@ class TinkoffBankSyncService
 {
     private const BANK_ID_TINKOFF = '044525974';
 
-    private const RECONCILIATION_TYPE_BANK_TRANSACTION = 1;
-
     private const DOCUMENT_TYPE_BANK_OPERATION = 'bank_operation';
 
     private const DOCUMENT_SOURCE_TINKOFF_BANK = 'tinkoff_bank';
@@ -88,8 +86,6 @@ class TinkoffBankSyncService
                     $apiSyncRequestId = $statementResult['api_sync_request_id'];
 
                     DB::transaction(function () use ($operations, $credential, $apiSyncRequestId): void {
-                        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
-
                         foreach ($operations as $operation) {
                             $this->upsertOperation(
                                 $operation,
@@ -172,8 +168,6 @@ class TinkoffBankSyncService
                     $apiSyncRequestId = $statementResult['api_sync_request_id'];
 
                     DB::transaction(function () use ($operations, $credential, $apiSyncRequestId): void {
-                        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
-
                         foreach ($operations as $operation) {
                             $this->upsertOperation(
                                 $operation,
@@ -307,16 +301,7 @@ class TinkoffBankSyncService
 
     private function ensureReferenceRows(): void
     {
-        DB::statement(<<<'SQL'
-INSERT INTO legal.legal_reconciliation_type (
-    reconciliation_type_id,
-    reconciliation_type
-) VALUES (
-    1,
-    'bank_transaction'
-)
-ON CONFLICT (reconciliation_type_id) DO NOTHING
-SQL);
+        $this->bankOperationDocumentTypeId();
     }
 
     private function startRun(string $from, string $till): int
@@ -426,8 +411,6 @@ SQL);
         }
 
         return DB::transaction(function () use ($operations, $bankId, $accountNumber, $sourceSystem, $sourceContext): int {
-            DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
-
             $count = 0;
 
             foreach ($operations as $operation) {
@@ -454,12 +437,6 @@ SQL);
             return;
         }
 
-        $existing = DB::table('legal.bank_transaction_1c')
-            ->where('1c_bank_id', $bankId)
-            ->where('1c_account_number', $accountNumber)
-            ->where('operation_id', $operationId)
-            ->first();
-
         $account = DB::table('legal.bank_account')
             ->where('bank_id', $bankId)
             ->where('account_number', $accountNumber)
@@ -471,17 +448,8 @@ SQL);
 
         $signedAmount = $this->signedAmount($operation, $accountNumber);
 
-        if ($existing === null) {
-            $bankTransactionId = $this->insertParents($operation, (int) $account->legal_id, $bankId, $accountNumber, $signedAmount);
-        } else {
-            $bankTransactionId = (int) $existing->bank_transaction_id;
-            $this->updateParents($bankTransactionId, $operation, (int) $account->legal_id, $bankId, $accountNumber, $signedAmount);
-        }
-
-        $this->upsertBankTransaction1c($operation, $bankTransactionId, $bankId, $accountNumber);
         $documentId = $this->upsertDocumentBankTransaction(
             $operation,
-            $bankTransactionId,
             $account,
             $bankId,
             $accountNumber,
@@ -497,175 +465,14 @@ SQL);
             $signedAmount,
             $sourceSystem,
             $apiSyncRequestId,
-            $bankTransactionId,
             $sourceContext,
         );
 
         $this->upsertDocumentSource($documentId, $sourceRecordId, $sourceSystem);
     }
 
-    private function insertParents(array $operation, int $legalId, string $bankId, string $accountNumber, float $signedAmount): int
-    {
-        $reconciliationId = $this->nextReconciliationId();
-
-        DB::table('legal.legal_reconciliation')->insert([
-            'reconciliation_id' => $reconciliationId,
-            'reconciliation_type_id' => self::RECONCILIATION_TYPE_BANK_TRANSACTION,
-            'legal_id' => $legalId,
-            'date' => $this->date(data_get($operation, 'date')),
-            'amount' => $signedAmount,
-            'contractor_inn' => $this->contractorInn($operation, $accountNumber),
-        ]);
-
-        $row = DB::selectOne('
-            INSERT INTO legal.bank_transaction (
-                reconciliation_id,
-                reconciliation_type_id,
-                order_intraday,
-                bank_id,
-                account_number,
-                date0,
-                amount0,
-                contractor_name,
-                contractor_bank_account,
-                contractor_inn0,
-                payment_purpose
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING bank_transaction_id
-        ', [
-            $reconciliationId,
-            self::RECONCILIATION_TYPE_BANK_TRANSACTION,
-            (string) data_get($operation, 'operationId'),
-            $bankId,
-            $accountNumber,
-            $this->date(data_get($operation, 'date')),
-            $signedAmount,
-            $this->contractorName($operation, $accountNumber),
-            $this->contractorBankAccount($operation, $accountNumber),
-            $this->contractorInn($operation, $accountNumber),
-            data_get($operation, 'paymentPurpose'),
-        ]);
-
-        return (int) $row->bank_transaction_id;
-    }
-
-    private function updateParents(int $bankTransactionId, array $operation, int $legalId, string $bankId, string $accountNumber, float $signedAmount): void
-    {
-        $bankTransaction = DB::table('legal.bank_transaction')
-            ->where('bank_transaction_id', $bankTransactionId)
-            ->first();
-
-        if ($bankTransaction === null) {
-            throw new RuntimeException("Bank transaction {$bankTransactionId} was not found");
-        }
-
-        DB::table('legal.legal_reconciliation')
-            ->where('reconciliation_id', $bankTransaction->reconciliation_id)
-            ->update([
-                'reconciliation_type_id' => self::RECONCILIATION_TYPE_BANK_TRANSACTION,
-                'legal_id' => $legalId,
-                'date' => $this->date(data_get($operation, 'date')),
-                'amount' => $signedAmount,
-                'contractor_inn' => $this->contractorInn($operation, $accountNumber),
-            ]);
-
-        DB::table('legal.bank_transaction')
-            ->where('bank_transaction_id', $bankTransactionId)
-            ->update([
-                'reconciliation_type_id' => self::RECONCILIATION_TYPE_BANK_TRANSACTION,
-                'order_intraday' => (string) data_get($operation, 'operationId'),
-                'bank_id' => $bankId,
-                'account_number' => $accountNumber,
-                'date0' => $this->date(data_get($operation, 'date')),
-                'amount0' => $signedAmount,
-                'contractor_name' => $this->contractorName($operation, $accountNumber),
-                'contractor_bank_account' => $this->contractorBankAccount($operation, $accountNumber),
-                'contractor_inn0' => $this->contractorInn($operation, $accountNumber),
-                'payment_purpose' => data_get($operation, 'paymentPurpose'),
-            ]);
-    }
-
-    private function upsertBankTransaction1c(array $operation, int $bankTransactionId, string $bankId, string $accountNumber): void
-    {
-        DB::table('legal.bank_transaction_1c')->upsert([[
-            'transaction_hash' => md5($bankId.'-'.$accountNumber.'-'.data_get($operation, 'operationId')),
-            'bank_transaction_id' => $bankTransactionId,
-            '1c_bank_id' => $bankId,
-            '1c_account_number' => $accountNumber,
-            'operation_id' => (string) data_get($operation, 'operationId'),
-            'id' => data_get($operation, 'id'),
-            '1c_date' => $this->date(data_get($operation, 'date')),
-            '1c_amount' => data_get($operation, 'amount'),
-            'draw_date' => $this->date(data_get($operation, 'drawDate')),
-            'payer_name' => data_get($operation, 'payerName'),
-            'payer_inn' => data_get($operation, 'payerInn'),
-            'payer_account' => data_get($operation, 'payerAccount'),
-            'payer_bic' => data_get($operation, 'payerBic'),
-            'payer_bank' => data_get($operation, 'payerBank'),
-            'charge_cate' => $this->date(data_get($operation, 'chargeDate')),
-            'recipient' => data_get($operation, 'recipient'),
-            'recipient_inn' => data_get($operation, 'recipientInn'),
-            'recipient_account' => data_get($operation, 'recipientAccount'),
-            'recipient_bic' => data_get($operation, 'recipientBic'),
-            'recipient_bank' => data_get($operation, 'recipientBank'),
-            'recipient_corr_account' => data_get($operation, 'recipientCorrAccount'),
-            'payment_type' => data_get($operation, 'paymentType'),
-            'operation_type' => data_get($operation, 'operationType'),
-            'uin' => data_get($operation, 'uin'),
-            '1c_payment_purpose' => data_get($operation, 'paymentPurpose'),
-            'creator_status' => data_get($operation, 'creatorStatus'),
-            'payer_kpp' => data_get($operation, 'payerKpp'),
-            'recipient_kpp' => data_get($operation, 'recipientKpp'),
-            'kbk' => data_get($operation, 'kbk'),
-            'oktmo' => data_get($operation, 'oktmo'),
-            'tax_evidence' => data_get($operation, 'taxEvidence'),
-            'tax_period' => data_get($operation, 'taxPeriod'),
-            'tax_doc_number' => data_get($operation, 'taxDocNumber'),
-            'tax_doc_date' => data_get($operation, 'taxDocDate'),
-            'tax_type' => data_get($operation, 'taxType'),
-            'execution_order' => data_get($operation, 'executionOrder'),
-        ]], ['transaction_hash'], [
-            'bank_transaction_id',
-            '1c_bank_id',
-            '1c_account_number',
-            'operation_id',
-            'id',
-            '1c_date',
-            '1c_amount',
-            'draw_date',
-            'payer_name',
-            'payer_inn',
-            'payer_account',
-            'payer_bic',
-            'payer_bank',
-            'charge_cate',
-            'recipient',
-            'recipient_inn',
-            'recipient_account',
-            'recipient_bic',
-            'recipient_bank',
-            'recipient_corr_account',
-            'payment_type',
-            'operation_type',
-            'uin',
-            '1c_payment_purpose',
-            'creator_status',
-            'payer_kpp',
-            'recipient_kpp',
-            'kbk',
-            'oktmo',
-            'tax_evidence',
-            'tax_period',
-            'tax_doc_number',
-            'tax_doc_date',
-            'tax_type',
-            'execution_order',
-        ]);
-    }
-
     private function upsertDocumentBankTransaction(
         array $operation,
-        int $bankTransactionId,
         object $account,
         string $bankId,
         string $accountNumber,
@@ -723,7 +530,6 @@ SQL);
                 'bank_id' => $bankId,
                 'account_number' => $accountNumber,
                 'bank_account_id' => (int) $account->bank_account_id,
-                'bank_transaction_id' => $bankTransactionId,
             ]),
             $now,
             $now,
@@ -735,7 +541,6 @@ SQL);
         DB::statement('
             INSERT INTO legal.document_bank_transaction (
                 document_id,
-                bank_transaction_id,
                 bank_account_id,
                 bank_id,
                 account_number,
@@ -779,12 +584,11 @@ SQL);
                 created_at,
                 updated_at
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?
             )
             ON CONFLICT (bank_account_id, external_operation_id)
             DO UPDATE SET
                 document_id = EXCLUDED.document_id,
-                bank_transaction_id = EXCLUDED.bank_transaction_id,
                 bank_id = EXCLUDED.bank_id,
                 account_number = EXCLUDED.account_number,
                 external_id = EXCLUDED.external_id,
@@ -826,7 +630,6 @@ SQL);
                 updated_at = EXCLUDED.updated_at
         ', [
             $documentId,
-            $bankTransactionId,
             (int) $account->bank_account_id,
             $bankId,
             $accountNumber,
@@ -902,7 +705,6 @@ SQL);
         float $signedAmount,
         string $sourceSystem,
         ?int $apiSyncRequestId,
-        int $bankTransactionId,
         array $sourceContext = [],
     ): int {
         $operationId = (string) data_get($operation, 'operationId');
@@ -914,7 +716,6 @@ SQL);
             'bank_id' => $bankId,
             'account_number' => $accountNumber,
             'bank_account_id' => (int) $account->bank_account_id,
-            'bank_transaction_id' => $bankTransactionId,
         ];
 
         if ($sourceContext !== []) {
@@ -1276,11 +1077,6 @@ SQL, [
     private function currency(array $operation, object $account): string
     {
         return (string) (data_get($operation, 'currency') ?: ($account->currency ?? 'RUB'));
-    }
-
-    private function nextReconciliationId(): int
-    {
-        return (int) DB::table('legal.legal_reconciliation')->max('reconciliation_id') + 1;
     }
 
     private function signedAmount(array $operation, string $accountNumber): float

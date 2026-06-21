@@ -48,7 +48,6 @@ SELECT
     jsonb_build_object(
         'source', 'document_bank_transaction',
         'bank_account_id', dbt.bank_account_id,
-        'bank_transaction_id', dbt.bank_transaction_id,
         'external_operation_id', dbt.external_operation_id
     ),
     now(),
