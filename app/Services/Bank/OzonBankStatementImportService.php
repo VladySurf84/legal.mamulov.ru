@@ -4,7 +4,9 @@ namespace App\Services\Bank;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 class OzonBankStatementImportService
 {
@@ -16,29 +18,76 @@ class OzonBankStatementImportService
         private readonly TinkoffBankSyncService $bankSyncService = new TinkoffBankSyncService,
     ) {}
 
-    public function importFile(string $file, ?string $bankId = null, bool $rebuildMoneyLayer = false): array
+    public function importFile(
+        string $file,
+        ?string $bankId = null,
+        bool $rebuildMoneyLayer = false,
+        ?string $sourceFileName = null,
+        ?int $uploadedByUserId = null,
+    ): array
     {
-        ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile($file);
-
-        $bankId ??= $this->bankIdByAccountNumber($accountNumber);
-        $operations = array_map(fn (array $row): array => $this->map1CClientBankExchangeRow($row), $rows);
-        $count = $this->bankSyncService->upsertImportedOperations(
-            $operations,
-            $bankId,
-            $accountNumber,
-            self::DOCUMENT_SOURCE_OZON_BANK_FILE,
-        );
-
-        if ($rebuildMoneyLayer) {
-            app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
+        if (! is_file($file)) {
+            throw new RuntimeException("File '{$file}' was not found.");
         }
 
-        return [
-            'bank_id' => $bankId,
-            'account_number' => $accountNumber,
-            'rows' => count($rows),
-            'operations' => $count,
-        ];
+        $sourceFileName ??= basename($file);
+        $fileHash = hash_file('sha256', $file);
+        $fileSize = filesize($file);
+        $now = now();
+        $importRunId = $this->startImportRun($sourceFileName, $fileHash, $fileSize !== false ? $fileSize : null, $bankId);
+
+        try {
+            $storedPath = $this->storeOriginal($file, $sourceFileName, $fileHash, $importRunId);
+            $uploadedFileId = $this->insertUploadedFile(
+                $importRunId,
+                $sourceFileName,
+                $storedPath,
+                $fileHash,
+                $fileSize !== false ? $fileSize : 0,
+                $uploadedByUserId,
+                $now,
+            );
+
+            ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile(
+                Storage::disk('local')->path($storedPath)
+            );
+
+            $bankId ??= $this->bankIdByAccountNumber($accountNumber);
+            $operations = array_map(fn (array $row): array => $this->map1CClientBankExchangeRow($row), $rows);
+            $count = $this->bankSyncService->upsertImportedOperations(
+                $operations,
+                $bankId,
+                $accountNumber,
+                self::DOCUMENT_SOURCE_OZON_BANK_FILE,
+            );
+
+            if ($rebuildMoneyLayer) {
+                app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
+            }
+
+            $this->finishImportRun($importRunId, 'success', count($rows), $count, [
+                'bank_id' => $bankId,
+                'account_number' => $accountNumber,
+                'uploaded_file_id' => $uploadedFileId,
+                'stored_path' => $storedPath,
+            ]);
+
+            return [
+                'import_run_id' => $importRunId,
+                'uploaded_file_id' => $uploadedFileId,
+                'stored_path' => $storedPath,
+                'bank_id' => $bankId,
+                'account_number' => $accountNumber,
+                'rows' => count($rows),
+                'operations' => $count,
+            ];
+        } catch (Throwable $exception) {
+            $this->finishImportRun($importRunId, 'failed', 0, 0, [
+                'bank_id' => $bankId,
+            ], $exception);
+
+            throw $exception;
+        }
     }
 
     /**
@@ -242,5 +291,141 @@ class OzonBankStatementImportService
         }
 
         return $bankIds[0];
+    }
+
+    private function startImportRun(string $sourceFileName, string $fileHash, ?int $fileSize, ?string $bankId): int
+    {
+        $now = now();
+        $row = DB::selectOne(<<<'SQL'
+INSERT INTO legal.import_runs (
+    provider,
+    type,
+    status,
+    source_file_name,
+    file_sha256,
+    file_size,
+    metadata,
+    started_at,
+    created_at,
+    updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+RETURNING import_run_id
+SQL, [
+            'ozon_bank',
+            'bank_statement_file_import',
+            'started',
+            $sourceFileName,
+            $fileHash,
+            $fileSize,
+            $this->json([
+                'bank_id' => $bankId,
+                'format' => '1CClientBankExchange',
+            ]),
+            $now,
+            $now,
+            $now,
+        ]);
+
+        return (int) $row->import_run_id;
+    }
+
+    private function finishImportRun(
+        int $importRunId,
+        string $status,
+        int $recordsCount,
+        int $operationsCount,
+        array $metadata,
+        ?Throwable $exception = null,
+    ): void {
+        DB::table('legal.import_runs')
+            ->where('import_run_id', $importRunId)
+            ->update([
+                'status' => $status,
+                'records_count' => $recordsCount,
+                'operations_count' => $operationsCount,
+                'error' => $exception?->getMessage(),
+                'metadata' => $this->json($metadata),
+                'finished_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    private function insertUploadedFile(
+        int $importRunId,
+        string $sourceFileName,
+        string $storedPath,
+        string $fileHash,
+        int $fileSize,
+        ?int $uploadedByUserId,
+        Carbon $now,
+    ): int {
+        $row = DB::selectOne(<<<'SQL'
+INSERT INTO legal.uploaded_files (
+    import_run_id,
+    provider,
+    file_role,
+    source_file_name,
+    stored_path,
+    mime_type,
+    file_sha256,
+    file_size,
+    uploaded_by_user_id,
+    metadata,
+    uploaded_at,
+    created_at,
+    updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+ON CONFLICT (stored_path)
+DO UPDATE SET
+    import_run_id = EXCLUDED.import_run_id,
+    source_file_name = EXCLUDED.source_file_name,
+    mime_type = EXCLUDED.mime_type,
+    file_sha256 = EXCLUDED.file_sha256,
+    file_size = EXCLUDED.file_size,
+    uploaded_by_user_id = EXCLUDED.uploaded_by_user_id,
+    metadata = EXCLUDED.metadata,
+    uploaded_at = EXCLUDED.uploaded_at,
+    updated_at = EXCLUDED.updated_at
+RETURNING uploaded_file_id
+SQL, [
+            $importRunId,
+            'ozon_bank',
+            'bank_statement_source',
+            $sourceFileName,
+            $storedPath,
+            'text/plain',
+            $fileHash,
+            $fileSize,
+            $uploadedByUserId,
+            $this->json([
+                'format' => '1CClientBankExchange',
+            ]),
+            $now,
+            $now,
+            $now,
+        ]);
+
+        return (int) $row->uploaded_file_id;
+    }
+
+    private function storeOriginal(string $file, string $sourceFileName, string $fileHash, int $importRunId): string
+    {
+        $safeName = preg_replace('/[^A-Za-z0-9_.-]+/', '_', $sourceFileName) ?: 'ozon-bank-statement.txt';
+        $storedPath = sprintf(
+            'legal/imports/ozon-bank/%s/run_%d/%s_%s',
+            now()->format('Y/m/d'),
+            $importRunId,
+            substr($fileHash, 0, 12),
+            $safeName,
+        );
+
+        Storage::disk('local')->put($storedPath, file_get_contents($file));
+
+        return $storedPath;
+    }
+
+    private function json(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 }

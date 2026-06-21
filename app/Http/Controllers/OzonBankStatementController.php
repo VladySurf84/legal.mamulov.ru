@@ -36,6 +36,8 @@ class OzonBankStatementController extends Controller
                 $file->getRealPath(),
                 ($validated['bank_id'] ?? '') !== '' ? $validated['bank_id'] : null,
                 (bool) ($validated['rebuild_money_layer'] ?? false),
+                $file->getClientOriginalName(),
+                $request->user()?->getAuthIdentifier(),
             );
         } catch (Throwable $exception) {
             return back()
@@ -46,7 +48,9 @@ class OzonBankStatementController extends Controller
         return redirect()
             ->route('ozon-bank-statements.create')
             ->with('status', sprintf(
-                'Файл Ozon импортирован: банк %s, счет %s, строк %d, операций %d.',
+                'Файл Ozon импортирован: запуск #%d, файл #%d, банк %s, счет %s, строк %d, операций %d.',
+                $summary['import_run_id'],
+                $summary['uploaded_file_id'],
                 $summary['bank_id'],
                 $summary['account_number'],
                 $summary['rows'],

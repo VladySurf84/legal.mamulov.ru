@@ -10,6 +10,8 @@ use Throwable;
 
 class TinkoffBusinessClient
 {
+    private ?int $lastRequestId = null;
+
     public function accounts(string $token, int $syncRunId): array
     {
         $response = $this->get($token, $syncRunId, '/api/v3/bank-accounts');
@@ -24,6 +26,19 @@ class TinkoffBusinessClient
             'from' => $from,
             'till' => $till,
         ]);
+    }
+
+    /**
+     * @return array{data: array<string, mixed>|array<int, mixed>, api_sync_request_id: int|null}
+     */
+    public function statementWithRequest(string $token, int $syncRunId, string $accountNumber, string $from, string $till): array
+    {
+        $data = $this->statement($token, $syncRunId, $accountNumber, $from, $till);
+
+        return [
+            'data' => $data,
+            'api_sync_request_id' => $this->lastRequestId,
+        ];
     }
 
     private function request(string $token): PendingRequest
@@ -46,7 +61,7 @@ class TinkoffBusinessClient
 
         try {
             $response = $this->request($token)->get($url, $params);
-            $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $response, $startedAt);
+            $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $response, $startedAt);
             $response->throw();
 
             $json = $response->json();
@@ -54,7 +69,7 @@ class TinkoffBusinessClient
             return is_array($json) ? $json : [];
         } catch (Throwable $exception) {
             if (! isset($response)) {
-                $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, null, $startedAt, $exception);
+                $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, null, $startedAt, $exception);
             }
 
             throw $exception;
@@ -70,11 +85,11 @@ class TinkoffBusinessClient
         ?Response $response,
         float $startedAt,
         ?Throwable $exception = null,
-    ): void {
+    ): int {
         $body = $response?->body();
         $now = now();
 
-        DB::insert(<<<'SQL'
+        $row = DB::selectOne(<<<'SQL'
 INSERT INTO legal.api_sync_requests (
     api_sync_run_id,
     provider,
@@ -94,6 +109,7 @@ INSERT INTO legal.api_sync_requests (
 ) VALUES (
     ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
 )
+RETURNING api_sync_request_id
 SQL, [
             $syncRunId,
             'tinkoff',
@@ -112,6 +128,8 @@ SQL, [
             $now,
             $now,
         ]);
+
+        return (int) $row->api_sync_request_id;
     }
 
     private function json(array $value): string

@@ -75,16 +75,17 @@ class TinkoffBankSyncService
                 });
 
                 foreach ($this->periodChunks($fromDate, $tillDate, $chunkDays) as [$chunkFrom, $chunkTill]) {
-                    $statement = $this->client->statement(
+                    $statementResult = $this->client->statementWithRequest(
                         $credential['token'],
                         $syncRunId,
                         $credential['account_number'],
                         $chunkFrom,
                         $chunkTill
                     );
-                    $operations = $this->operationsFromStatement($statement);
+                    $operations = $this->operationsFromStatement($statementResult['data']);
+                    $apiSyncRequestId = $statementResult['api_sync_request_id'];
 
-                    DB::transaction(function () use ($operations, $credential): void {
+                    DB::transaction(function () use ($operations, $credential, $apiSyncRequestId): void {
                         DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
 
                         foreach ($operations as $operation) {
@@ -92,7 +93,8 @@ class TinkoffBankSyncService
                                 $operation,
                                 $credential['account_number'],
                                 self::BANK_ID_TINKOFF,
-                                self::DOCUMENT_SOURCE_TINKOFF_BANK
+                                self::DOCUMENT_SOURCE_TINKOFF_BANK,
+                                $apiSyncRequestId
                             );
                         }
                     });
@@ -293,7 +295,7 @@ class TinkoffBankSyncService
             $count = 0;
 
             foreach ($operations as $operation) {
-                $this->upsertOperation($operation, $accountNumber, $bankId, $sourceSystem);
+                $this->upsertOperation($operation, $accountNumber, $bankId, $sourceSystem, null);
                 $count++;
             }
 
@@ -306,6 +308,7 @@ class TinkoffBankSyncService
         string $accountNumber,
         string $bankId,
         string $sourceSystem,
+        ?int $apiSyncRequestId,
     ): void
     {
         $operationId = (string) data_get($operation, 'operationId');
@@ -339,7 +342,7 @@ class TinkoffBankSyncService
         }
 
         $this->upsertBankTransaction1c($operation, $bankTransactionId, $bankId, $accountNumber);
-        $this->upsertDocumentBankTransaction(
+        $documentId = $this->upsertDocumentBankTransaction(
             $operation,
             $bankTransactionId,
             $account,
@@ -348,6 +351,19 @@ class TinkoffBankSyncService
             $signedAmount,
             $sourceSystem
         );
+
+        $sourceRecordId = $this->upsertSourceRecordForBankOperation(
+            $operation,
+            $account,
+            $bankId,
+            $accountNumber,
+            $signedAmount,
+            $sourceSystem,
+            $apiSyncRequestId,
+            $bankTransactionId,
+        );
+
+        $this->upsertDocumentSource($documentId, $sourceRecordId, $sourceSystem);
     }
 
     private function insertParents(array $operation, int $legalId, string $bankId, string $accountNumber, float $signedAmount): int
@@ -517,7 +533,7 @@ class TinkoffBankSyncService
         string $accountNumber,
         float $signedAmount,
         string $sourceSystem,
-    ): void {
+    ): int {
         $operationId = (string) data_get($operation, 'operationId');
         $externalId = $this->documentExternalId($bankId, $accountNumber, $operationId);
         $operationDate = $this->date(data_get($operation, 'date'));
@@ -735,6 +751,239 @@ class TinkoffBankSyncService
             'bic' => data_get($operation, 'recipientBic'),
             'bank' => data_get($operation, 'recipientBank'),
             'corr_account' => data_get($operation, 'recipientCorrAccount'),
+        ]);
+
+        return $documentId;
+    }
+
+    private function upsertSourceRecordForBankOperation(
+        array $operation,
+        object $account,
+        string $bankId,
+        string $accountNumber,
+        float $signedAmount,
+        string $sourceSystem,
+        ?int $apiSyncRequestId,
+        int $bankTransactionId,
+    ): int {
+        $operationId = (string) data_get($operation, 'operationId');
+        $externalId = $this->documentExternalId($bankId, $accountNumber, $operationId);
+        $operationDate = $this->date(data_get($operation, 'date'));
+        $now = now();
+
+        $sourceRecord = DB::selectOne(<<<'SQL'
+INSERT INTO legal.source_records (
+    source_system,
+    source_channel,
+    source_record_type,
+    external_id,
+    external_hash,
+    source_api_sync_request_id,
+    received_at,
+    recorded_at,
+    raw_payload,
+    metadata,
+    created_at,
+    updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)
+ON CONFLICT (source_system, source_record_type, external_id)
+    WHERE external_id IS NOT NULL
+DO UPDATE SET
+    source_channel = EXCLUDED.source_channel,
+    external_hash = EXCLUDED.external_hash,
+    source_api_sync_request_id = EXCLUDED.source_api_sync_request_id,
+    received_at = EXCLUDED.received_at,
+    recorded_at = EXCLUDED.recorded_at,
+    raw_payload = EXCLUDED.raw_payload,
+    metadata = EXCLUDED.metadata,
+    updated_at = EXCLUDED.updated_at
+RETURNING source_record_id
+SQL, [
+            $sourceSystem,
+            $apiSyncRequestId !== null ? 'api' : 'imported_operation',
+            'bank_statement_line',
+            $externalId,
+            hash('sha256', $externalId.'|'.$this->json($operation)),
+            $apiSyncRequestId,
+            $now,
+            $operationDate,
+            $this->json($operation),
+            $this->json([
+                'bank_id' => $bankId,
+                'account_number' => $accountNumber,
+                'bank_account_id' => (int) $account->bank_account_id,
+                'bank_transaction_id' => $bankTransactionId,
+            ]),
+            $now,
+            $now,
+        ]);
+
+        $sourceRecordId = (int) $sourceRecord->source_record_id;
+
+        DB::table('legal.source_record_bank_details')->upsert([[
+            'source_record_id' => $sourceRecordId,
+            'bank_account_id' => (int) $account->bank_account_id,
+            'bank_id' => $bankId,
+            'account_number' => $accountNumber,
+            'external_operation_id' => $operationId,
+            'operation_date' => $operationDate,
+            'draw_date' => $this->date(data_get($operation, 'drawDate')),
+            'charge_date' => $this->date(data_get($operation, 'chargeDate')),
+            'order_intraday' => $operationId,
+            'payment_purpose' => $this->nullableString(data_get($operation, 'paymentPurpose')),
+            'payment_type' => $this->nullableString(data_get($operation, 'paymentType')),
+            'operation_type' => $this->nullableString(data_get($operation, 'operationType')),
+            'signed_amount' => $signedAmount,
+            'saldo' => data_get($operation, 'saldo'),
+            'tax_fields' => $this->json([
+                'uin' => $this->nullableString(data_get($operation, 'uin')),
+                'creator_status' => $this->nullableString(data_get($operation, 'creatorStatus')),
+                'kbk' => $this->nullableString(data_get($operation, 'kbk')),
+                'oktmo' => $this->nullableString(data_get($operation, 'oktmo')),
+                'tax_evidence' => $this->nullableString(data_get($operation, 'taxEvidence')),
+                'tax_period' => $this->nullableString(data_get($operation, 'taxPeriod')),
+                'tax_doc_number' => $this->nullableString(data_get($operation, 'taxDocNumber')),
+                'tax_doc_date' => $this->nullableString(data_get($operation, 'taxDocDate')),
+                'tax_type' => $this->nullableString(data_get($operation, 'taxType')),
+                'execution_order' => $this->nullableString(data_get($operation, 'executionOrder')),
+            ]),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]], ['source_record_id'], [
+            'bank_account_id',
+            'bank_id',
+            'account_number',
+            'external_operation_id',
+            'operation_date',
+            'draw_date',
+            'charge_date',
+            'order_intraday',
+            'payment_purpose',
+            'payment_type',
+            'operation_type',
+            'signed_amount',
+            'saldo',
+            'tax_fields',
+            'updated_at',
+        ]);
+
+        $this->upsertSourceRecordParty($sourceRecordId, 'payer', [
+            'name' => data_get($operation, 'payerName'),
+            'inn' => data_get($operation, 'payerInn'),
+            'kpp' => data_get($operation, 'payerKpp'),
+            'account' => data_get($operation, 'payerAccount'),
+            'bic' => data_get($operation, 'payerBic'),
+            'bank' => data_get($operation, 'payerBank'),
+            'corr_account' => data_get($operation, 'payerCorrAccount'),
+        ]);
+
+        $this->upsertSourceRecordParty($sourceRecordId, 'recipient', [
+            'name' => data_get($operation, 'recipient'),
+            'inn' => data_get($operation, 'recipientInn'),
+            'kpp' => data_get($operation, 'recipientKpp'),
+            'account' => data_get($operation, 'recipientAccount'),
+            'bic' => data_get($operation, 'recipientBic'),
+            'bank' => data_get($operation, 'recipientBank'),
+            'corr_account' => data_get($operation, 'recipientCorrAccount'),
+        ]);
+
+        DB::table('legal.source_record_amounts')->upsert([[
+            'source_record_id' => $sourceRecordId,
+            'amount_type' => 'statement_amount',
+            'amount' => (float) data_get($operation, 'amount', 0),
+            'currency' => $this->currency($operation, $account),
+            'tax_rate' => null,
+            'raw_payload' => $this->json([
+                'amount' => data_get($operation, 'amount'),
+                'signed_amount' => $signedAmount,
+            ]),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]], ['source_record_id', 'amount_type'], [
+            'amount',
+            'currency',
+            'tax_rate',
+            'raw_payload',
+            'updated_at',
+        ]);
+
+        return $sourceRecordId;
+    }
+
+    /**
+     * @param  array{name: mixed, inn: mixed, kpp: mixed, account: mixed, bic: mixed, bank: mixed, corr_account: mixed}  $party
+     */
+    private function upsertSourceRecordParty(int $sourceRecordId, string $role, array $party): void
+    {
+        $name = $this->nullableString($party['name']);
+
+        if ($name === null) {
+            return;
+        }
+
+        DB::table('legal.source_record_parties')->upsert([[
+            'source_record_id' => $sourceRecordId,
+            'source_party_role' => $role,
+            'role_index' => 1,
+            'party_name' => $name,
+            'inn' => $this->nullableString($party['inn']),
+            'kpp' => $this->nullableString($party['kpp']),
+            'account_number' => $this->nullableString($party['account']),
+            'bank_bic' => $this->nullableString($party['bic']),
+            'bank_name' => $this->nullableString($party['bank']),
+            'address' => null,
+            'raw_payload' => $this->json([
+                'corr_account' => $this->nullableString($party['corr_account']),
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]], ['source_record_id', 'source_party_role', 'role_index'], [
+            'party_name',
+            'inn',
+            'kpp',
+            'account_number',
+            'bank_bic',
+            'bank_name',
+            'address',
+            'raw_payload',
+            'updated_at',
+        ]);
+    }
+
+    private function upsertDocumentSource(int $documentId, int $sourceRecordId, string $sourceSystem): void
+    {
+        DB::statement(<<<'SQL'
+INSERT INTO legal.document_sources (
+    document_id,
+    source_record_id,
+    source_item_key,
+    source_role,
+    confidence,
+    matched_by,
+    matched_at,
+    metadata,
+    created_at,
+    updated_at
+) VALUES (?, ?, '', 'primary', 1, ?, ?, ?::jsonb, ?, ?)
+ON CONFLICT (source_record_id, source_item_key)
+DO UPDATE SET
+    document_id = EXCLUDED.document_id,
+    source_role = EXCLUDED.source_role,
+    confidence = EXCLUDED.confidence,
+    matched_by = EXCLUDED.matched_by,
+    matched_at = EXCLUDED.matched_at,
+    metadata = EXCLUDED.metadata,
+    updated_at = EXCLUDED.updated_at
+SQL, [
+            $documentId,
+            $sourceRecordId,
+            $sourceSystem.'_sync',
+            now(),
+            $this->json([
+                'source_system' => $sourceSystem,
+            ]),
+            now(),
+            now(),
         ]);
     }
 

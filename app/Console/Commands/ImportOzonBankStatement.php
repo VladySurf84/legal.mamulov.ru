@@ -16,14 +16,18 @@ class ImportOzonBankStatement extends Command
 
     public function handle(OzonBankStatementImportService $service): int
     {
+        $file = (string) $this->argument('file');
         $summary = $service->importFile(
-            (string) $this->argument('file'),
+            $file,
             $this->bankIdOption(),
             (bool) $this->option('rebuild-money-layer'),
+            basename($file),
         );
 
         $this->info(sprintf(
-            'Ozon bank statement imported: bank %s, account %s, %d row(s), %d operation(s).',
+            'Ozon bank statement imported: run #%d, file #%d, bank %s, account %s, %d row(s), %d operation(s).',
+            $summary['import_run_id'],
+            $summary['uploaded_file_id'],
             $summary['bank_id'],
             $summary['account_number'],
             $summary['rows'],
