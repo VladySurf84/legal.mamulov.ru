@@ -6,6 +6,39 @@
             <h1>Банковские транзакции</h1>
             <div class="subtle">Операции из банка, связанные со сверкой и юридическими лицами.</div>
         </div>
+        <div class="api-sync-control">
+            <form class="api-sync-main-form" method="post" action="{{ route('bank-transactions.sync') }}">
+                @csrf
+                <button class="api-sync-button" type="submit">
+                    <span class="api-sync-dot"></span>
+                    Все API-счета
+                </button>
+            </form>
+            <details class="api-sync-dropdown">
+                <summary class="api-sync-toggle" title="Выбрать счет">
+                    <span class="api-sync-caret"></span>
+                </summary>
+                <div class="api-sync-menu">
+                    @if ($apiAccounts->isNotEmpty())
+                        @foreach ($apiAccounts as $account)
+                            <form method="post" action="{{ route('bank-transactions.sync') }}">
+                                @csrf
+                                <input type="hidden" name="account_number" value="{{ $account->account_number }}">
+                                <button type="submit" title="Обновить счет {{ $account->account_number }}">
+                                    <span class="api-sync-dot"></span>
+                                    <span class="api-sync-account">
+                                        <span>{{ $account->name ?: $account->account_number }}</span>
+                                        <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
+                                    </span>
+                                </button>
+                            </form>
+                        @endforeach
+                    @else
+                        <div class="subtle" style="padding: 8px 10px;">API-счета Тинькофф пока не найдены.</div>
+                    @endif
+                </div>
+            </details>
+        </div>
     </div>
 
     @if (session('status'))
@@ -25,22 +58,10 @@
     @endif
 
     <style>
-        .api-sync-panel {
-            margin-bottom: 16px;
-            padding: 14px;
-            display: grid;
-            gap: 12px;
-        }
-
-        .api-sync-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .api-sync-title {
-            font-weight: 700;
+        .api-sync-control {
+            display: inline-flex;
+            align-items: stretch;
+            flex-shrink: 0;
         }
 
         .api-sync-dropdown {
@@ -163,46 +184,6 @@
             font-size: 11px;
         }
     </style>
-
-    <div class="panel api-sync-panel">
-        <div class="api-sync-head">
-            <div>
-                <div class="api-sync-title">API синхронизация</div>
-                <div class="subtle">Загружает последние операции Тинькофф и сохраняет их в новую source-структуру.</div>
-            </div>
-            <form class="api-sync-main-form" method="post" action="{{ route('bank-transactions.sync') }}">
-                @csrf
-                <button class="api-sync-button" type="submit">
-                    <span class="api-sync-dot"></span>
-                    Все API-счета
-                </button>
-            </form>
-            <details class="api-sync-dropdown">
-                <summary class="api-sync-toggle" title="Выбрать счет">
-                    <span class="api-sync-caret"></span>
-                </summary>
-                <div class="api-sync-menu">
-                    @if ($apiAccounts->isNotEmpty())
-                        @foreach ($apiAccounts as $account)
-                            <form method="post" action="{{ route('bank-transactions.sync') }}">
-                                @csrf
-                                <input type="hidden" name="account_number" value="{{ $account->account_number }}">
-                                <button type="submit" title="Обновить счет {{ $account->account_number }}">
-                                    <span class="api-sync-dot"></span>
-                                    <span class="api-sync-account">
-                                        <span>{{ $account->name ?: $account->account_number }}</span>
-                                        <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
-                                    </span>
-                                </button>
-                            </form>
-                        @endforeach
-                    @else
-                        <div class="subtle" style="padding: 8px 10px;">API-счета Тинькофф пока не найдены.</div>
-                    @endif
-                </div>
-            </details>
-        </div>
-    </div>
 
     <div class="panel" style="margin-bottom: 16px;">
         <form class="form" method="get" action="{{ route('bank-transactions.index') }}">
