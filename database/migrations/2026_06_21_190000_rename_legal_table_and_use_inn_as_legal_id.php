@@ -70,7 +70,7 @@ SQL);
         DB::statement(<<<'SQL'
 CREATE TEMP TABLE legal_own_id_map ON COMMIT DROP AS
 SELECT
-    legal_id AS old_legal_id,
+    legal_id::text AS old_legal_id,
     legal_inn::text AS new_legal_id
 FROM legal.legal_own
 SQL);
@@ -139,7 +139,7 @@ SQL);
 UPDATE legal.legal_own own
 SET legal_id = map.new_legal_id
 FROM legal_own_id_map map
-WHERE own.legal_id = map.old_legal_id
+WHERE own.legal_id::text = map.old_legal_id
 SQL);
     }
 
@@ -147,7 +147,7 @@ SQL);
     {
         foreach ($this->legalIdTables() as $table) {
             DB::statement(sprintf(
-                'UPDATE %s target SET legal_id = map.new_legal_id FROM legal_own_id_map map WHERE target.legal_id = map.old_legal_id',
+                'UPDATE %s target SET legal_id = map.new_legal_id FROM legal_own_id_map map WHERE target.legal_id::text = map.old_legal_id',
                 $table
             ));
         }
@@ -156,7 +156,7 @@ SQL);
 UPDATE legal.legal_brand target
 SET legal_id_owner = map.new_legal_id
 FROM legal_own_id_map map
-WHERE target.legal_id_owner = map.old_legal_id
+WHERE target.legal_id_owner::text = map.old_legal_id
 SQL);
 
         DB::statement(<<<'SQL'
@@ -165,7 +165,7 @@ SET owner_id = map.new_legal_id,
     updated_at = now()
 FROM legal_own_id_map map
 WHERE target.owner_type = 'legal'
-    AND target.owner_id = map.old_legal_id
+    AND target.owner_id::text = map.old_legal_id
 SQL);
     }
 
