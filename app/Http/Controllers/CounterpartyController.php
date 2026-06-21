@@ -82,16 +82,52 @@ opening_agg AS (
     WHERE {$openingWhere}
     GROUP BY btrim(ob.contractor_inn::text)
 ),
-vat_agg AS (
+bank_vat_agg AS (
     SELECT
         btrim(ve.contractor_inn::text) AS contractor_inn,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
+        COALESCE(sum(ve.signed_vat_amount), 0) AS bank_vat
     FROM legal.vat_events ve
     WHERE ve.contractor_inn IS NOT NULL
         AND btrim(ve.contractor_inn::text) <> ''
+        AND ve.source_system = 'bank_payment_vat'
         AND {$vatWhere}
+        AND ve.occurred_on >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = ve.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(ve.contractor_inn::text)
+        ), '-infinity'::date)
     GROUP BY btrim(ve.contractor_inn::text)
+),
+accountant_vat_agg AS (
+    SELECT
+        btrim(e.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(e.vat_amount), 0) AS accountant_vat
+    FROM legal.vat_book_entries e
+    JOIN legal.vat_book_imports i
+        ON i.vat_book_import_id = e.vat_book_import_id
+    WHERE i.is_active
+        AND e.book_type = 'purchase'
+        AND e.contractor_inn IS NOT NULL
+        AND btrim(e.contractor_inn::text) <> ''
+        AND e.vat_amount IS NOT NULL
+        AND {$buhWhere}
+        AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = e.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(e.contractor_inn::text)
+        ), '-infinity'::date)
+    GROUP BY btrim(e.contractor_inn::text)
+),
+vat_agg AS (
+    SELECT
+        COALESCE(bva.contractor_inn, ava.contractor_inn) AS contractor_inn,
+        COALESCE(bva.bank_vat, 0) AS bank_vat,
+        COALESCE(ava.accountant_vat, 0) AS accountant_vat
+    FROM bank_vat_agg bva
+    FULL JOIN accountant_vat_agg ava
+        ON ava.contractor_inn = bva.contractor_inn
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
@@ -109,7 +145,7 @@ SELECT
     COALESCE(ba.buh_saldo, 0) AS buh_saldo,
     COALESCE(oa.opening_amount, 0) AS opening_amount,
     COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0) AS saldo_diff,
-    COALESCE(va.bank_vat, 0) - COALESCE(va.accountant_vat, 0) AS vat_diff,
+    COALESCE(va.bank_vat, 0) + COALESCE(va.accountant_vat, 0) AS vat_diff,
     COALESCE(da.income_amount, 0) AS income_amount,
     COALESCE(da.expense_amount, 0) AS expense_amount,
     COALESCE(da.operations_count, 0) AS operations_count,
@@ -180,16 +216,52 @@ opening_agg AS (
     WHERE {$openingWhere}
     GROUP BY btrim(ob.contractor_inn::text)
 ),
-vat_agg AS (
+bank_vat_agg AS (
     SELECT
         btrim(ve.contractor_inn::text) AS contractor_inn,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'bank_payment_vat'), 0) AS bank_vat,
-        COALESCE(sum(ve.signed_vat_amount) FILTER (WHERE ve.source_system = 'accountant_vat_book'), 0) AS accountant_vat
+        COALESCE(sum(ve.signed_vat_amount), 0) AS bank_vat
     FROM legal.vat_events ve
     WHERE ve.contractor_inn IS NOT NULL
         AND btrim(ve.contractor_inn::text) <> ''
+        AND ve.source_system = 'bank_payment_vat'
         AND {$vatWhere}
+        AND ve.occurred_on >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = ve.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(ve.contractor_inn::text)
+        ), '-infinity'::date)
     GROUP BY btrim(ve.contractor_inn::text)
+),
+accountant_vat_agg AS (
+    SELECT
+        btrim(e.contractor_inn::text) AS contractor_inn,
+        COALESCE(sum(e.vat_amount), 0) AS accountant_vat
+    FROM legal.vat_book_entries e
+    JOIN legal.vat_book_imports i
+        ON i.vat_book_import_id = e.vat_book_import_id
+    WHERE i.is_active
+        AND e.book_type = 'purchase'
+        AND e.contractor_inn IS NOT NULL
+        AND btrim(e.contractor_inn::text) <> ''
+        AND e.vat_amount IS NOT NULL
+        AND {$buhWhere}
+        AND COALESCE(e.invoice_date, e.acceptance_date, e.payment_doc_date) >= COALESCE((
+            SELECT max(ob.starts_on)
+            FROM legal.counterparty_opening_balances ob
+            WHERE ob.legal_id = e.legal_id
+                AND btrim(ob.contractor_inn::text) = btrim(e.contractor_inn::text)
+        ), '-infinity'::date)
+    GROUP BY btrim(e.contractor_inn::text)
+),
+vat_agg AS (
+    SELECT
+        COALESCE(bva.contractor_inn, ava.contractor_inn) AS contractor_inn,
+        COALESCE(bva.bank_vat, 0) AS bank_vat,
+        COALESCE(ava.accountant_vat, 0) AS accountant_vat
+    FROM bank_vat_agg bva
+    FULL JOIN accountant_vat_agg ava
+        ON ava.contractor_inn = bva.contractor_inn
 ),
 contractor_keys AS (
     SELECT contractor_inn FROM doc_agg
@@ -206,7 +278,7 @@ SELECT
     COALESCE(sum(COALESCE(ba.buh_saldo, 0)), 0) AS buh_saldo,
     COALESCE(sum(COALESCE(oa.opening_amount, 0)), 0) AS opening_amount,
     COALESCE(sum(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff,
-    COALESCE(sum(COALESCE(va.bank_vat, 0) - COALESCE(va.accountant_vat, 0)), 0) AS vat_diff
+    COALESCE(sum(COALESCE(va.bank_vat, 0) + COALESCE(va.accountant_vat, 0)), 0) AS vat_diff
 FROM contractor_keys ck
 LEFT JOIN doc_agg da
     ON da.contractor_inn = ck.contractor_inn
