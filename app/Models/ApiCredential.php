@@ -36,6 +36,21 @@ class ApiCredential extends Model
         return Crypt::decryptString($this->encrypted_secret);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function secretPayload(): array
+    {
+        $secret = $this->secret();
+        $payload = json_decode($secret, true);
+
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        return ['secret' => $secret];
+    }
+
     public static function encryptSecret(string $secret): string
     {
         return Crypt::encryptString($secret);

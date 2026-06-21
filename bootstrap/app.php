@@ -3,6 +3,7 @@
 use App\Console\Commands\ImportBankDirectories;
 use App\Console\Commands\ImportBankStatement;
 use App\Console\Commands\ImportOzonBankStatement;
+use App\Console\Commands\AuthEdoLight;
 use App\Console\Commands\SetApiCredential;
 use App\Console\Commands\SyncTinkoffBank;
 use App\Console\Commands\UpsertUser;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        AuthEdoLight::class,
         ImportBankDirectories::class,
         ImportBankStatement::class,
         ImportOzonBankStatement::class,
