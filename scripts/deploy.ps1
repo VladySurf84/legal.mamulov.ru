@@ -23,7 +23,11 @@ function Run-Step {
 
     Write-Host ""
     Write-Host "==> $Title" -ForegroundColor Cyan
+    $global:LASTEXITCODE = 0
     & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Title failed with exit code $LASTEXITCODE"
+    }
 }
 
 if (-not (Test-Path $Php)) {
