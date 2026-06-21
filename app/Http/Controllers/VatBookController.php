@@ -174,11 +174,13 @@ class VatBookController extends Controller
         return redirect()
             ->route('vat-books.index')
             ->with('status', sprintf(
-                'Импортирована %s: %d Q%d, строк %d.',
+                'Импортирована %s: %d Q%d, строк %d. НДС-событий %d, связей %d.',
                 $summary['book_type'] === 'purchase' ? 'книга покупок' : 'книга продаж',
                 $summary['year'],
                 $summary['quarter'],
                 $summary['entries_count'],
+                $summary['vat_events_count'],
+                $summary['accountant_report_link_stats']['inserted'],
             ));
     }
 }

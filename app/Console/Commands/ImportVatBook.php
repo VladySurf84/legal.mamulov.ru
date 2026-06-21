@@ -18,13 +18,15 @@ class ImportVatBook extends Command
             $summary = $service->importFile((string) $file);
 
             $this->info(sprintf(
-                'Imported %s: %s %d Q%d, %d row(s), import #%d',
+                'Imported %s: %s %d Q%d, %d row(s), import #%d, %d VAT event(s), %d link(s)',
                 $summary['source_file_name'],
                 $summary['book_type'],
                 $summary['year'],
                 $summary['quarter'],
                 $summary['entries_count'],
                 $summary['vat_book_import_id'],
+                $summary['vat_events_count'],
+                $summary['accountant_report_link_stats']['inserted'],
             ));
         }
 

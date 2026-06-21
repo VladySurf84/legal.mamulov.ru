@@ -2,6 +2,8 @@
 
 namespace App\Services\Vat;
 
+use App\Services\Layers\AccountantReportLinkBuilder;
+use App\Services\Layers\VatLayerBuilder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +13,12 @@ use SimpleXMLElement;
 
 class VatBookImportService
 {
+    public function __construct(
+        private readonly VatLayerBuilder $vatLayerBuilder,
+        private readonly AccountantReportLinkBuilder $accountantReportLinkBuilder,
+    ) {
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -28,7 +36,7 @@ class VatBookImportService
         $xml = $this->loadXml($path);
         $parsed = $this->parse($xml);
 
-        return DB::transaction(function () use ($path, $sourceFileName, $hash, $size, $xml, $parsed): array {
+        $summary = DB::transaction(function () use ($path, $sourceFileName, $hash, $size, $xml, $parsed): array {
             $legalId = $this->legalIdByInn($parsed['owner_inn']);
             $storedPath = $this->storeOriginal($path, $sourceFileName, $hash, $parsed);
             $now = now();
@@ -112,6 +120,15 @@ class VatBookImportService
                 'stored_path' => $storedPath,
             ];
         });
+
+        $summary['vat_events_count'] = $this->vatLayerBuilder->rebuild();
+        $summary['accountant_report_link_stats'] = $this->accountantReportLinkBuilder->rebuild([
+            'legal_id' => $summary['legal_id'],
+            'year' => $summary['year'],
+            'quarter' => $summary['quarter'],
+        ]);
+
+        return $summary;
     }
 
     /**
