@@ -28,6 +28,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
+    Route::post('bank-transactions/sync', [BankTransactionController::class, 'sync'])->name('bank-transactions.sync');
     Route::get('counterparties', [CounterpartyController::class, 'index'])->name('counterparties.index');
     Route::post('counterparties/rebuild-links', [CounterpartyController::class, 'rebuildLinks'])->name('counterparties.rebuild-links');
     Route::get('counterparties/{contractorInn}', [CounterpartyController::class, 'show'])

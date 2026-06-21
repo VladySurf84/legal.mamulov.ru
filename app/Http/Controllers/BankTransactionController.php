@@ -3,14 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use App\Services\Bank\TinkoffBankSyncService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class BankTransactionController extends Controller
 {
     private const PER_PAGE = 100;
+    private const BANK_ID_TINKOFF = '044525974';
 
     public function index(Request $request): View|JsonResponse
     {
@@ -41,18 +45,61 @@ class BankTransactionController extends Controller
             ]);
         }
 
+        $accounts = BankAccount::query()
+            ->with(['bank', 'legalEntity'])
+            ->orderBy('legal_id')
+            ->orderBy('bank_id')
+            ->orderBy('account_number')
+            ->get();
+        $apiBankAccountIds = DB::table('legal.api_credentials as c')
+            ->join('legal.bank_account as ba', 'ba.bank_account_id', '=', 'c.owner_id')
+            ->where('c.provider', 'tinkoff')
+            ->where('c.credential_type', 'bank_api_token')
+            ->where('c.owner_type', 'bank_account')
+            ->where('c.status', 'active')
+            ->where('ba.bank_id', self::BANK_ID_TINKOFF)
+            ->pluck('ba.bank_account_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
         return view('bank-transactions.index', [
-            'accounts' => BankAccount::query()
-                ->with(['bank', 'legalEntity'])
-                ->orderBy('legal_id')
-                ->orderBy('bank_id')
-                ->orderBy('account_number')
-                ->get(),
+            'accounts' => $accounts,
+            'apiAccounts' => $accounts
+                ->whereIn('bank_account_id', $apiBankAccountIds)
+                ->values(),
             'filters' => $filters,
             'transactions' => $transactions,
             'summary' => $summary,
             'nextPage' => $hasMore ? $page + 1 : null,
         ]);
+    }
+
+    public function sync(Request $request, TinkoffBankSyncService $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'account_number' => ['nullable', 'string', 'max:20'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:366'],
+        ]);
+
+        $accountNumber = trim((string) ($validated['account_number'] ?? ''));
+        $days = (int) ($validated['days'] ?? config('bank.tinkoff.sync_days', 5));
+
+        try {
+            $summary = $service->sync($days, $accountNumber !== '' ? $accountNumber : null);
+        } catch (Throwable $exception) {
+            return back()
+                ->withInput()
+                ->with('error', $exception->getMessage());
+        }
+
+        return back()->with('status', sprintf(
+            'Синхронизация Тинькофф завершена: запуск #%d, счетов %d, операций %d, период %s..%s.',
+            $summary['sync_run_id'],
+            $summary['accounts'],
+            $summary['operations'],
+            $summary['from'],
+            $summary['till'],
+        ));
     }
 
     /**

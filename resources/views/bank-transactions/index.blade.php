@@ -8,6 +8,126 @@
         </div>
     </div>
 
+    @if (session('status'))
+        <div class="notice">{{ session('status') }}</div>
+    @endif
+
+    @if (session('error'))
+        <div class="errors">{{ session('error') }}</div>
+    @endif
+
+    @if ($errors->any())
+        <div class="errors">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    <style>
+        .api-sync-panel {
+            margin-bottom: 16px;
+            padding: 14px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .api-sync-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .api-sync-title {
+            font-weight: 700;
+        }
+
+        .api-sync-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .api-sync-button {
+            min-height: 34px;
+            gap: 8px;
+            border-color: #b7e4c7;
+            background: #f6fef9;
+            color: #027a48;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+            transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .05s ease;
+        }
+
+        .api-sync-button:hover {
+            background: #ecfdf3;
+            border-color: #75c69a;
+            color: #02663f;
+            box-shadow: 0 3px 10px rgba(2, 122, 72, .14);
+            text-decoration: none;
+        }
+
+        .api-sync-button:active {
+            transform: translateY(1px);
+        }
+
+        .api-sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #12b76a;
+            box-shadow: 0 0 0 3px #d1fadf;
+        }
+
+        .api-sync-account {
+            display: inline-grid;
+            gap: 1px;
+            text-align: left;
+            line-height: 1.15;
+        }
+
+        .api-sync-account small {
+            color: #667085;
+            font-size: 11px;
+        }
+    </style>
+
+    <div class="panel api-sync-panel">
+        <div class="api-sync-head">
+            <div>
+                <div class="api-sync-title">API синхронизация</div>
+                <div class="subtle">Загружает последние операции Тинькофф и сохраняет их в новую source-структуру.</div>
+            </div>
+            <form method="post" action="{{ route('bank-transactions.sync') }}">
+                @csrf
+                <button class="api-sync-button" type="submit">
+                    <span class="api-sync-dot"></span>
+                    Все API-счета
+                </button>
+            </form>
+        </div>
+
+        @if ($apiAccounts->isNotEmpty())
+            <div class="api-sync-actions">
+                @foreach ($apiAccounts as $account)
+                    <form method="post" action="{{ route('bank-transactions.sync') }}">
+                        @csrf
+                        <input type="hidden" name="account_number" value="{{ $account->account_number }}">
+                        <button class="api-sync-button" type="submit" title="Обновить счет {{ $account->account_number }}">
+                            <span class="api-sync-dot"></span>
+                            <span class="api-sync-account">
+                                <span>{{ $account->name ?: $account->account_number }}</span>
+                                <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
+                            </span>
+                        </button>
+                    </form>
+                @endforeach
+            </div>
+        @else
+            <div class="subtle">API-счета Тинькофф пока не найдены.</div>
+        @endif
+    </div>
+
     <div class="panel" style="margin-bottom: 16px;">
         <form class="form" method="get" action="{{ route('bank-transactions.index') }}">
             <div class="grid">
