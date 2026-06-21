@@ -132,16 +132,22 @@ WITH pre AS (
         ba.name AS bank_account_name,
         to_char(dbt.operation_date, 'DD Mon YY') AS date_format,
         CASE
-            WHEN dbt.signed_amount < 0 THEN COALESCE(dbt.recipient_name, dbt.payer_name)
-            ELSE COALESCE(dbt.payer_name, dbt.recipient_name)
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.recipient_account, '')) THEN COALESCE(dbt.payer_name, dbt.recipient_name)
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.payer_account, '')) THEN COALESCE(dbt.recipient_name, dbt.payer_name)
+            WHEN dbt.signed_amount >= 0 THEN COALESCE(dbt.payer_name, dbt.recipient_name)
+            ELSE COALESCE(dbt.recipient_name, dbt.payer_name)
         END AS name,
         CASE
-            WHEN dbt.signed_amount < 0 THEN dbt.recipient_inn
-            ELSE dbt.payer_inn
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.recipient_account, '')) THEN dbt.payer_inn
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.payer_account, '')) THEN dbt.recipient_inn
+            WHEN dbt.signed_amount >= 0 THEN dbt.payer_inn
+            ELSE dbt.recipient_inn
         END AS contractor_inn,
         CASE
-            WHEN dbt.signed_amount < 0 THEN dbt.recipient_account
-            ELSE dbt.payer_account
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.recipient_account, '')) THEN dbt.payer_account
+            WHEN btrim(dbt.account_number) = btrim(COALESCE(dbt.payer_account, '')) THEN dbt.recipient_account
+            WHEN dbt.signed_amount >= 0 THEN dbt.payer_account
+            ELSE dbt.recipient_account
         END AS contractor_bank_account,
         CASE WHEN dbt.signed_amount < 0 THEN -dbt.signed_amount ELSE NULL END AS amount_p,
         CASE WHEN dbt.signed_amount >= 0 THEN dbt.signed_amount ELSE NULL END AS amount_m,
@@ -161,7 +167,12 @@ WITH pre AS (
         NULL::int AS inner_ip,
         dbt.document_bank_transaction_id AS bank_transaction_id,
         NULL::bigint AS k_id,
-        -SUM(dbt.signed_amount) OVER(ORDER BY dbt.operation_date, dbt.signed_amount > 0, dbt.order_intraday) AS total
+        SUM(dbt.signed_amount) OVER(
+            ORDER BY
+                dbt.operation_date,
+                dbt.order_intraday,
+                dbt.document_bank_transaction_id
+        ) AS total
     FROM legal.document_bank_transaction dbt
     LEFT JOIN legal.bank_account ba
         ON ba.bank_account_id = dbt.bank_account_id
@@ -173,7 +184,10 @@ main AS (
     SELECT pre.* FROM pre
 )
 SELECT * FROM main
-ORDER BY date DESC, amount < 0, order_intraday DESC
+ORDER BY
+    date DESC,
+    order_intraday DESC,
+    bank_transaction_id
 LIMIT :limit OFFSET :offset
 SQL, $queryBindings);
     }

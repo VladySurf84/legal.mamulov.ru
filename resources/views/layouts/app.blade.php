@@ -4,19 +4,65 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Бухгалтерия' }}</title>
+    <script>
+        (function () {
+            var stored = localStorage.getItem('site-template') || 'blade';
+            var aliases = {classic: 'blade', studio: 'tailwind', dark: 'shadcn'};
+            var template = aliases[stored] || stored;
+            document.documentElement.dataset.siteTemplate = template;
+        })();
+    </script>
     <style>
         :root {
             color-scheme: light;
             --bg: #f6f7f9;
             --panel: #ffffff;
+            --panel-soft: #f9fafb;
             --text: #1f2933;
             --muted: #697386;
             --line: #d8dee8;
             --accent: #176b87;
             --accent-strong: #0f4f64;
+            --accent-soft: #eef8fb;
             --danger: #a8323e;
             --success-bg: #e8f5ee;
             --success-text: #256146;
+            --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+            --radius: 8px;
+        }
+
+        html[data-site-template="tailwind"] {
+            --bg: #f3f4f6;
+            --panel: #ffffff;
+            --panel-soft: #f8fafc;
+            --text: #111827;
+            --muted: #64748b;
+            --line: #cbd5e1;
+            --accent: #0f766e;
+            --accent-strong: #115e59;
+            --accent-soft: #ccfbf1;
+            --danger: #be123c;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --shadow: 0 10px 24px rgba(15, 23, 42, .07);
+            --radius: 6px;
+        }
+
+        html[data-site-template="shadcn"] {
+            --bg: oklch(1 0 0);
+            --panel: oklch(1 0 0);
+            --panel-soft: oklch(0.97 0 0);
+            --text: oklch(0.145 0 0);
+            --muted: oklch(0.556 0 0);
+            --line: oklch(0.922 0 0);
+            --accent: oklch(0.205 0 0);
+            --accent-strong: oklch(0.269 0 0);
+            --accent-soft: oklch(0.97 0 0);
+            --danger: oklch(0.577 0.245 27.325);
+            --success-bg: oklch(0.97 0.03 145);
+            --success-text: oklch(0.32 0.09 145);
+            --shadow: none;
+            --radius: 10px;
         }
 
         * { box-sizing: border-box; }
@@ -40,8 +86,9 @@
         .shell { min-height: 100vh; }
 
         .topbar {
-            background: #ffffff;
+            background: var(--panel);
             border-bottom: 1px solid var(--line);
+            box-shadow: var(--shadow);
         }
 
         .topbar-inner,
@@ -68,6 +115,23 @@
         .brand {
             font-weight: 700;
             color: var(--text);
+        }
+
+        .brand-zone {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+        }
+
+        .template-select {
+            width: 176px;
+            min-height: 34px;
+            padding: 6px 30px 6px 10px;
+            border-radius: var(--radius);
+            background: var(--panel-soft);
+            color: var(--text);
+            font-size: 13px;
         }
 
         .nav {
@@ -147,8 +211,9 @@
         .panel {
             background: var(--panel);
             border: 1px solid var(--line);
-            border-radius: 8px;
+            border-radius: var(--radius);
             overflow: hidden;
+            box-shadow: var(--shadow);
         }
 
         .notice {
@@ -173,7 +238,7 @@
         }
 
         th {
-            background: #f9fafb;
+            background: var(--panel-soft);
             color: var(--muted);
             font-size: 12px;
             font-weight: 700;
@@ -252,8 +317,8 @@
             min-height: 38px;
             padding: 8px 10px;
             border: 1px solid var(--line);
-            border-radius: 6px;
-            background: #ffffff;
+            border-radius: var(--radius);
+            background: var(--panel);
             color: var(--text);
             font: inherit;
         }
@@ -318,18 +383,31 @@
                 padding: 14px 0;
             }
 
+            .brand-zone {
+                min-width: 0;
+                justify-content: space-between;
+            }
+
             .grid,
             .checks { grid-template-columns: 1fr; }
 
             .panel { overflow-x: auto; }
         }
     </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
 <div class="shell">
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="brand" href="{{ route('bank-accounts.index') }}">Бухгалтерия</a>
+            <div class="brand-zone">
+                <a class="brand" href="{{ route('bank-accounts.index') }}">Бухгалтерия</a>
+                <select class="template-select" data-site-template-select title="Шаблон сайта">
+                    <option value="blade">Blade</option>
+                    <option value="tailwind">Tailwind</option>
+                    <option value="shadcn">shadcn/ui</option>
+                </select>
+            </div>
             <nav class="nav">
                 <a href="{{ route('bank-accounts.index') }}">Банковские счета</a>
                 <a href="{{ route('bank-transactions.index') }}">Банковские транзакции</a>
@@ -353,5 +431,21 @@
         @yield('content')
     </main>
 </div>
+<script>
+    (function () {
+        var select = document.querySelector('[data-site-template-select]');
+        if (!select) {
+            return;
+        }
+
+        var current = document.documentElement.dataset.siteTemplate || 'blade';
+        select.value = current;
+
+        select.addEventListener('change', function () {
+            document.documentElement.dataset.siteTemplate = select.value;
+            localStorage.setItem('site-template', select.value);
+        });
+    })();
+</script>
 </body>
 </html>

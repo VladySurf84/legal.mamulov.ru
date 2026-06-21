@@ -1083,7 +1083,7 @@ SQL, [
     {
         $amount = (float) data_get($operation, 'amount', 0);
 
-        return $accountNumber === data_get($operation, 'recipientAccount') ? -$amount : $amount;
+        return $accountNumber === data_get($operation, 'recipientAccount') ? $amount : -$amount;
     }
 
     private function contractorName(array $operation, string $accountNumber): ?string

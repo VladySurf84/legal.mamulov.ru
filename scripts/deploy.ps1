@@ -2,6 +2,7 @@ param(
     [string] $Message = "",
     [switch] $SkipTests,
     [switch] $SkipComposer,
+    [switch] $SkipAssets,
     [switch] $SkipMigrate,
     [switch] $NoPush
 )
@@ -66,6 +67,11 @@ $remoteCommands = @(
 
 if (-not $SkipComposer) {
     $remoteCommands += "$RemotePhp $RemoteComposer install --no-dev --optimize-autoloader"
+}
+
+if (-not $SkipAssets) {
+    $remoteCommands += "npm install --no-package-lock --no-audit --no-fund"
+    $remoteCommands += "npm run build"
 }
 
 if (-not $SkipMigrate) {
