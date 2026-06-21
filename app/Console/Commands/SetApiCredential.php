@@ -21,7 +21,7 @@ class SetApiCredential extends Command
     {
         $provider = (string) $this->argument('provider');
         $ownerType = (string) $this->argument('owner_type');
-        $ownerId = (int) $this->argument('owner_id');
+        $ownerId = (string) $this->argument('owner_id');
         $type = (string) $this->option('type');
         $now = now();
 

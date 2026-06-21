@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS "legal"."vat_events" (
     "source_system" varchar(100) DEFAULT 'accountant_vat_book'::character varying NOT NULL,
     "source_vat_book_import_id" bigint,
     "source_vat_book_entry_id" bigint,
-    "legal_id" bigint NOT NULL,
+    "legal_id" varchar(12) NOT NULL,
     "year" smallint NOT NULL,
     "quarter" smallint NOT NULL,
     "book_type" varchar(20) NOT NULL,

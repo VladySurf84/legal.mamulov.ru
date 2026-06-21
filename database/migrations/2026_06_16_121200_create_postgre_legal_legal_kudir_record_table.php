@@ -9,7 +9,7 @@ return new class extends Migration
     {
         DB::statement(<<<'SQL'
 CREATE TABLE IF NOT EXISTS "legal"."legal_kudir_record" (
-    "legal_id" bigint NOT NULL,
+    "legal_id" varchar(12) NOT NULL,
     "year" integer DEFAULT 0 NOT NULL,
     "date" date NOT NULL,
     "amount" numeric(10, 2) NOT NULL,

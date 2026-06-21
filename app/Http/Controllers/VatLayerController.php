@@ -15,7 +15,7 @@ class VatLayerController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'year' => ['nullable', 'integer'],
             'quarter' => ['nullable', 'integer', 'min:1', 'max:4'],
@@ -34,7 +34,7 @@ SELECT
     ve.*,
     l.legal_name
 FROM legal.vat_events ve
-JOIN legal.legal l ON l.legal_id = ve.legal_id
+JOIN legal.legal_own l ON l.legal_id = ve.legal_id
 WHERE {$where}
 ORDER BY ve.year DESC, ve.quarter DESC, ve.occurred_on DESC NULLS LAST, ve.vat_event_id DESC
 LIMIT 500
@@ -92,7 +92,7 @@ SQL, $bindings);
 
         if (! empty($filters['legal_id'])) {
             $where[] = 've.legal_id = :legal_id';
-            $bindings['legal_id'] = (int) $filters['legal_id'];
+            $bindings['legal_id'] = (string) $filters['legal_id'];
         }
 
         if (! empty($filters['contractor_inn'])) {

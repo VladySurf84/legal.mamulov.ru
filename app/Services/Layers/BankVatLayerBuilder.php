@@ -48,7 +48,7 @@ SQL);
                     'source_system' => self::SOURCE_SYSTEM,
                     'source_document_id' => (int) $transaction->document_id,
                     'source_document_bank_transaction_id' => (int) $transaction->document_bank_transaction_id,
-                    'legal_id' => (int) $transaction->legal_id,
+                    'legal_id' => (string) $transaction->legal_id,
                     'year' => $date?->year ?? (int) now()->year,
                     'quarter' => $date?->quarter ?? (int) now()->quarter,
                     'book_type' => $isIncoming ? 'sales' : 'purchase',

@@ -121,7 +121,7 @@ $function$
 SQL);
 
         DB::statement(<<<'SQL'
-CREATE OR REPLACE FUNCTION legal.legal_reconciliation_refresh_saldo(p_legal_id bigint, p_contractor_inn bigint)
+CREATE OR REPLACE FUNCTION legal.legal_reconciliation_refresh_saldo(p_legal_id varchar, p_contractor_inn bigint)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
@@ -144,7 +144,7 @@ $function$
 SQL);
 
         DB::statement(<<<'SQL'
-CREATE OR REPLACE FUNCTION legal.legal_reconciliation_refresh_saldo(p_legal_id bigint, p_contractor_inn character)
+CREATE OR REPLACE FUNCTION legal.legal_reconciliation_refresh_saldo(p_legal_id varchar, p_contractor_inn character)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
@@ -170,11 +170,11 @@ SQL);
     public function down(): void
     {
         DB::statement(<<<'SQL'
-DROP FUNCTION IF EXISTS "legal"."legal_reconciliation_refresh_saldo"(bigint, character) CASCADE
+DROP FUNCTION IF EXISTS "legal"."legal_reconciliation_refresh_saldo"(varchar, character) CASCADE
 SQL);
 
         DB::statement(<<<'SQL'
-DROP FUNCTION IF EXISTS "legal"."legal_reconciliation_refresh_saldo"(bigint, bigint) CASCADE
+DROP FUNCTION IF EXISTS "legal"."legal_reconciliation_refresh_saldo"(varchar, bigint) CASCADE
 SQL);
 
         DB::statement(<<<'SQL'

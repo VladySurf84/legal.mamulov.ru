@@ -9,7 +9,7 @@ class AccountantReportLinkBuilder
     public const ALGORITHM = 'accountant_report_match_v1';
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int, purchase_pair_entries_matched: int, purchase_pair_links_inserted: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int, inserted: int}
      */
     public function rebuild(array $filters = [], bool $dryRun = false): array
@@ -42,7 +42,7 @@ class AccountantReportLinkBuilder
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return array{candidates: int, entries_with_candidates: int, ambiguous_entries: int, ambiguous_transactions: int, matched: int}
      */
     private function stats(array $filters): array
@@ -105,7 +105,7 @@ SQL, $this->bindings($filters));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function deleteAlgorithmLinks(array $filters): void
     {
@@ -120,7 +120,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function insertedCount(array $filters): int
     {
@@ -128,14 +128,14 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
             ->join('legal.vat_book_entries as e', 'e.vat_book_entry_id', '=', 'links.vat_book_entry_id')
             ->where('links.source', 'algorithm')
             ->where('links.algorithm', self::ALGORITHM)
-            ->when($filters['legal_id'] ?? null, fn ($query, $legalId) => $query->where('e.legal_id', (int) $legalId))
+            ->when($filters['legal_id'] ?? null, fn ($query, $legalId) => $query->where('e.legal_id', (string) $legalId))
             ->when($filters['year'] ?? null, fn ($query, $year) => $query->where('e.year', (int) $year))
             ->when($filters['quarter'] ?? null, fn ($query, $quarter) => $query->where('e.quarter', (int) $quarter))
             ->count();
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return array{purchase_pair_entries_matched: int, purchase_pair_links_inserted: int, sales_pair_entries_matched: int, sales_pair_links_inserted: int}
      */
     private function pairStats(array $filters): array
@@ -149,7 +149,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function insertPurchasePairLinks(array $filters): int
     {
@@ -182,7 +182,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function insertSalesPairLinks(array $filters): int
     {
@@ -269,7 +269,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return list<object>
      */
     private function purchaseBookEntries(array $filters): array
@@ -278,7 +278,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return list<object>
      */
     private function salesBookEntries(array $filters): array
@@ -287,7 +287,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @return list<object>
      */
     private function pairBookEntries(array $filters, string $bookType): array
@@ -413,7 +413,7 @@ SELECT
 FROM matching_pairs
 ORDER BY bank_operation_date, document_bank_transaction_id
 SQL, [
-            (int) $entry->legal_id,
+            (string) $entry->legal_id,
             (string) $entry->contractor_inn,
             $entry->vat_book_date,
             $entry->vat_book_date,
@@ -423,7 +423,7 @@ SQL, [
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function insertSql(array $filters): string
     {
@@ -510,7 +510,7 @@ SQL;
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function candidatesSql(array $filters): string
     {
@@ -550,7 +550,7 @@ SQL;
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      */
     private function entryFilterSql(array $filters, string $alias): string
     {
@@ -572,7 +572,7 @@ SQL;
     }
 
     /**
-     * @param array{legal_id?: int|null, year?: int|null, quarter?: int|null} $filters
+     * @param array{legal_id?: string|null, year?: int|null, quarter?: int|null} $filters
      * @param list<mixed> $prefix
      * @return list<mixed>
      */
@@ -581,7 +581,7 @@ SQL;
         $bindings = $prefix;
 
         if (isset($filters['legal_id']) && $filters['legal_id'] !== null) {
-            $bindings[] = (int) $filters['legal_id'];
+            $bindings[] = (string) $filters['legal_id'];
         }
 
         if (isset($filters['year']) && $filters['year'] !== null) {

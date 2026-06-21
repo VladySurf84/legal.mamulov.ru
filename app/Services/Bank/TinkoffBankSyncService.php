@@ -70,7 +70,7 @@ class TinkoffBankSyncService
 
                 DB::transaction(function () use ($accounts, $credential): void {
                     foreach ($accounts as $account) {
-                        $this->upsertAccount($account, (int) $credential['legal_id']);
+                        $this->upsertAccount($account, (string) $credential['legal_id']);
                     }
                 });
 
@@ -144,7 +144,7 @@ class TinkoffBankSyncService
 
                 DB::transaction(function () use ($accounts, $credential): void {
                     foreach ($accounts as $account) {
-                        $this->upsertAccount($account, (int) $credential['legal_id']);
+                        $this->upsertAccount($account, (string) $credential['legal_id']);
                     }
                 });
 
@@ -196,13 +196,13 @@ class TinkoffBankSyncService
     }
 
     /**
-     * @return array<int, array{api_credential_id: int, legal_id: int, account_number: string, token: string}>
+     * @return array<int, array{api_credential_id: int, legal_id: string, account_number: string, token: string}>
      */
     private function credentials(?string $accountNumber = null): array
     {
         $credentials = ApiCredential::query()
             ->from('legal.api_credentials as c')
-            ->join('legal.bank_account as ba', 'ba.bank_account_id', '=', 'c.owner_id')
+            ->join('legal.bank_account as ba', DB::raw('ba.bank_account_id::text'), '=', 'c.owner_id')
             ->where('c.provider', 'tinkoff')
             ->where('c.credential_type', 'bank_api_token')
             ->where('c.owner_type', 'bank_account')
@@ -227,7 +227,7 @@ class TinkoffBankSyncService
         return $credentials
             ->map(fn (ApiCredential $credential): array => [
                 'api_credential_id' => (int) $credential->api_credential_id,
-                'legal_id' => (int) $credential->legal_id,
+                'legal_id' => (string) $credential->legal_id,
                 'account_number' => (string) $credential->account_number,
                 'token' => $credential->secret(),
             ])
@@ -352,7 +352,7 @@ class TinkoffBankSyncService
             ]);
     }
 
-    private function upsertAccount(array $account, int $legalId): void
+    private function upsertAccount(array $account, string $legalId): void
     {
         $bankId = (string) data_get($account, 'bankBik', self::BANK_ID_TINKOFF);
         $accountNumber = (string) data_get($account, 'accountNumber');

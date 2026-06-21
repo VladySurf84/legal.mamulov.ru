@@ -9,7 +9,7 @@ return new class extends Migration
     {
         DB::statement(<<<'SQL'
 CREATE TABLE IF NOT EXISTS "legal"."legal_buh_saldo" (
-    "legal_id" bigint NOT NULL,
+    "legal_id" varchar(12) NOT NULL,
     "contractor_inn" char(12) NOT NULL,
     "saldo" numeric(19, 2),
     CONSTRAINT "legal_buh_saldo_pkey" PRIMARY KEY (legal_id, contractor_inn)

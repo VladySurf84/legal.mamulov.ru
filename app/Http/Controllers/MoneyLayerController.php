@@ -14,7 +14,7 @@ class MoneyLayerController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'party' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
@@ -89,7 +89,7 @@ SQL, $bindings);
 
         if (! empty($filters['legal_id'])) {
             $where[] = 'ba.legal_id = :legal_id';
-            $bindings['legal_id'] = (int) $filters['legal_id'];
+            $bindings['legal_id'] = (string) $filters['legal_id'];
         }
 
         if (! empty($filters['contractor_inn'])) {

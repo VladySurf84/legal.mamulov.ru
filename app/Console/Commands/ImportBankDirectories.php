@@ -16,77 +16,94 @@ class ImportBankDirectories extends Command
     public function handle(): int
     {
         $remote = $this->remoteConnection();
-        $tables = [
-            'legal.legal' => [
-                'key' => ['legal_id'],
-                'columns' => [
-                    'legal_id',
-                    'legal_name',
-                    'legal_fullname',
-                    'legal_letter',
-                    'firstname',
-                    'lastname',
-                    'middlename',
-                    'legal_color',
-                    'tax_system',
-                    'tax_rate',
-                    'vat_rate',
-                    'legal_inn',
-                    'legal_ogrn',
-                    'legal_comment',
-                    'addr_index',
-                    'addr_region_code',
-                    'addr_region',
-                    'addr_town',
-                    'addr_street',
-                    'addr_house',
-                    'addr_flat',
-                    'suz_conn_id',
-                    'suz_oms_id',
-                    'cert_cn',
-                    'edo_light_id',
-                    'cdek_client_id',
-                    'cdek_client_secret',
-                    'cdek_token',
-                    'cdek_token_expired',
-                    'dellin_session_id',
-                    'tax_periods',
-                ],
-            ],
-            'legal.bank' => [
-                'key' => ['bank_id'],
-                'columns' => ['bank_id', 'bank_name', 'api_provider_id'],
-            ],
-            'legal.bank_account' => [
-                'key' => ['account_number', 'bank_id'],
-                'columns' => [
-                    'account_number',
-                    'bank_id',
-                    'legal_id',
-                    'name',
-                    'currency',
-                    'account_type',
-                    'activation_date',
-                    'balance_otb',
-                    'balance_authorized',
-                    'balance_pending_payments',
-                    'balance_pending_requisitions',
-                ],
-            ],
+
+        $legalColumns = [
+            'legal_id',
+            'legal_name',
+            'legal_fullname',
+            'legal_letter',
+            'firstname',
+            'lastname',
+            'middlename',
+            'legal_color',
+            'tax_system',
+            'tax_rate',
+            'vat_rate',
+            'legal_inn',
+            'legal_ogrn',
+            'legal_comment',
+            'addr_index',
+            'addr_region_code',
+            'addr_region',
+            'addr_town',
+            'addr_street',
+            'addr_house',
+            'addr_flat',
+            'suz_conn_id',
+            'suz_oms_id',
+            'cert_cn',
+            'edo_light_id',
+            'cdek_client_id',
+            'cdek_client_secret',
+            'cdek_token',
+            'cdek_token_expired',
+            'dellin_session_id',
+            'tax_periods',
         ];
 
-        foreach ($tables as $table => $meta) {
-            $rows = $this->fetchRows($remote, $table, $meta['columns'], $meta['key']);
-            $this->line(sprintf('%s: %d row(s)', $table, count($rows)));
+        $legalRows = $this->fetchRows($remote, 'legal.legal', $legalColumns, ['legal_id']);
+        $legalIdMap = [];
 
-            if ($this->option('dry-run') || $rows === []) {
-                continue;
-            }
+        foreach ($legalRows as &$row) {
+            $oldLegalId = (int) $row['legal_id'];
+            $newLegalId = (string) $row['legal_inn'];
+            $legalIdMap[$oldLegalId] = $newLegalId;
+            $row['legal_id'] = $newLegalId;
+        }
+        unset($row);
 
-            DB::table($table)->upsert(
-                $rows,
-                $meta['key'],
-                array_values(array_diff($meta['columns'], $meta['key']))
+        $this->line(sprintf('legal.legal -> legal.legal_own: %d row(s)', count($legalRows)));
+
+        $bankRows = $this->fetchRows($remote, 'legal.bank', ['bank_id', 'bank_name', 'api_provider_id'], ['bank_id']);
+        $this->line(sprintf('legal.bank: %d row(s)', count($bankRows)));
+
+        $bankAccountColumns = [
+            'account_number',
+            'bank_id',
+            'legal_id',
+            'name',
+            'currency',
+            'account_type',
+            'activation_date',
+            'balance_otb',
+            'balance_authorized',
+            'balance_pending_payments',
+            'balance_pending_requisitions',
+        ];
+        $bankAccountRows = $this->fetchRows($remote, 'legal.bank_account', $bankAccountColumns, ['account_number', 'bank_id']);
+
+        foreach ($bankAccountRows as &$row) {
+            $row['legal_id'] = $legalIdMap[(int) $row['legal_id']] ?? (string) $row['legal_id'];
+        }
+        unset($row);
+
+        $this->line(sprintf('legal.bank_account: %d row(s)', count($bankAccountRows)));
+
+        if (! $this->option('dry-run')) {
+            DB::table('legal.legal_own')->upsert(
+                $legalRows,
+                ['legal_id'],
+                array_values(array_diff($legalColumns, ['legal_id']))
+            );
+            DB::table('legal.bank')->upsert(
+                $bankRows,
+                ['bank_id'],
+                ['bank_name', 'api_provider_id']
+            );
+            DB::table('legal.bank_account')->upsert(
+                $bankAccountRows,
+                ['account_number', 'bank_id'],
+                array_values(array_diff($bankAccountColumns, ['account_number', 'bank_id']))
             );
         }
 

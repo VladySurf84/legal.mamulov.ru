@@ -15,7 +15,7 @@ class VatBookController extends Controller
     public function index(): View
     {
         $imports = DB::table('legal.vat_book_imports as i')
-            ->join('legal.legal as l', 'l.legal_id', '=', 'i.legal_id')
+            ->join('legal.legal_own as l', 'l.legal_id', '=', 'i.legal_id')
             ->orderByDesc('i.year')
             ->orderByDesc('i.quarter')
             ->orderBy('i.book_type')
@@ -49,14 +49,14 @@ class VatBookController extends Controller
             'year' => ['nullable', 'integer', 'between:2000,2100'],
             'quarter' => ['nullable', 'integer', 'between:1,4'],
             'book_type' => ['nullable', 'in:purchase,sales'],
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'q' => ['nullable', 'string', 'max:255'],
         ]);
 
         $baseQuery = DB::table('legal.vat_book_entries as e')
             ->join('legal.vat_book_imports as i', 'i.vat_book_import_id', '=', 'e.vat_book_import_id')
-            ->join('legal.legal as l', 'l.legal_id', '=', 'e.legal_id')
+            ->join('legal.legal_own as l', 'l.legal_id', '=', 'e.legal_id')
             ->where('i.is_active', true);
 
         if (!empty($filters['year'])) {
@@ -72,7 +72,7 @@ class VatBookController extends Controller
         }
 
         if (!empty($filters['legal_id'])) {
-            $baseQuery->where('e.legal_id', (int) $filters['legal_id']);
+            $baseQuery->where('e.legal_id', (string) $filters['legal_id']);
         }
 
         if (!empty($filters['contractor_inn'])) {
@@ -138,7 +138,7 @@ class VatBookController extends Controller
             ->orderByDesc('year')
             ->pluck('year');
 
-        $legals = DB::table('legal.legal')
+        $legals = DB::table('legal.legal_own')
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
 

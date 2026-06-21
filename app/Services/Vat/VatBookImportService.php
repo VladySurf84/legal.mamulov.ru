@@ -350,17 +350,17 @@ class VatBookImportService
         return $inn;
     }
 
-    private function legalIdByInn(string $inn): int
+    private function legalIdByInn(string $inn): string
     {
-        $legalId = DB::table('legal.legal')
+        $legalId = DB::table('legal.legal_own')
             ->where('legal_inn', $inn)
             ->value('legal_id');
 
         if ($legalId === null) {
-            throw new RuntimeException("ИНН {$inn} не найден в legal.legal.");
+            throw new RuntimeException("ИНН {$inn} не найден в legal.legal_own.");
         }
 
-        return (int) $legalId;
+        return (string) $legalId;
     }
 
     private function quarterFromPeriodCode(int $periodCode): int

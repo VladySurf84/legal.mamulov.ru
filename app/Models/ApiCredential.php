@@ -26,6 +26,7 @@ class ApiCredential extends Model
     protected function casts(): array
     {
         return [
+            'owner_id' => 'string',
             'meta' => 'array',
             'last_used_at' => 'datetime',
         ];

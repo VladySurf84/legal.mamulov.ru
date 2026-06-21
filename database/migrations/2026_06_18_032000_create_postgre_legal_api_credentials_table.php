@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS "legal"."api_credentials" (
     "provider" varchar(50) NOT NULL,
     "credential_type" varchar(100) NOT NULL,
     "owner_type" varchar(100),
-    "owner_id" bigint,
+    "owner_id" varchar(100),
     "name" varchar(255),
     "encrypted_secret" text NOT NULL,
     "meta" jsonb,

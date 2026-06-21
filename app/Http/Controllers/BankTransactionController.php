@@ -52,7 +52,7 @@ class BankTransactionController extends Controller
             ->orderBy('account_number')
             ->get();
         $apiBankAccountIds = DB::table('legal.api_credentials as c')
-            ->join('legal.bank_account as ba', 'ba.bank_account_id', '=', 'c.owner_id')
+            ->join('legal.bank_account as ba', DB::raw('ba.bank_account_id::text'), '=', 'c.owner_id')
             ->where('c.provider', 'tinkoff')
             ->where('c.credential_type', 'bank_api_token')
             ->where('c.owner_type', 'bank_account')
@@ -165,7 +165,7 @@ WITH pre AS (
     FROM legal.document_bank_transaction dbt
     LEFT JOIN legal.bank_account ba
         ON ba.bank_account_id = dbt.bank_account_id
-    LEFT JOIN legal.legal l
+    LEFT JOIN legal.legal_own l
         ON l.legal_id = ba.legal_id
     WHERE {$where}
 ),

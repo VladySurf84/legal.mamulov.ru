@@ -11,7 +11,7 @@ return new class extends Migration
 CREATE TABLE IF NOT EXISTS "legal"."legal_reconciliation" (
     "reconciliation_id" bigint NOT NULL,
     "reconciliation_type_id" smallint NOT NULL,
-    "legal_id" bigint NOT NULL,
+    "legal_id" varchar(12) NOT NULL,
     "date" date NOT NULL,
     "amount" numeric(15, 2) NOT NULL,
     "contractor_inn" char(12),

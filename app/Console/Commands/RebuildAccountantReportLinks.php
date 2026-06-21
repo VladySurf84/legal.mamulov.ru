@@ -18,7 +18,7 @@ class RebuildAccountantReportLinks extends Command
     public function handle(AccountantReportLinkBuilder $builder): int
     {
         $filters = [
-            'legal_id' => $this->integerOption('legal-id'),
+            'legal_id' => $this->stringOption('legal-id'),
             'year' => $this->integerOption('year'),
             'quarter' => $this->integerOption('quarter'),
         ];
@@ -64,5 +64,16 @@ class RebuildAccountantReportLinks extends Command
         }
 
         return (int) $value;
+    }
+
+    private function stringOption(string $name): ?string
+    {
+        $value = $this->option($name);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
     }
 }

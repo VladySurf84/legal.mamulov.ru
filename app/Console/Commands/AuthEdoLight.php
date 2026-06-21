@@ -10,14 +10,14 @@ use Throwable;
 class AuthEdoLight extends Command
 {
     protected $signature = 'edo-light:auth
-        {legal_id : legal.legal_id to authenticate as}
+        {legal_id : legal.legal_own.legal_id to authenticate as}
         {--show-token : Print token prefix for manual diagnostics}';
 
     protected $description = 'Authenticate in EDO Light through True API and CryptoPro certificate.';
 
     public function handle(EdoLightClient $client): int
     {
-        $legalId = (int) $this->argument('legal_id');
+        $legalId = (string) $this->argument('legal_id');
         $runId = $this->createRun($legalId);
 
         try {

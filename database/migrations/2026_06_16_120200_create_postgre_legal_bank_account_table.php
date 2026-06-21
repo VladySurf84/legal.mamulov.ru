@@ -11,7 +11,7 @@ return new class extends Migration
 CREATE TABLE IF NOT EXISTS "legal"."bank_account" (
     "account_number" char(20) NOT NULL,
     "bank_id" char(9) NOT NULL,
-    "legal_id" bigint NOT NULL,
+    "legal_id" varchar(12) NOT NULL,
     "name" varchar(300) NOT NULL,
     "currency" varchar(50) NOT NULL,
     "account_type" varchar(100) NOT NULL,

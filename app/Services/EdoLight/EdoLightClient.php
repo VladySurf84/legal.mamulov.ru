@@ -160,7 +160,7 @@ class EdoLightClient
 
     private function legalInn(int $legalId): ?string
     {
-        $inn = DB::table('legal.legal')
+        $inn = DB::table('legal.legal_own')
             ->where('legal_id', $legalId)
             ->value('legal_inn');
 

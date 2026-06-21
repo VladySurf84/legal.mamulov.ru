@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS "legal"."source_record_vat_book_details" (
     "source_record_id" bigint NOT NULL,
     "vat_book_import_id" bigint,
     "vat_book_entry_id" bigint,
-    "legal_id" bigint,
+    "legal_id" varchar(12),
     "book_type" varchar(20),
     "year" smallint,
     "quarter" smallint,

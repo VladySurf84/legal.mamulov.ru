@@ -7,9 +7,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LegalEntity extends Model
 {
-    protected $table = 'legal.legal';
+    protected $table = 'legal.legal_own';
 
     protected $primaryKey = 'legal_id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
 
     public $timestamps = false;
 

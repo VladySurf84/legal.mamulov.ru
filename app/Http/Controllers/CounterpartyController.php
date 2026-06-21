@@ -15,7 +15,7 @@ class CounterpartyController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'only_negative_diff' => ['nullable', 'boolean'],
         ]);
@@ -308,13 +308,13 @@ SQL, $bindings);
     public function rebuildLinks(Request $request, AccountantReportLinkBuilder $builder): RedirectResponse
     {
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'only_negative_diff' => ['nullable', 'boolean'],
         ]);
 
         $stats = $builder->rebuild([
-            'legal_id' => ! empty($filters['legal_id']) ? (int) $filters['legal_id'] : null,
+            'legal_id' => ! empty($filters['legal_id']) ? (string) $filters['legal_id'] : null,
         ]);
 
         return redirect()
@@ -336,7 +336,7 @@ SQL, $bindings);
     public function show(Request $request, string $contractorInn): View|JsonResponse
     {
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'integer'],
+            'legal_id' => ['nullable', 'string', 'max:12'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $page = (int) ($filters['page'] ?? 1);
@@ -371,7 +371,7 @@ opening_balances AS (
         ob.source,
         ob.comment
     FROM legal.counterparty_opening_balances ob
-    LEFT JOIN legal.legal l
+    LEFT JOIN legal.legal_own l
         ON l.legal_id = ob.legal_id
     WHERE {$openingWhere}
 ),
@@ -493,7 +493,7 @@ purchase_entries AS (
     FROM legal.vat_book_entries e
     JOIN legal.vat_book_imports i
         ON i.vat_book_import_id = e.vat_book_import_id
-    LEFT JOIN legal.legal l
+    LEFT JOIN legal.legal_own l
         ON l.legal_id = e.legal_id
     WHERE i.is_active
         AND e.book_type = 'purchase'
@@ -637,7 +637,7 @@ SQL, $bindings);
         abort_if($contractorInn === '', 404);
 
         $validated = $request->validate([
-            'legal_id' => ['required', 'integer'],
+            'legal_id' => ['required', 'string', 'max:12'],
             'starts_on' => ['required', 'date'],
             'amount' => ['required', 'numeric'],
             'source' => ['nullable', 'string', 'max:255'],
@@ -646,7 +646,7 @@ SQL, $bindings);
 
         DB::table('legal.counterparty_opening_balances')->updateOrInsert(
             [
-                'legal_id' => (int) $validated['legal_id'],
+                'legal_id' => (string) $validated['legal_id'],
                 'contractor_inn' => $contractorInn,
                 'starts_on' => $validated['starts_on'],
             ],
@@ -661,7 +661,7 @@ SQL, $bindings);
         return redirect()
             ->route('counterparties.show', [
                 'contractorInn' => $contractorInn,
-                'legal_id' => (int) $validated['legal_id'],
+                'legal_id' => (string) $validated['legal_id'],
             ])
             ->with('status', 'Входящее сальдо сохранено.');
     }
@@ -704,7 +704,7 @@ SQL, $bindings);
         if (! empty($filters['legal_id'])) {
             $documentWhere[] = 'legal_id = :legal_id';
             $buhWhere[] = 'e.legal_id = :legal_id';
-            $bindings['legal_id'] = (int) $filters['legal_id'];
+            $bindings['legal_id'] = (string) $filters['legal_id'];
         }
 
         if (! empty($filters['contractor_inn'])) {
@@ -764,7 +764,7 @@ SQL, $bindings);
         return <<<'SQL'
 NOT EXISTS (
     SELECT 1
-    FROM legal.legal own_legal
+    FROM legal.legal_own own_legal
     WHERE own_legal.legal_id = :legal_id
         AND own_legal.legal_inn IS NOT NULL
         AND btrim(own_legal.legal_inn::text) = ck.contractor_inn
@@ -828,7 +828,7 @@ JOIN legal.documents d
     ON d.document_id = dbt.document_id
 JOIN legal.bank_account ba
     ON ba.bank_account_id = dbt.bank_account_id
-LEFT JOIN legal.legal l
+LEFT JOIN legal.legal_own l
     ON l.legal_id = ba.legal_id
 SQL;
     }
