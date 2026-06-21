@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\View\View;
 use Throwable;
 
@@ -80,14 +79,20 @@ class BankTransactionController extends Controller
         $validated = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
             'days' => ['nullable', 'integer', 'min:1', 'max:366'],
+            'full' => ['nullable', 'boolean'],
         ]);
 
         $accountNumber = trim((string) ($validated['account_number'] ?? ''));
         $days = (int) ($validated['days'] ?? config('bank.tinkoff.sync_days', 5));
+        $full = (bool) ($validated['full'] ?? false);
 
         try {
-            $summary = $this->shouldProxySync()
-                ? $this->proxySyncRequest($days, $accountNumber !== '' ? $accountNumber : null)
+            if ($full) {
+                @set_time_limit(0);
+            }
+
+            $summary = $full
+                ? $service->syncSinceActivationDates($accountNumber !== '' ? $accountNumber : null)
                 : $service->sync($days, $accountNumber !== '' ? $accountNumber : null);
         } catch (Throwable $exception) {
             return back()
@@ -103,73 +108,6 @@ class BankTransactionController extends Controller
             $summary['from'],
             $summary['till'],
         ));
-    }
-
-    public function proxySync(Request $request, TinkoffBankSyncService $service): JsonResponse
-    {
-        $expectedToken = (string) config('bank.tinkoff.sync_proxy_token');
-        $actualToken = (string) $request->header('X-Tinkoff-Sync-Proxy-Token', '');
-
-        if ($expectedToken === '' || ! hash_equals($expectedToken, $actualToken)) {
-            return response()->json([
-                'message' => 'Forbidden',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'account_number' => ['nullable', 'string', 'max:20'],
-            'days' => ['nullable', 'integer', 'min:1', 'max:366'],
-        ]);
-
-        $accountNumber = trim((string) ($validated['account_number'] ?? ''));
-        $days = (int) ($validated['days'] ?? config('bank.tinkoff.sync_days', 5));
-
-        $summary = $service->sync($days, $accountNumber !== '' ? $accountNumber : null);
-
-        return response()->json([
-            'message' => 'Tinkoff sync complete',
-            'summary' => $summary,
-        ]);
-    }
-
-    private function shouldProxySync(): bool
-    {
-        return filled(config('bank.tinkoff.sync_proxy_url'));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function proxySyncRequest(int $days, ?string $accountNumber): array
-    {
-        $proxyUrl = (string) config('bank.tinkoff.sync_proxy_url');
-        $proxyToken = (string) config('bank.tinkoff.sync_proxy_token');
-
-        if ($proxyToken === '') {
-            throw new \RuntimeException('TINKOFF_SYNC_PROXY_TOKEN is not configured.');
-        }
-
-        $response = Http::acceptJson()
-            ->timeout(300)
-            ->withHeaders([
-                'X-Tinkoff-Sync-Proxy-Token' => $proxyToken,
-            ])
-            ->post($proxyUrl, [
-                'days' => $days,
-                'account_number' => $accountNumber,
-            ]);
-
-        if ($response->failed()) {
-            throw new \RuntimeException($response->json('message') ?: $response->body());
-        }
-
-        $summary = $response->json('summary');
-
-        if (! is_array($summary)) {
-            throw new \RuntimeException('Tinkoff sync proxy returned an invalid response.');
-        }
-
-        return $summary;
     }
 
     /**

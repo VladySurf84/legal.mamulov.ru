@@ -2,25 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Bank\OzonBankStatementImportService;
+use App\Services\Bank\BankStatementImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Throwable;
 
-class OzonBankStatementController extends Controller
+class BankStatementImportController extends Controller
 {
-    public function create(): View
-    {
-        return view('ozon-bank-statements.create');
-    }
-
-    public function store(Request $request, OzonBankStatementImportService $service): RedirectResponse
+    public function store(Request $request, BankStatementImportService $service): RedirectResponse
     {
         $validated = $request->validate([
             'statement_file' => ['required', 'file', 'max:20480'],
             'bank_id' => ['nullable', 'string', 'max:20'],
             'rebuild_money_layer' => ['nullable', 'boolean'],
+            'redirect_to' => ['nullable', 'string', 'max:2048'],
         ]);
 
         $file = $request->file('statement_file');
@@ -46,9 +41,9 @@ class OzonBankStatementController extends Controller
         }
 
         return redirect()
-            ->route('ozon-bank-statements.create')
+            ->to($this->redirectTarget($validated['redirect_to'] ?? null))
             ->with('status', sprintf(
-                'Файл Ozon импортирован: запуск #%d, файл #%d, банк %s, счет %s, строк %d, операций %d.',
+                'Банковская выписка импортирована: запуск #%d, файл #%d, банк %s, счет %s, строк %d, операций %d.',
                 $summary['import_run_id'],
                 $summary['uploaded_file_id'],
                 $summary['bank_id'],
@@ -56,5 +51,18 @@ class OzonBankStatementController extends Controller
                 $summary['rows'],
                 $summary['operations'],
             ));
+    }
+
+    private function redirectTarget(?string $target): string
+    {
+        if ($target !== null && $target !== '') {
+            $appUrl = url('/');
+
+            if (str_starts_with($target, $appUrl) || str_starts_with($target, '/')) {
+                return $target;
+            }
+        }
+
+        return route('bank-transactions.index');
     }
 }

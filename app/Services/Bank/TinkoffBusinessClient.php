@@ -3,7 +3,6 @@
 namespace App\Services\Bank;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -43,10 +42,20 @@ class TinkoffBusinessClient
 
     private function request(string $token): PendingRequest
     {
-        return Http::acceptJson()
+        $request = Http::acceptJson()
             ->withToken($token)
             ->timeout(60)
             ->retry(2, 500);
+
+        $proxy = config('bank.tinkoff.http_proxy');
+
+        if (filled($proxy)) {
+            $request->withOptions([
+                'proxy' => $proxy,
+            ]);
+        }
+
+        return $request;
     }
 
     private function url(string $path): string
@@ -58,18 +67,27 @@ class TinkoffBusinessClient
     {
         $startedAt = microtime(true);
         $url = $this->url($endpoint);
+        $status = null;
+        $body = null;
+        $this->lastRequestId = null;
 
         try {
             $response = $this->request($token)->get($url, $params);
-            $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $response, $startedAt);
-            $response->throw();
+            $status = $response->status();
+            $body = $response->body();
 
-            $json = $response->json();
+            $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $startedAt);
+
+            if ($status < 200 || $status >= 300) {
+                throw new \RuntimeException($body !== '' ? $body : "Tinkoff API request failed with status {$status}.");
+            }
+
+            $json = json_decode((string) $body, true, 512, JSON_THROW_ON_ERROR);
 
             return is_array($json) ? $json : [];
         } catch (Throwable $exception) {
-            if (! isset($response)) {
-                $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, null, $startedAt, $exception);
+            if ($this->lastRequestId === null) {
+                $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $startedAt, $exception);
             }
 
             throw $exception;
@@ -82,11 +100,11 @@ class TinkoffBusinessClient
         string $endpoint,
         string $url,
         array $params,
-        ?Response $response,
+        ?int $status,
+        ?string $body,
         float $startedAt,
         ?Throwable $exception = null,
     ): int {
-        $body = $response?->body();
         $now = now();
 
         $row = DB::selectOne(<<<'SQL'
@@ -117,13 +135,13 @@ SQL, [
             $endpoint,
             $url,
             $this->json($params),
-            $response?->status(),
+            $status,
             (int) round((microtime(true) - $startedAt) * 1000),
             $body !== null ? hash('sha256', $body) : null,
             $body,
             $body,
             $body,
-            $exception?->getMessage() ?: ($response?->failed() ? $response->body() : null),
+            $exception?->getMessage() ?: ($status !== null && ($status < 200 || $status >= 300) ? $body : null),
             $now,
             $now,
             $now,

@@ -48,6 +48,8 @@ class TinkoffBankSyncService
             throw new RuntimeException('The chunk size must be greater than zero.');
         }
 
+        $this->ensureReferenceRows();
+
         $credentials = $this->credentials($accountNumber);
         $from = $fromDate->toDateString();
         $till = $tillDate->toDateString();
@@ -73,6 +75,90 @@ class TinkoffBankSyncService
                         $this->upsertAccount($account, (int) $credential['legal_id']);
                     }
                 });
+
+                foreach ($this->periodChunks($fromDate, $tillDate, $chunkDays) as [$chunkFrom, $chunkTill]) {
+                    $statementResult = $this->client->statementWithRequest(
+                        $credential['token'],
+                        $syncRunId,
+                        $credential['account_number'],
+                        $chunkFrom,
+                        $chunkTill
+                    );
+                    $operations = $this->operationsFromStatement($statementResult['data']);
+                    $apiSyncRequestId = $statementResult['api_sync_request_id'];
+
+                    DB::transaction(function () use ($operations, $credential, $apiSyncRequestId): void {
+                        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
+
+                        foreach ($operations as $operation) {
+                            $this->upsertOperation(
+                                $operation,
+                                $credential['account_number'],
+                                self::BANK_ID_TINKOFF,
+                                self::DOCUMENT_SOURCE_TINKOFF_BANK,
+                                $apiSyncRequestId
+                            );
+                        }
+                    });
+
+                    $summary['operations'] += count($operations);
+                }
+
+                $this->markCredentialUsed((int) $credential['api_credential_id']);
+            }
+
+            $this->finishRun($syncRunId, 'success', $summary);
+
+            return $summary;
+        } catch (Throwable $exception) {
+            $this->finishRun($syncRunId, 'failed', $summary, $exception);
+
+            throw $exception;
+        }
+    }
+
+    public function syncSinceActivationDates(?string $accountNumber = null, int $chunkDays = 30): array
+    {
+        if ($chunkDays < 1) {
+            throw new RuntimeException('The chunk size must be greater than zero.');
+        }
+
+        $this->ensureReferenceRows();
+
+        $credentials = $this->credentials($accountNumber);
+        $tillDate = now()->startOfDay();
+        $till = $tillDate->toDateString();
+        $from = $this->earliestActivationDate($credentials)?->toDateString() ?? $till;
+        $summary = [
+            'sync_run_id' => null,
+            'legals' => count(array_unique(array_column($credentials, 'legal_id'))),
+            'credentials' => count($credentials),
+            'accounts' => 0,
+            'operations' => 0,
+            'from' => $from,
+            'till' => $till,
+        ];
+        $syncRunId = $this->startRun($from, $till);
+        $summary['sync_run_id'] = $syncRunId;
+
+        try {
+            foreach ($credentials as $credential) {
+                $accounts = $this->client->accounts($credential['token'], $syncRunId);
+                $summary['accounts'] += count($accounts);
+
+                DB::transaction(function () use ($accounts, $credential): void {
+                    foreach ($accounts as $account) {
+                        $this->upsertAccount($account, (int) $credential['legal_id']);
+                    }
+                });
+
+                $fromDate = $this->activationDateForCredential($credential) ?? $tillDate;
+                if ($fromDate->greaterThan($tillDate)) {
+                    $fromDate = $tillDate->copy();
+                }
+                if (Carbon::parse($summary['from'])->greaterThan($fromDate)) {
+                    $summary['from'] = $fromDate->toDateString();
+                }
 
                 foreach ($this->periodChunks($fromDate, $tillDate, $chunkDays) as [$chunkFrom, $chunkTill]) {
                     $statementResult = $this->client->statementWithRequest(
@@ -176,6 +262,39 @@ class TinkoffBankSyncService
         return $chunks;
     }
 
+    /**
+     * @param  array<int, array{account_number: string}>  $credentials
+     */
+    private function earliestActivationDate(array $credentials): ?Carbon
+    {
+        $accountNumbers = array_values(array_unique(array_column($credentials, 'account_number')));
+
+        if ($accountNumbers === []) {
+            return null;
+        }
+
+        $date = DB::table('legal.bank_account')
+            ->where('bank_id', self::BANK_ID_TINKOFF)
+            ->whereIn('account_number', $accountNumbers)
+            ->whereNotNull('activation_date')
+            ->min('activation_date');
+
+        return $date !== null ? Carbon::parse((string) $date)->startOfDay() : null;
+    }
+
+    /**
+     * @param  array{account_number: string}  $credential
+     */
+    private function activationDateForCredential(array $credential): ?Carbon
+    {
+        $date = DB::table('legal.bank_account')
+            ->where('bank_id', self::BANK_ID_TINKOFF)
+            ->where('account_number', $credential['account_number'])
+            ->value('activation_date');
+
+        return $date !== null ? Carbon::parse((string) $date)->startOfDay() : null;
+    }
+
     private function markCredentialUsed(int $credentialId): void
     {
         DB::table('legal.api_credentials')
@@ -184,6 +303,20 @@ class TinkoffBankSyncService
                 'last_used_at' => now(),
                 'updated_at' => now(),
             ]);
+    }
+
+    private function ensureReferenceRows(): void
+    {
+        DB::statement(<<<'SQL'
+INSERT INTO legal.legal_reconciliation_type (
+    reconciliation_type_id,
+    reconciliation_type
+) VALUES (
+    1,
+    'bank_transaction'
+)
+ON CONFLICT (reconciliation_type_id) DO NOTHING
+SQL);
     }
 
     private function startRun(string $from, string $till): int
@@ -221,6 +354,8 @@ class TinkoffBankSyncService
             ->where('api_sync_run_id', $syncRunId)
             ->update([
                 'status' => $status,
+                'period_from' => $summary['from'],
+                'period_till' => $summary['till'],
                 'accounts_count' => $summary['accounts'],
                 'operations_count' => $summary['operations'],
                 'requests_count' => DB::table('legal.api_sync_requests')
@@ -284,18 +419,19 @@ class TinkoffBankSyncService
         string $bankId,
         string $accountNumber,
         string $sourceSystem,
+        array $sourceContext = [],
     ): int {
         if ($operations === []) {
             return 0;
         }
 
-        return DB::transaction(function () use ($operations, $bankId, $accountNumber, $sourceSystem): int {
+        return DB::transaction(function () use ($operations, $bankId, $accountNumber, $sourceSystem, $sourceContext): int {
             DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['legal.bank_transaction_1c']);
 
             $count = 0;
 
             foreach ($operations as $operation) {
-                $this->upsertOperation($operation, $accountNumber, $bankId, $sourceSystem, null);
+                $this->upsertOperation($operation, $accountNumber, $bankId, $sourceSystem, null, $sourceContext);
                 $count++;
             }
 
@@ -309,6 +445,7 @@ class TinkoffBankSyncService
         string $bankId,
         string $sourceSystem,
         ?int $apiSyncRequestId,
+        array $sourceContext = [],
     ): void
     {
         $operationId = (string) data_get($operation, 'operationId');
@@ -361,6 +498,7 @@ class TinkoffBankSyncService
             $sourceSystem,
             $apiSyncRequestId,
             $bankTransactionId,
+            $sourceContext,
         );
 
         $this->upsertDocumentSource($documentId, $sourceRecordId, $sourceSystem);
@@ -765,11 +903,23 @@ class TinkoffBankSyncService
         string $sourceSystem,
         ?int $apiSyncRequestId,
         int $bankTransactionId,
+        array $sourceContext = [],
     ): int {
         $operationId = (string) data_get($operation, 'operationId');
         $externalId = $this->documentExternalId($bankId, $accountNumber, $operationId);
         $operationDate = $this->date(data_get($operation, 'date'));
         $now = now();
+        $rawPayload = $this->operationSourcePayload($operation);
+        $metadata = [
+            'bank_id' => $bankId,
+            'account_number' => $accountNumber,
+            'bank_account_id' => (int) $account->bank_account_id,
+            'bank_transaction_id' => $bankTransactionId,
+        ];
+
+        if ($sourceContext !== []) {
+            $metadata['source_context'] = $sourceContext;
+        }
 
         $sourceRecord = DB::selectOne(<<<'SQL'
 INSERT INTO legal.source_records (
@@ -779,19 +929,21 @@ INSERT INTO legal.source_records (
     external_id,
     external_hash,
     source_api_sync_request_id,
+    source_file_path,
     received_at,
     recorded_at,
     raw_payload,
     metadata,
     created_at,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)
 ON CONFLICT (source_system, source_record_type, external_id)
     WHERE external_id IS NOT NULL
 DO UPDATE SET
     source_channel = EXCLUDED.source_channel,
     external_hash = EXCLUDED.external_hash,
     source_api_sync_request_id = EXCLUDED.source_api_sync_request_id,
+    source_file_path = EXCLUDED.source_file_path,
     received_at = EXCLUDED.received_at,
     recorded_at = EXCLUDED.recorded_at,
     raw_payload = EXCLUDED.raw_payload,
@@ -803,22 +955,20 @@ SQL, [
             $apiSyncRequestId !== null ? 'api' : 'imported_operation',
             'bank_statement_line',
             $externalId,
-            hash('sha256', $externalId.'|'.$this->json($operation)),
+            hash('sha256', $externalId.'|'.$this->json($rawPayload)),
             $apiSyncRequestId,
+            $sourceContext['stored_path'] ?? null,
             $now,
             $operationDate,
-            $this->json($operation),
-            $this->json([
-                'bank_id' => $bankId,
-                'account_number' => $accountNumber,
-                'bank_account_id' => (int) $account->bank_account_id,
-                'bank_transaction_id' => $bankTransactionId,
-            ]),
+            $this->json($rawPayload),
+            $this->json($metadata),
             $now,
             $now,
         ]);
 
         $sourceRecordId = (int) $sourceRecord->source_record_id;
+
+        $this->upsertSourceRecordFile($sourceRecordId, $sourceContext, $now);
 
         DB::table('legal.source_record_bank_details')->upsert([[
             'source_record_id' => $sourceRecordId,
@@ -908,6 +1058,55 @@ SQL, [
         ]);
 
         return $sourceRecordId;
+    }
+
+    private function operationSourcePayload(array $operation): array
+    {
+        $sourceRow = data_get($operation, 'sourceRow');
+
+        return is_array($sourceRow) ? $sourceRow : $operation;
+    }
+
+    private function upsertSourceRecordFile(int $sourceRecordId, array $sourceContext, Carbon $now): void
+    {
+        $storedPath = $this->nullableString($sourceContext['stored_path'] ?? null);
+
+        if ($storedPath === null) {
+            return;
+        }
+
+        $fileHash = $this->nullableString($sourceContext['file_sha256'] ?? null);
+        $values = [
+            'source_record_id' => $sourceRecordId,
+            'file_role' => 'source_statement',
+            'source_file_name' => $this->nullableString($sourceContext['source_file_name'] ?? null),
+            'stored_path' => $storedPath,
+            'mime_type' => $this->nullableString($sourceContext['mime_type'] ?? null),
+            'file_sha256' => $fileHash,
+            'file_size' => $sourceContext['file_size'] ?? null,
+            'encoding' => $this->nullableString($sourceContext['encoding'] ?? null),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        $existing = $fileHash !== null
+            ? DB::table('legal.source_record_files')
+                ->where('source_record_id', $sourceRecordId)
+                ->where('file_sha256', $fileHash)
+                ->first()
+            : null;
+
+        if ($existing === null) {
+            DB::table('legal.source_record_files')->insert($values);
+
+            return;
+        }
+
+        unset($values['source_record_id'], $values['file_sha256'], $values['created_at']);
+
+        DB::table('legal.source_record_files')
+            ->where('source_record_file_id', $existing->source_record_file_id)
+            ->update($values);
     }
 
     /**

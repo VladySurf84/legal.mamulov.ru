@@ -1,6 +1,8 @@
 <?php
 
 use App\Console\Commands\ImportBankDirectories;
+use App\Console\Commands\ImportBankStatement;
+use App\Console\Commands\ImportOzonBankStatement;
 use App\Console\Commands\SetApiCredential;
 use App\Console\Commands\SyncTinkoffBank;
 use App\Console\Commands\UpsertUser;
@@ -19,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         ImportBankDirectories::class,
+        ImportBankStatement::class,
+        ImportOzonBankStatement::class,
         SetApiCredential::class,
         SyncTinkoffBank::class,
         UpsertUser::class,
@@ -27,9 +31,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.basic' => RequireAdminBasicAuth::class,
             'admin.session' => RequireAdminSession::class,
-        ]);
-        $middleware->validateCsrfTokens(except: [
-            'internal/tinkoff/sync',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

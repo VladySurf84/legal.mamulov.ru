@@ -6,40 +6,68 @@
             <h1>Банковские транзакции</h1>
             <div class="subtle">Операции из банка, связанные со сверкой и юридическими лицами.</div>
         </div>
-        <div class="api-sync-control">
-            <form class="api-sync-main-form" method="post" action="{{ route('bank-transactions.sync') }}">
-                @csrf
-                <button class="api-sync-button" type="submit">
-                    <span class="api-sync-dot"></span>
-                    Все API-счета
-                </button>
-            </form>
-            <details class="api-sync-dropdown">
-                <summary class="api-sync-toggle" title="Выбрать счет">
-                    <span class="api-sync-caret"></span>
-                </summary>
-                <div class="api-sync-menu">
-                    @if ($apiAccounts->isNotEmpty())
-                        @foreach ($apiAccounts as $account)
-                            <form method="post" action="{{ route('bank-transactions.sync') }}">
-                                @csrf
-                                <input type="hidden" name="account_number" value="{{ $account->account_number }}">
-                                <button type="submit" title="Обновить счет {{ $account->account_number }}">
-                                    <span class="api-sync-dot"></span>
-                                    <span class="api-sync-account">
-                                        <span>{{ $account->name ?: $account->account_number }}</span>
-                                        <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
-                                    </span>
-                                </button>
-                            </form>
-                        @endforeach
-                    @else
-                        <div class="subtle" style="padding: 8px 10px;">API-счета Тинькофф пока не найдены.</div>
-                    @endif
-                </div>
-            </details>
+        <div class="bank-transaction-actions">
+            <button class="button secondary statement-import-open" type="button" data-bank-statement-import-open>
+                Загрузить выписку
+            </button>
+
+            <div class="api-sync-control">
+                <form class="api-sync-main-form" method="post" action="{{ route('bank-transactions.sync') }}">
+                    @csrf
+                    <input type="hidden" name="full" value="1">
+                    <button class="api-sync-button" type="submit">
+                        <span class="api-sync-dot"></span>
+                        Все API-счета
+                    </button>
+                </form>
+                <details class="api-sync-dropdown">
+                    <summary class="api-sync-toggle" title="Выбрать счет">
+                        <span class="api-sync-caret"></span>
+                    </summary>
+                    <div class="api-sync-menu">
+                        @if ($apiAccounts->isNotEmpty())
+                            @foreach ($apiAccounts as $account)
+                                <form method="post" action="{{ route('bank-transactions.sync') }}">
+                                    @csrf
+                                    <input type="hidden" name="full" value="1">
+                                    <input type="hidden" name="account_number" value="{{ $account->account_number }}">
+                                    <button type="submit" title="Обновить счет {{ $account->account_number }}">
+                                        <span class="api-sync-dot"></span>
+                                        <span class="api-sync-account">
+                                            <span>{{ $account->name ?: $account->account_number }}</span>
+                                            <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
+                                        </span>
+                                    </button>
+                                </form>
+                            @endforeach
+                        @else
+                            <div class="subtle" style="padding: 8px 10px;">API-счета Тинькофф пока не найдены.</div>
+                        @endif
+                    </div>
+                </details>
+            </div>
         </div>
     </div>
+
+    <dialog class="statement-import-dialog" data-bank-statement-import-dialog>
+        <div class="statement-import-dialog-shell">
+            <div class="statement-import-dialog-head">
+                <div>
+                    <h2>Загрузка банковской выписки</h2>
+                    <div class="subtle">Файл 1CClientBankExchange будет добавлен в новые документы и Money layer.</div>
+                </div>
+                <button class="statement-import-close" type="button" title="Закрыть" data-bank-statement-import-close>
+                    &times;
+                </button>
+            </div>
+
+            @include('bank-statement-imports._form', [
+                'formId' => 'bank-transactions-statement-import',
+                'redirectTo' => url()->full(),
+                'submitLabel' => 'Загрузить',
+            ])
+        </div>
+    </dialog>
 
     @if (session('status'))
         <div class="notice">{{ session('status') }}</div>
@@ -58,6 +86,66 @@
     @endif
 
     <style>
+        .bank-transaction-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .statement-import-open {
+            min-height: 34px;
+            white-space: nowrap;
+        }
+
+        .statement-import-dialog {
+            width: min(720px, calc(100vw - 32px));
+            padding: 0;
+            border: 0;
+            border-radius: 8px;
+            color: var(--text);
+            box-shadow: 0 20px 48px rgba(16, 24, 40, .24);
+        }
+
+        .statement-import-dialog::backdrop {
+            background: rgba(15, 23, 42, .45);
+        }
+
+        .statement-import-dialog-shell {
+            background: #ffffff;
+        }
+
+        .statement-import-dialog-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 20px 20px 0;
+        }
+
+        .statement-import-dialog-head h2 {
+            margin: 0 0 6px;
+            font-size: 20px;
+            line-height: 1.2;
+        }
+
+        .statement-import-close {
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+            border-color: var(--line);
+            background: #ffffff;
+            color: var(--muted);
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .statement-import-close:hover {
+            color: var(--text);
+            background: #f8fafc;
+        }
+
         .api-sync-control {
             display: inline-flex;
             align-items: stretch;
@@ -273,6 +361,42 @@
     </div>
 
     <script>
+        (() => {
+            const dialog = document.querySelector('[data-bank-statement-import-dialog]');
+            const openButton = document.querySelector('[data-bank-statement-import-open]');
+            const closeButtons = dialog?.querySelectorAll('[data-bank-statement-import-close]') ?? [];
+
+            if (!dialog || !openButton) {
+                return;
+            }
+
+            openButton.addEventListener('click', () => {
+                if (typeof dialog.showModal === 'function') {
+                    dialog.showModal();
+                    return;
+                }
+
+                dialog.setAttribute('open', 'open');
+            });
+
+            closeButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    if (typeof dialog.close === 'function') {
+                        dialog.close();
+                        return;
+                    }
+
+                    dialog.removeAttribute('open');
+                });
+            });
+
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog && typeof dialog.close === 'function') {
+                    dialog.close();
+                }
+            });
+        })();
+
         (() => {
             const rows = document.getElementById('bank-transactions-rows');
             const loader = document.getElementById('bank-transactions-loader');

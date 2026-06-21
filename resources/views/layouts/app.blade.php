@@ -334,7 +334,6 @@
                 <a href="{{ route('bank-accounts.index') }}">Банковские счета</a>
                 <a href="{{ route('bank-transactions.index') }}">Банковские транзакции</a>
                 <a href="{{ route('counterparties.index') }}">Контрагенты</a>
-                <a href="{{ route('ozon-bank-statements.create') }}">Импорт Ozon</a>
                 <a href="{{ route('money-layer.index') }}">Money layer</a>
                 <a href="{{ route('vat-books.index') }}">Книги НДС</a>
                 <a href="{{ route('vat-book-entries.index') }}">Содержание книг</a>

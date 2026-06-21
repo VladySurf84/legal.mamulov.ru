@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
-class OzonBankStatementImportService
+class BankStatementImportService
 {
     public const BANK_ID_OZON = '044525068';
 
-    private const DOCUMENT_SOURCE_OZON_BANK_FILE = 'ozon_bank_file';
+    private const DOCUMENT_SOURCE_1C_CLIENT_BANK_EXCHANGE = '1c_client_bank_exchange';
 
     public function __construct(
         private readonly TinkoffBankSyncService $bankSyncService = new TinkoffBankSyncService,
@@ -34,12 +34,19 @@ class OzonBankStatementImportService
         $fileHash = hash_file('sha256', $file);
         $fileSize = filesize($file);
         $now = now();
-        $importRunId = $this->startImportRun($sourceFileName, $fileHash, $fileSize !== false ? $fileSize : null, $bankId);
+
+        ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile($file);
+
+        $bankId ??= $this->bankIdByAccountNumber($accountNumber);
+        $provider = $this->providerForBankId($bankId);
+        $sourceSystem = self::DOCUMENT_SOURCE_1C_CLIENT_BANK_EXCHANGE;
+        $importRunId = $this->startImportRun($sourceFileName, $fileHash, $fileSize !== false ? $fileSize : null, $bankId, $provider);
 
         try {
             $storedPath = $this->storeOriginal($file, $sourceFileName, $fileHash, $importRunId);
             $uploadedFileId = $this->insertUploadedFile(
                 $importRunId,
+                $provider,
                 $sourceFileName,
                 $storedPath,
                 $fileHash,
@@ -48,17 +55,22 @@ class OzonBankStatementImportService
                 $now,
             );
 
-            ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile(
-                Storage::disk('local')->path($storedPath)
-            );
-
-            $bankId ??= $this->bankIdByAccountNumber($accountNumber);
-            $operations = array_map(fn (array $row): array => $this->map1CClientBankExchangeRow($row), $rows);
+            $operations = $this->map1CClientBankExchangeRows($rows);
             $count = $this->bankSyncService->upsertImportedOperations(
                 $operations,
                 $bankId,
                 $accountNumber,
-                self::DOCUMENT_SOURCE_OZON_BANK_FILE,
+                $sourceSystem,
+                [
+                    'import_run_id' => $importRunId,
+                    'uploaded_file_id' => $uploadedFileId,
+                    'source_file_name' => $sourceFileName,
+                    'stored_path' => $storedPath,
+                    'file_sha256' => $fileHash,
+                    'file_size' => $fileSize !== false ? $fileSize : null,
+                    'mime_type' => 'text/plain',
+                    'encoding' => 'Windows-1251/UTF-8',
+                ],
             );
 
             if ($rebuildMoneyLayer) {
@@ -169,11 +181,35 @@ class OzonBankStatementImportService
         ];
     }
 
-    private function map1CClientBankExchangeRow(array $row): array
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function map1CClientBankExchangeRows(array $rows): array
+    {
+        $baseIds = array_map(fn (array $row): string => $this->bankReportOperationBaseId($row), $rows);
+        $baseCounts = array_count_values($baseIds);
+        $seen = [];
+        $operations = [];
+
+        foreach ($rows as $index => $row) {
+            $baseId = $baseIds[$index];
+            $seen[$baseId] = ($seen[$baseId] ?? 0) + 1;
+            $suffix = ($baseCounts[$baseId] ?? 0) > 1 && $seen[$baseId] > 1
+                ? '_row'.($index + 1)
+                : '';
+
+            $operations[] = $this->map1CClientBankExchangeRow($row, $baseId, $suffix);
+        }
+
+        return $operations;
+    }
+
+    private function map1CClientBankExchangeRow(array $row, string $baseOperationId, string $operationIdSuffix = ''): array
     {
         $date = $this->parseBankReportDate($row['Дата'] ?? null);
         $number = $row['Номер'] ?? '';
-        $operationId = ($date ?: 'no-date').'_'.$number;
+        $operationId = $baseOperationId.$operationIdSuffix;
 
         if ($number === '') {
             $operationId = hash('sha256', json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
@@ -214,6 +250,18 @@ class OzonBankStatementImportService
             'taxType' => $this->normalizeBankReportOptionalValue($row['КодНазПлатежа'] ?? null),
             'sourceRow' => $row,
         ];
+    }
+
+    private function bankReportOperationBaseId(array $row): string
+    {
+        $date = $this->parseBankReportDate($row['Дата'] ?? null);
+        $number = $row['Номер'] ?? '';
+
+        if ($number === '') {
+            return hash('sha256', json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        }
+
+        return ($date ?: 'no-date').'_'.$number;
     }
 
     /**
@@ -293,7 +341,12 @@ class OzonBankStatementImportService
         return $bankIds[0];
     }
 
-    private function startImportRun(string $sourceFileName, string $fileHash, ?int $fileSize, ?string $bankId): int
+    private function providerForBankId(string $bankId): string
+    {
+        return $bankId === self::BANK_ID_OZON ? 'ozon_bank' : 'bank_statement_file';
+    }
+
+    private function startImportRun(string $sourceFileName, string $fileHash, ?int $fileSize, ?string $bankId, string $provider): int
     {
         $now = now();
         $row = DB::selectOne(<<<'SQL'
@@ -311,7 +364,7 @@ INSERT INTO legal.import_runs (
 ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
 RETURNING import_run_id
 SQL, [
-            'ozon_bank',
+            $provider,
             'bank_statement_file_import',
             'started',
             $sourceFileName,
@@ -352,6 +405,7 @@ SQL, [
 
     private function insertUploadedFile(
         int $importRunId,
+        string $provider,
         string $sourceFileName,
         string $storedPath,
         string $fileHash,
@@ -389,7 +443,7 @@ DO UPDATE SET
 RETURNING uploaded_file_id
 SQL, [
             $importRunId,
-            'ozon_bank',
+            $provider,
             'bank_statement_source',
             $sourceFileName,
             $storedPath,

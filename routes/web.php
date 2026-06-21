@@ -6,7 +6,7 @@ use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\CounterpartyController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\MoneyLayerController;
-use App\Http\Controllers\OzonBankStatementController;
+use App\Http\Controllers\BankStatementImportController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\VatBookController;
 use App\Http\Controllers\VatLayerController;
@@ -16,7 +16,6 @@ Route::get('login', [AdminAuthController::class, 'create'])->name('login');
 Route::post('login', [AdminAuthController::class, 'store'])->name('login.store');
 Route::get('auth/google', [AdminAuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
 Route::get('auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
-Route::post('internal/tinkoff/sync', [BankTransactionController::class, 'proxySync'])->name('bank-transactions.proxy-sync');
 
 Route::middleware('admin.session')->group(function (): void {
     Route::post('logout', [AdminAuthController::class, 'destroy'])->name('logout');
@@ -42,8 +41,10 @@ Route::middleware('admin.session')->group(function (): void {
         ->where('contractorInn', '[0-9]{10,12}')
         ->whereNumber('openingBalanceId')
         ->name('counterparties.opening-balances.destroy');
-    Route::get('ozon-bank-statements/create', [OzonBankStatementController::class, 'create'])->name('ozon-bank-statements.create');
-    Route::post('ozon-bank-statements', [OzonBankStatementController::class, 'store'])->name('ozon-bank-statements.store');
+    Route::get('bank-statement-imports/create', fn () => redirect()->route('bank-transactions.index'));
+    Route::post('bank-statement-imports', [BankStatementImportController::class, 'store'])->name('bank-statement-imports.store');
+    Route::get('ozon-bank-statements/create', fn () => redirect()->route('bank-transactions.index'));
+    Route::post('ozon-bank-statements', [BankStatementImportController::class, 'store'])->name('ozon-bank-statements.store');
     Route::get('money-layer', [MoneyLayerController::class, 'index'])->name('money-layer.index');
     Route::post('money-layer/rebuild', [MoneyLayerController::class, 'rebuild'])->name('money-layer.rebuild');
     Route::get('vat-books', [VatBookController::class, 'index'])->name('vat-books.index');
