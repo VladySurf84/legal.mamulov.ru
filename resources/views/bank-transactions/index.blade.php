@@ -43,13 +43,19 @@
             font-weight: 700;
         }
 
-        .api-sync-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+        .api-sync-dropdown {
+            position: relative;
+            display: inline-flex;
+            align-items: stretch;
         }
 
-        .api-sync-button {
+        .api-sync-main-form {
+            display: inline-flex;
+        }
+
+        .api-sync-button,
+        .api-sync-toggle,
+        .api-sync-menu button {
             min-height: 34px;
             gap: 8px;
             border-color: #b7e4c7;
@@ -59,7 +65,25 @@
             transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .05s ease;
         }
 
-        .api-sync-button:hover {
+        .api-sync-button {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .api-sync-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            padding: 8px 10px;
+            border-left-color: #d1fadf;
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .api-sync-button:hover,
+        .api-sync-toggle:hover,
+        .api-sync-menu button:hover {
             background: #ecfdf3;
             border-color: #75c69a;
             color: #02663f;
@@ -67,8 +91,56 @@
             text-decoration: none;
         }
 
-        .api-sync-button:active {
+        .api-sync-button:active,
+        .api-sync-toggle:active,
+        .api-sync-menu button:active {
             transform: translateY(1px);
+        }
+
+        .api-sync-dropdown[open] .api-sync-toggle {
+            background: #ecfdf3;
+            border-color: #75c69a;
+            box-shadow: 0 3px 10px rgba(2, 122, 72, .14);
+        }
+
+        .api-sync-toggle::marker,
+        .api-sync-toggle::-webkit-details-marker {
+            display: none;
+            content: "";
+        }
+
+        .api-sync-caret {
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid currentColor;
+        }
+
+        .api-sync-menu {
+            position: absolute;
+            z-index: 20;
+            top: calc(100% + 6px);
+            right: 0;
+            width: min(420px, calc(100vw - 40px));
+            padding: 6px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 16px 36px rgba(16, 24, 40, .16);
+        }
+
+        .api-sync-menu form {
+            margin: 0;
+        }
+
+        .api-sync-menu button {
+            width: 100%;
+            justify-content: flex-start;
+            border-color: transparent;
+            background: #ffffff;
+            color: var(--text);
+            box-shadow: none;
         }
 
         .api-sync-dot {
@@ -98,34 +170,38 @@
                 <div class="api-sync-title">API синхронизация</div>
                 <div class="subtle">Загружает последние операции Тинькофф и сохраняет их в новую source-структуру.</div>
             </div>
-            <form method="post" action="{{ route('bank-transactions.sync') }}">
+            <form class="api-sync-main-form" method="post" action="{{ route('bank-transactions.sync') }}">
                 @csrf
                 <button class="api-sync-button" type="submit">
                     <span class="api-sync-dot"></span>
                     Все API-счета
                 </button>
             </form>
+            <details class="api-sync-dropdown">
+                <summary class="api-sync-toggle" title="Выбрать счет">
+                    <span class="api-sync-caret"></span>
+                </summary>
+                <div class="api-sync-menu">
+                    @if ($apiAccounts->isNotEmpty())
+                        @foreach ($apiAccounts as $account)
+                            <form method="post" action="{{ route('bank-transactions.sync') }}">
+                                @csrf
+                                <input type="hidden" name="account_number" value="{{ $account->account_number }}">
+                                <button type="submit" title="Обновить счет {{ $account->account_number }}">
+                                    <span class="api-sync-dot"></span>
+                                    <span class="api-sync-account">
+                                        <span>{{ $account->name ?: $account->account_number }}</span>
+                                        <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
+                                    </span>
+                                </button>
+                            </form>
+                        @endforeach
+                    @else
+                        <div class="subtle" style="padding: 8px 10px;">API-счета Тинькофф пока не найдены.</div>
+                    @endif
+                </div>
+            </details>
         </div>
-
-        @if ($apiAccounts->isNotEmpty())
-            <div class="api-sync-actions">
-                @foreach ($apiAccounts as $account)
-                    <form method="post" action="{{ route('bank-transactions.sync') }}">
-                        @csrf
-                        <input type="hidden" name="account_number" value="{{ $account->account_number }}">
-                        <button class="api-sync-button" type="submit" title="Обновить счет {{ $account->account_number }}">
-                            <span class="api-sync-dot"></span>
-                            <span class="api-sync-account">
-                                <span>{{ $account->name ?: $account->account_number }}</span>
-                                <small>{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}</small>
-                            </span>
-                        </button>
-                    </form>
-                @endforeach
-            </div>
-        @else
-            <div class="subtle">API-счета Тинькофф пока не найдены.</div>
-        @endif
     </div>
 
     <div class="panel" style="margin-bottom: 16px;">
