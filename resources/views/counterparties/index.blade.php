@@ -141,10 +141,15 @@
                     return url;
                 };
 
+                const setLoaderState = (loader, state) => {
+                    loader?.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                    loader?.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                    loader?.closest('tr')?.classList.toggle('hidden', state === 'hidden');
+                };
+
                 const replaceCounterparties = (payload) => {
                     const summary = document.getElementById('counterparties-summary');
                     const rows = tableRows();
-                    const loader = tableLoader();
                     const summaryBody = stickySummaryBody();
 
                     if (summary) {
@@ -159,13 +164,15 @@
                         summaryBody.innerHTML = payload.sticky_summary_html || '';
                     }
 
+                    const loader = tableLoader();
+
                     if (loader) {
                         if (payload.has_more && payload.next_page) {
                             loader.dataset.nextPage = payload.next_page;
-                            loader.textContent = 'Загрузка при прокрутке...';
+                            setLoaderState(loader, 'loading');
                         } else {
                             delete loader.dataset.nextPage;
-                            loader.textContent = '';
+                            setLoaderState(loader, 'hidden');
                         }
                     }
 
@@ -268,13 +275,19 @@
                     let loading = false;
                     loader.dataset.counterpartiesLoaderReady = 'true';
 
+                    const setLoaderState = (state) => {
+                        loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                        loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                        loaderRow.classList.toggle('hidden', state === 'hidden');
+                    };
+
                     const loadNextPage = async () => {
                         if (loading || !loader.dataset.nextPage) {
                             return;
                         }
 
                         loading = true;
-                        loader.textContent = 'Загружаем...';
+                        setLoaderState('loading');
 
                         const url = new URL(window.location.href);
                         url.searchParams.set('page', loader.dataset.nextPage);
@@ -296,15 +309,15 @@
 
                             if (payload.has_more && payload.next_page) {
                                 loader.dataset.nextPage = payload.next_page;
-                                loader.textContent = 'Загрузка при прокрутке...';
+                                setLoaderState('loading');
                             } else {
                                 delete loader.dataset.nextPage;
-                                loader.textContent = '';
+                                setLoaderState('hidden');
                             }
 
                             document.dispatchEvent(new Event('ui:sticky-table-refresh'));
                         } catch (error) {
-                            loader.textContent = 'Не удалось загрузить следующую страницу.';
+                            setLoaderState('error');
                         } finally {
                             loading = false;
                         }

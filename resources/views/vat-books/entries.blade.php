@@ -162,13 +162,19 @@
                     let loading = false;
                     loader.dataset.vatBookEntriesLoaderReady = 'true';
 
+                    const setLoaderState = (state) => {
+                        loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                        loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                        loaderRow.classList.toggle('hidden', state === 'hidden');
+                    };
+
                     const loadNextPage = async () => {
                         if (loading || !loader.dataset.nextPage) {
                             return;
                         }
 
                         loading = true;
-                        loader.textContent = 'Загружаем...';
+                        setLoaderState('loading');
 
                         const url = new URL(window.location.href);
                         url.searchParams.set('page', loader.dataset.nextPage);
@@ -190,16 +196,16 @@
 
                             if (payload.has_more && payload.next_page) {
                                 loader.dataset.nextPage = payload.next_page;
-                                loader.textContent = 'Загрузка при прокрутке...';
+                                setLoaderState('loading');
                             } else {
                                 delete loader.dataset.nextPage;
-                                loader.textContent = '';
+                                setLoaderState('hidden');
                                 observer.disconnect();
                             }
 
                             document.dispatchEvent(new Event('ui:sticky-table-refresh'));
                         } catch (error) {
-                            loader.textContent = 'Не удалось загрузить следующую страницу.';
+                            setLoaderState('error');
                         } finally {
                             loading = false;
                         }

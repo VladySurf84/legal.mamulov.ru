@@ -5,7 +5,7 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
-        <x-ui.button type="button" size="lg" data-bank-statement-import-open>
+        <x-ui.button type="button" size="lg" variant="ghost" data-ui-modal-open="bank-statement-import-dialog">
             Загрузить выписку
         </x-ui.button>
 
@@ -20,33 +20,18 @@
 @endsection
 
 @section('content')
-    <dialog class="w-[min(720px,calc(100vw-32px))] rounded-lg border-0 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-900/45" data-bank-statement-import-dialog>
-        <div class="bg-white">
-            <div class="flex items-start justify-between gap-4 px-5 pt-5">
-                <div>
-                    <h2 class="!m-0 !text-xl !font-semibold text-slate-950">Загрузка банковской выписки</h2>
-                    <div class="mt-1 text-sm text-slate-500">
-                        Файл 1CClientBankExchange будет добавлен в новые документы и Money layer.
-                    </div>
-                </div>
-                <x-ui.button
-                    class="flex h-9 w-9 items-center justify-center !px-0 !py-0 text-xl leading-none text-slate-500"
-                    type="button"
-                    size="md"
-                    title="Закрыть"
-                    data-bank-statement-import-close
-                >
-                    &times;
-                </x-ui.button>
-            </div>
-
-            @include('bank-statement-imports._form', [
-                'formId' => 'bank-transactions-statement-import',
-                'redirectTo' => url()->full(),
-                'submitLabel' => 'Загрузить',
-            ])
-        </div>
-    </dialog>
+    <x-ui.modal
+        id="bank-statement-import-dialog"
+        title="Загрузка банковской выписки"
+        description="Файл 1CClientBankExchange будет добавлен в документы и Money layer."
+        size="xl"
+    >
+        @include('bank-statement-imports._form', [
+            'formId' => 'bank-transactions-statement-import',
+            'redirectTo' => url()->full(),
+            'submitLabel' => 'Загрузить',
+        ])
+    </x-ui.modal>
 
     @if (session('status'))
         <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -144,9 +129,14 @@
                     return url;
                 };
 
+                const setLoaderState = (loader, state) => {
+                    loader?.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                    loader?.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                    loader?.closest('tr')?.classList.toggle('hidden', state === 'hidden');
+                };
+
                 const replaceTable = (payload) => {
                     const rows = tableRows();
-                    const loader = tableLoader();
                     const summaryBody = stickySummaryBody();
                     const head = tableHead();
 
@@ -162,16 +152,18 @@
                         summaryBody.innerHTML = payload.sticky_summary_html || '';
                     }
 
+                    const loader = tableLoader();
+
                     if (!loader) {
                         return;
                     }
 
                     if (payload.has_more && payload.next_page) {
                         loader.dataset.nextPage = payload.next_page;
-                        loader.textContent = 'Загрузка при прокрутке...';
+                        setLoaderState(loader, 'loading');
                     } else {
                         delete loader.dataset.nextPage;
-                        loader.textContent = '';
+                        setLoaderState(loader, 'hidden');
                     }
 
                     document.dispatchEvent(new Event('ui:sticky-table-refresh'));
@@ -346,42 +338,6 @@
 
     <script>
         (() => {
-            const dialog = document.querySelector('[data-bank-statement-import-dialog]');
-            const openButton = document.querySelector('[data-bank-statement-import-open]');
-            const closeButtons = dialog?.querySelectorAll('[data-bank-statement-import-close]') ?? [];
-
-            if (!dialog || !openButton) {
-                return;
-            }
-
-            openButton.addEventListener('click', () => {
-                if (typeof dialog.showModal === 'function') {
-                    dialog.showModal();
-                    return;
-                }
-
-                dialog.setAttribute('open', 'open');
-            });
-
-            closeButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    if (typeof dialog.close === 'function') {
-                        dialog.close();
-                        return;
-                    }
-
-                    dialog.removeAttribute('open');
-                });
-            });
-
-            dialog.addEventListener('click', (event) => {
-                if (event.target === dialog && typeof dialog.close === 'function') {
-                    dialog.close();
-                }
-            });
-        })();
-
-        (() => {
             const rows = document.getElementById('bank-transactions-rows');
             const loader = document.getElementById('bank-transactions-loader');
             const loaderRow = document.getElementById('bank-transactions-loader-row');
@@ -392,13 +348,19 @@
 
             let loading = false;
 
+            const setLoaderState = (state) => {
+                loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                loaderRow.classList.toggle('hidden', state === 'hidden');
+            };
+
             const loadNextPage = async () => {
                 if (loading || !loader.dataset.nextPage) {
                     return;
                 }
 
                 loading = true;
-                loader.textContent = 'Загружаем...';
+                setLoaderState('loading');
 
                 const url = new URL(window.location.href);
                 url.searchParams.set('page', loader.dataset.nextPage);
@@ -420,15 +382,15 @@
 
                     if (payload.has_more && payload.next_page) {
                         loader.dataset.nextPage = payload.next_page;
-                        loader.textContent = 'Загрузка при прокрутке...';
+                        setLoaderState('loading');
                     } else {
                         delete loader.dataset.nextPage;
-                        loader.textContent = '';
+                        setLoaderState('hidden');
                     }
 
                     document.dispatchEvent(new Event('ui:sticky-table-refresh'));
                 } catch (error) {
-                    loader.textContent = 'Не удалось загрузить следующую страницу.';
+                    setLoaderState('error');
                 } finally {
                     loading = false;
                 }

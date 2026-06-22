@@ -17,9 +17,10 @@
     $variants = [
         'neutral' => 'text-gray-900 bg-white shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:shadow-none dark:inset-ring-white/5 dark:hover:bg-white/20',
         'soft' => 'text-indigo-600 bg-indigo-50 shadow-xs hover:bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400 dark:shadow-none dark:hover:bg-indigo-500/30',
+        'ghost' => 'text-gray-900 bg-gray-950/5 hover:bg-gray-950/10 dark:bg-white/10 dark:text-white dark:inset-ring dark:inset-ring-white/5 dark:hover:bg-white/20',
     ];
 
-    $classes = trim(($sizes[$size] ?? $sizes['md']) . ' font-semibold disabled:cursor-not-allowed disabled:opacity-50 ' . ($variants[$variant] ?? $variants['neutral']));
+    $classes = trim(($sizes[$size] ?? $sizes['md']) . ' font-sans font-semibold transition-colors duration-150 ease-in-out disabled:cursor-not-allowed disabled:opacity-50 ' . ($variants[$variant] ?? $variants['neutral']));
 @endphp
 
 @if ($href)

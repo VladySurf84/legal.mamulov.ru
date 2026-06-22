@@ -1,9 +1,10 @@
-<tr id="bank-transactions-loader-row">
+<tr id="bank-transactions-loader-row" @class(['hidden' => ! $nextPage])>
     <td class="h-[20vh] py-3 text-center align-middle text-sm text-slate-500" colspan="{{ $tableColspan }}">
         <div id="bank-transactions-loader" data-next-page="{{ $nextPage }}">
-            @if ($nextPage)
-                Загрузка при прокрутке...
-            @endif
+            <span data-loader-spinner @class(['hidden' => ! $nextPage])>
+                <x-ui.loading :overlay="false" label="Загрузка банковских транзакций" />
+            </span>
+            <span data-loader-error class="hidden text-rose-600">Не удалось загрузить следующую страницу.</span>
         </div>
     </td>
 </tr>

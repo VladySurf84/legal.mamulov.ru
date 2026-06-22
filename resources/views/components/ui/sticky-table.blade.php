@@ -17,6 +17,7 @@
     $hasHeader = $title || $description || (isset($actions) && trim($actions->toHtml()) !== '');
     $hasFoot = isset($foot) && trim($foot->toHtml()) !== '';
     $hasStickySummary = isset($stickySummary) && trim($stickySummary->toHtml()) !== '';
+    $hasTableFoot = $hasFoot || ($stickySummaryEnabled && $hasStickySummary);
     $tableUid = 'sticky-table-' . uniqid();
 @endphp
 
@@ -54,23 +55,17 @@
             </div>
         @endif
 
-        @if ($stickySummaryEnabled && $hasStickySummary)
-            <div class="fixed z-40 hidden overflow-hidden bg-white/90 shadow-[0_-1px_0_rgba(148,163,184,0.45)] backdrop-blur-sm dark:bg-gray-900/90" data-ui-sticky-table-summary="{{ $tableUid }}">
-                <table class="w-full min-w-full border-separate border-spacing-0 {{ $tableClass }}" data-ui-sticky-table-summary-table>
-                    <tbody data-ui-sticky-table-summary-body>
-                        {{ $stickySummary }}
-                    </tbody>
-                </table>
-            </div>
-        @endif
-
         <div @class([
             '-mx-4 -my-2 sm:-mx-6 lg:-mx-8',
             $scrollClass => $scrollable,
             '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden' => $bottomScrollbar,
             '[&_tfoot_.sticky]:!static' => $viewportSticky,
         ]) @if ($viewportSticky || $topScrollbar || $bottomScrollbar) data-ui-sticky-table-scroll="{{ $tableUid }}" @endif>
-            <div class="inline-block min-w-full py-2 align-middle">
+            <div @class([
+                'inline-block min-w-full align-middle',
+                'py-4' => $bottomScrollbar,
+                'py-2' => ! $bottomScrollbar,
+            ])>
                 <table class="w-full min-w-full border-separate border-spacing-0 {{ $tableClass }}" @if ($viewportSticky || $topScrollbar || $bottomScrollbar) data-ui-sticky-table @endif>
                     @isset($head)
                         <thead>
@@ -82,9 +77,17 @@
                         {{ $slot }}
                     </tbody>
 
-                    @if ($hasFoot)
-                        <tfoot @if ($footId) id="{{ $footId }}" @endif>
-                            {{ $foot }}
+                    @if ($hasTableFoot)
+                        <tfoot
+                            @if ($footId) id="{{ $footId }}" @endif
+                            @if ($stickySummaryEnabled && $hasStickySummary) data-ui-sticky-table-summary-body @endif
+                            @if ($stickySummaryEnabled && $hasStickySummary) style="visibility: hidden;" aria-hidden="true" @endif
+                        >
+                            @if ($hasFoot)
+                                {{ $foot }}
+                            @else
+                                {{ $stickySummary }}
+                            @endif
                         </tfoot>
                     @endif
                 </table>
@@ -98,7 +101,7 @@
         <script>
             (() => {
                 const overlayClass = 'fixed z-40 hidden overflow-hidden';
-                const tableOverlayClass = 'border-separate border-spacing-0';
+                const tableOverlayClass = 'table-fixed border-separate border-spacing-0';
 
                 const makeColumnGroup = (table) => {
                     const row = table.tHead?.rows?.[0] || table.tBodies?.[0]?.rows?.[0] || table.tFoot?.rows?.[0];
@@ -123,6 +126,8 @@
                 };
 
                 const syncColumnGroup = (table, cloneTable) => {
+                    cloneTable.classList.add('table-fixed');
+
                     const nextGroup = makeColumnGroup(table);
                     const currentGroup = cloneTable.querySelector('colgroup');
 
@@ -145,8 +150,17 @@
                     overlay.className = overlayClass;
                     overlay.setAttribute('aria-hidden', 'true');
 
+                    if (sectionName === 'tfoot') {
+                        overlay.setAttribute('data-ui-sticky-table-footer-overlay', '');
+                    }
+
                     const cloneTable = document.createElement('table');
                     const cloneSection = section.cloneNode(true);
+
+                    if (sectionName === 'tfoot') {
+                        cloneSection.style.visibility = 'visible';
+                        cloneSection.removeAttribute('aria-hidden');
+                    }
 
                     cloneSection.querySelectorAll('.sticky').forEach((element) => {
                         element.classList.remove('sticky', 'top-0', 'bottom-0');
@@ -191,24 +205,6 @@
                     }
 
                     return scrollbars;
-                };
-
-                const findStickySummary = (scrollBox) => {
-                    const tableId = scrollBox.getAttribute('data-ui-sticky-table-scroll');
-
-                    if (!tableId) {
-                        return null;
-                    }
-
-                    const element = document.querySelector(`[data-ui-sticky-table-summary="${CSS.escape(tableId)}"]`);
-                    const table = element?.querySelector('[data-ui-sticky-table-summary-table]');
-                    const body = element?.querySelector('[data-ui-sticky-table-summary-body]');
-
-                    if (!element || !table || !body) {
-                        return null;
-                    }
-
-                    return { element, table, body };
                 };
 
                 const syncHorizontalScrollbars = (scrollbars, scrollBox, table) => {
@@ -262,19 +258,12 @@
                     const viewportBottom = placement === 'bottom'
                         ? viewportHeight - getBottomScrollbarOffset(scrollBox)
                         : viewportHeight;
-                    const lastBodyRow = table.tBodies?.[0]?.rows?.[table.tBodies[0].rows.length - 1];
-                    const lastBodyRowRect = lastBodyRow?.getBoundingClientRect();
-                    const bodyEndVisible = placement === 'bottom'
-                        && lastBodyRowRect
-                        && lastBodyRowRect.top < viewportBottom
-                        && lastBodyRowRect.bottom > 0;
                     const hasVerticalRange = tableRect.height > sectionHeight * 3;
 
                     const visible = placement === 'top'
                         ? tableRect.top < 0 && tableRect.bottom > sectionHeight && hasVerticalRange
                         : tableRect.top < viewportBottom - sectionHeight
-                            && (sectionRect?.top || tableRect.bottom) > viewportBottom
-                            && !bodyEndVisible
+                            && tableRect.bottom > sectionHeight
                             && hasVerticalRange;
 
                     item.overlay.classList.toggle('hidden', !visible);
@@ -290,50 +279,6 @@
                     syncColumnGroup(table, item.cloneTable);
                     item.cloneTable.style.width = `${table.getBoundingClientRect().width}px`;
                     item.cloneTable.style.transform = `translateX(${-scrollBox.scrollLeft}px)`;
-                };
-
-                const normalizeStickySummaryContent = (summary) => {
-                    summary.body.querySelectorAll('.sticky').forEach((element) => {
-                        element.classList.remove('sticky', 'top-0', 'bottom-0');
-                        element.style.position = 'static';
-                        element.style.top = 'auto';
-                        element.style.bottom = 'auto';
-                    });
-                };
-
-                const syncStickySummary = (scrollBox, table, summary) => {
-                    if (!summary) {
-                        return;
-                    }
-
-                    normalizeStickySummaryContent(summary);
-
-                    const scrollRect = scrollBox.getBoundingClientRect();
-                    const tableRect = table.getBoundingClientRect();
-                    const bottomOffset = getBottomScrollbarOffset(scrollBox);
-                    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-                    const viewportBottom = viewportHeight - bottomOffset;
-                    const summaryHeight = summary.element.getBoundingClientRect().height
-                        || table.tHead?.getBoundingClientRect().height
-                        || 48;
-                    const hasVerticalRange = tableRect.height > summaryHeight * 3;
-                    const visible = summary.body.rows.length > 0
-                        && tableRect.top < viewportBottom - summaryHeight
-                        && tableRect.bottom > summaryHeight
-                        && hasVerticalRange;
-
-                    summary.element.classList.toggle('hidden', !visible);
-
-                    if (!visible) {
-                        return;
-                    }
-
-                    syncColumnGroup(table, summary.table);
-                    summary.element.style.left = `${scrollRect.left}px`;
-                    summary.element.style.width = `${scrollRect.width}px`;
-                    summary.element.style.bottom = `${bottomOffset}px`;
-                    summary.table.style.width = `${table.getBoundingClientRect().width}px`;
-                    summary.table.style.transform = `translateX(${-scrollBox.scrollLeft}px)`;
                 };
 
                 const getBottomScrollbarOffset = (scrollBox) => {
@@ -367,7 +312,7 @@
 
                     const horizontalScrollbars = findHorizontalScrollbars(scrollBox);
                     let header = buildOverlay(table, 'thead');
-                    const summary = findStickySummary(scrollBox);
+                    let footer = buildOverlay(table, 'tfoot');
                     let syncingScrollLeft = false;
                     let lastScrollbarScrollLeft = horizontalScrollbars[0]?.element.scrollLeft || 0;
                     let lastBoxScrollLeft = scrollBox.scrollLeft;
@@ -375,12 +320,14 @@
                     const update = () => {
                         syncHorizontalScrollbars(horizontalScrollbars, scrollBox, table);
                         syncOverlay(scrollBox, table, header, 'top');
-                        syncStickySummary(scrollBox, table, summary);
+                        syncOverlay(scrollBox, table, footer, 'bottom');
                     };
 
                     const refresh = () => {
                         header?.overlay.remove();
+                        footer?.overlay.remove();
                         header = buildOverlay(table, 'thead');
+                        footer = buildOverlay(table, 'tfoot');
                         update();
                     };
 
