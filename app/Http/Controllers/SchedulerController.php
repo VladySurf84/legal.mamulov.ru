@@ -39,6 +39,9 @@ class SchedulerController extends Controller
 
         $exitCode = Artisan::call('tinkoff:sync-bank', [
             '--days' => config('bank.tinkoff.sync_days'),
+            '--started-by-type' => 'user',
+            '--started-by-user-id' => auth()->id(),
+            '--started-from' => 'ui',
         ]);
 
         $output = trim(Artisan::output());
@@ -86,12 +89,17 @@ class SchedulerController extends Controller
             return [];
         }
 
-        $runs = DB::table('legal.api_sync_runs')
+        $runs = DB::table('legal.api_sync_runs as runs')
+            ->leftJoin('legal.laravel_users as users', 'users.id', '=', 'runs.started_by_user_id')
             ->where('provider', 'tinkoff')
             ->where('type', 'bank_sync')
-            ->orderByDesc('started_at')
+            ->orderByDesc('runs.started_at')
             ->limit(10)
-            ->get();
+            ->get([
+                'runs.*',
+                'users.name as started_by_user_name',
+                'users.email as started_by_user_email',
+            ]);
 
         if ($runs->isEmpty()) {
             return [];
@@ -108,10 +116,20 @@ class SchedulerController extends Controller
                 $run->requests = $requests->get($run->api_sync_run_id, collect())->all();
                 $run->started_at_label = $this->formatNullableDate($run->started_at);
                 $run->finished_at_label = $this->formatNullableDate($run->finished_at);
+                $run->started_by_label = $this->startedByLabel($run);
 
                 return $run;
             })
             ->all();
+    }
+
+    private function startedByLabel(object $run): string
+    {
+        return match ($run->started_by_type ?? 'console') {
+            'user' => ($run->started_by_user_name ?: $run->started_by_user_email ?: 'пользователь').' · '.($run->started_from ?: 'ui'),
+            'system' => 'system · '.($run->started_from ?: 'scheduler'),
+            default => 'console · '.($run->started_from ?: 'cli'),
+        };
     }
 
     private function displayCommand(Event $event): string

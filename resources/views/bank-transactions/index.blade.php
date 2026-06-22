@@ -5,7 +5,7 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
-        <x-ui.button type="button" size="lg" variant="ghost" data-ui-modal-open="bank-statement-import-dialog">
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="bank-statement-import-dialog">
             Загрузить выписку
         </x-ui.button>
 
@@ -23,8 +23,9 @@
     <x-ui.modal
         id="bank-statement-import-dialog"
         title="Загрузка банковской выписки"
-        description="Файл 1CClientBankExchange будет добавлен в документы и Money layer."
+        description="Файлы должны быть формата 1CClientBankExchange. Они будут добавлены в документы и Money layer."
         size="xl"
+        :open="session('open_modal') === 'bank-statement-import-dialog'"
     >
         @include('bank-statement-imports._form', [
             'formId' => 'bank-transactions-statement-import',

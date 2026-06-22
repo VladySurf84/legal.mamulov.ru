@@ -1,101 +1,158 @@
-@extends('layouts.app', ['title' => 'Money layer'])
+@extends('layouts.app', [
+    'title' => 'Money layer',
+    'titleDescription' => 'Интерпретационный слой денежных ребер: нормализованные документы превращаются в движение денег между участниками графа.',
+])
+
+@php
+    $legalEntityOptions = $legalEntities->map(fn ($legalEntity) => [
+        'value' => (string) $legalEntity->legal_id,
+        'label' => $legalEntity->legal_name,
+        'secondary' => 'ИНН ' . ($legalEntity->legal_inn ?: $legalEntity->legal_id),
+    ]);
+@endphp
+
+@section('page_actions')
+    <form method="post" action="{{ route('money-layer.rebuild') }}">
+        @csrf
+        <x-ui.button type="submit" size="lg">
+            Пересчитать слой
+        </x-ui.button>
+    </form>
+@endsection
 
 @section('content')
-    <div class="page-head">
-        <div>
-            <h1>Money layer</h1>
-            <div class="subtle">Интерпретационный слой денежных ребер: плательщик -> получатель.</div>
-        </div>
-        <form method="post" action="{{ route('money-layer.rebuild') }}">
-            @csrf
-            <button type="submit">Пересчитать слой</button>
-        </form>
-    </div>
-
     @if (session('status'))
-        <div class="notice">{{ session('status') }}</div>
+        <div class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm font-medium text-green-800 ring-1 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-500/20">
+            {{ session('status') }}
+        </div>
     @endif
 
-    <div class="panel" style="margin-bottom: 16px;">
-        <form class="form" method="get" action="{{ route('money-layer.index') }}">
-            <div class="grid">
-                <div class="field">
-                    <label for="legal_id">Наше юрлицо</label>
-                    <select id="legal_id" name="legal_id">
-                        <option value="">Все юрлица</option>
-                        @foreach ($legalEntities as $legalEntity)
-                            <option value="{{ $legalEntity->legal_id }}" @selected((string) ($filters['legal_id'] ?? '') === (string) $legalEntity->legal_id)>
-                                {{ $legalEntity->legal_name }}@if ($legalEntity->legal_inn) · ИНН {{ $legalEntity->legal_inn }}@endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="contractor_inn">ИНН контрагента</label>
-                    <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
-                </div>
-                <div class="field">
-                    <label for="party">Участник / ИНН</label>
-                    <input id="party" name="party" value="{{ $filters['party'] ?? '' }}">
-                </div>
-                <div class="field">
-                    <label>Период</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
-                        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
-                    </div>
-                </div>
+    <div class="mb-6 rounded-lg bg-white px-4 py-5 shadow-sm ring-1 ring-gray-900/5 sm:px-6 dark:bg-gray-800 dark:ring-white/10">
+        <form method="get" action="{{ route('money-layer.index') }}" class="grid gap-4 lg:grid-cols-12 lg:items-end">
+            <div class="lg:col-span-3">
+                <x-ui.select-with-secondary-text
+                    name="legal_id"
+                    label="Наше юрлицо"
+                    placeholder="Все юрлица"
+                    :value="$filters['legal_id'] ?? ''"
+                    :options="$legalEntityOptions"
+                    selected-layout="stacked"
+                />
             </div>
-            <div class="form-actions">
-                <a class="button secondary" href="{{ route('money-layer.index') }}" wire:navigate>Сбросить</a>
-                <button type="submit">Показать</button>
+
+            <div class="lg:col-span-2">
+                <label for="contractor_inn" class="block text-sm/6 font-medium text-gray-900 dark:text-white">ИНН контрагента</label>
+                <input
+                    id="contractor_inn"
+                    name="contractor_inn"
+                    value="{{ $filters['contractor_inn'] ?? '' }}"
+                    inputmode="numeric"
+                    class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
+                >
+            </div>
+
+            <div class="lg:col-span-3">
+                <label for="party" class="block text-sm/6 font-medium text-gray-900 dark:text-white">Участник / ИНН</label>
+                <input
+                    id="party"
+                    name="party"
+                    value="{{ $filters['party'] ?? '' }}"
+                    class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
+                >
+            </div>
+
+            <div class="lg:col-span-3">
+                <x-ui.airdatepicker.date-range
+                    label="Период"
+                    :value-from="$filters['date_from'] ?? null"
+                    :value-to="$filters['date_to'] ?? null"
+                />
+            </div>
+
+            <div class="flex gap-2 lg:col-span-1 lg:justify-end">
+                <x-ui.button href="{{ route('money-layer.index') }}" size="lg" variant="ghost" wire:navigate>
+                    Сбросить
+                </x-ui.button>
+                <x-ui.button type="submit" size="lg" variant="soft">
+                    Показать
+                </x-ui.button>
             </div>
         </form>
     </div>
 
-    <div class="badges" style="margin-bottom: 16px;">
-        <span class="badge">Ребер: {{ $summary['count'] }}</span>
-        <span class="badge">Сумма: {{ number_format($summary['total_amount'], 2, ',', ' ') }}</span>
-        <span class="badge">Период: {{ $summary['min_date'] ?? '—' }} -> {{ $summary['max_date'] ?? '—' }}</span>
+    <div class="mb-6 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Ребер</div>
+            <div class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($summary['count'], 0, ',', ' ') }}</div>
+        </div>
+
+        <div class="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Сумма</div>
+            <div class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($summary['total_amount'], 2, ',', ' ') }}</div>
+        </div>
+
+        <div class="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Период</div>
+            <div class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">
+                {{ $summary['min_date'] ?? '—' }} → {{ $summary['max_date'] ?? '—' }}
+            </div>
+        </div>
     </div>
 
-    <div class="panel">
-        <table>
-            <thead>
+    <x-ui.sticky-table
+        :contained="false"
+        :scrollable="true"
+        :viewport-sticky="true"
+        :bottom-scrollbar="true"
+        scroll-class="overflow-x-auto overflow-y-visible"
+        table-class="!min-w-[1200px]"
+    >
+        <x-slot:head>
             <tr>
-                <th>Дата</th>
-                <th>Откуда</th>
-                <th>Куда</th>
-                <th class="money">Сумма</th>
-                <th>Счет / операция</th>
-                <th>Назначение</th>
+                <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Откуда</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Куда</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Сумма</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Счет / операция</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th last>Назначение</x-ui.sticky-table-th>
             </tr>
-            </thead>
-            <tbody>
-            @forelse ($edges as $edge)
-                <tr>
-                    <td>{{ $edge->occurred_on }}</td>
-                    <td>
-                        <strong>{{ $edge->payer_name_snapshot ?? '—' }}</strong>
-                        <div class="subtle">{{ $edge->payer_inn_snapshot ?? '' }}</div>
-                    </td>
-                    <td>
-                        <strong>{{ $edge->recipient_name_snapshot ?? '—' }}</strong>
-                        <div class="subtle">{{ $edge->recipient_inn_snapshot ?? '' }}</div>
-                    </td>
-                    <td class="money">{{ number_format((float) $edge->amount, 2, ',', ' ') }} {{ $edge->currency }}</td>
-                    <td>
-                        <div class="code">{{ $edge->account_number ?? $edge->algorithm }}</div>
-                        <div class="subtle code">{{ $edge->external_operation_id ?? 'document #'.$edge->source_document_id }}</div>
-                    </td>
-                    <td>{{ $edge->payment_purpose }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6">Денежный слой пока пуст. Пересчитай слой после загрузки банковских документов.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
+        </x-slot:head>
+
+        @forelse ($edges as $edge)
+            <tr class="align-top hover:bg-gray-50 dark:hover:bg-white/5">
+                <x-ui.sticky-table-td first nowrap>
+                    {{ $edge->occurred_on }}
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td class="min-w-72" :nowrap="false">
+                    <div class="font-medium text-gray-900 dark:text-white">{{ $edge->payer_name_snapshot ?: '—' }}</div>
+                    <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->payer_inn_snapshot ?: '' }}</div>
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td class="min-w-72" :nowrap="false">
+                    <div class="font-medium text-gray-900 dark:text-white">{{ $edge->recipient_name_snapshot ?: '—' }}</div>
+                    <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->recipient_inn_snapshot ?: '' }}</div>
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td align="right" class="font-semibold tabular-nums text-gray-900 dark:text-white" nowrap>
+                    {{ number_format((float) $edge->amount, 2, ',', ' ') }} {{ $edge->currency }}
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td class="min-w-56">
+                    <div class="font-mono text-xs text-gray-900 dark:text-white">{{ $edge->account_number ?: $edge->algorithm }}</div>
+                    <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->external_operation_id ?: 'document #' . $edge->source_document_id }}</div>
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td last class="min-w-[28rem]" :nowrap="false">
+                    {{ $edge->payment_purpose ?: '—' }}
+                </x-ui.sticky-table-td>
+            </tr>
+        @empty
+            <tr>
+                <td class="py-8 text-center text-sm text-gray-500 dark:text-gray-400" colspan="6">
+                    Денежный слой пока пуст. Пересчитай слой после загрузки банковских документов.
+                </td>
+            </tr>
+        @endforelse
+    </x-ui.sticky-table>
 @endsection

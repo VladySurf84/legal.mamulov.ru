@@ -4,10 +4,14 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\CounterpartyController;
+use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\LegalEntityController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\BankStatementImportController;
 use App\Http\Controllers\SchedulerController;
+use App\Http\Controllers\UserAccessController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\VatBookController;
 use App\Http\Controllers\VatLayerController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +29,12 @@ Route::middleware('admin.session')->group(function (): void {
     });
 
     Route::resource('document-types', DocumentTypeController::class)->except('show');
+    Route::get('legal-entities', [LegalEntityController::class, 'index'])->name('legal-entities.index');
+    Route::get('users', [UserController::class, 'index'])->name('users.index');
+    Route::get('user-access', [UserAccessController::class, 'index'])->name('user-access.index');
+    Route::put('user-access/{user}', [UserAccessController::class, 'update'])->name('user-access.update');
+    Route::post('legal-entity-context', [LegalEntityController::class, 'updateContext'])->name('legal-entity-context.update');
+    Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');

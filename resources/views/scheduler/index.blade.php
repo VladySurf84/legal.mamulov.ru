@@ -146,6 +146,7 @@
                                             <div>
                                                 <div class="subtle">HTTP-запросы</div>
                                                 <div>{{ $run->requests_count }}</div>
+                                                <div class="subtle">{{ $run->started_by_label }}</div>
                                             </div>
                                         </summary>
 

@@ -275,7 +275,7 @@ BEGIN
         NEW.kassa_id::text,
         v_title,
         NEW.amount::numeric(18,2),
-        'RUB',
+        '643',
         'imported',
         'manual_kassa',
         v_external_id,

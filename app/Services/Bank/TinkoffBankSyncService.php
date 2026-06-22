@@ -3,6 +3,7 @@
 namespace App\Services\Bank;
 
 use App\Models\ApiCredential;
+use App\Services\Currency\CurrencyNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -23,17 +24,18 @@ class TinkoffBankSyncService
 
     public function __construct(
         private readonly TinkoffBusinessClient $client = new TinkoffBusinessClient,
+        private readonly CurrencyNormalizer $currencyNormalizer = new CurrencyNormalizer,
     ) {}
 
-    public function sync(int $days, ?string $accountNumber = null, int $chunkDays = 30): array
+    public function sync(int $days, ?string $accountNumber = null, int $chunkDays = 30, array $runContext = []): array
     {
         $from = now()->subDays($days)->toDateString();
         $till = now()->toDateString();
 
-        return $this->syncPeriod($from, $till, $accountNumber, $chunkDays);
+        return $this->syncPeriod($from, $till, $accountNumber, $chunkDays, $runContext);
     }
 
-    public function syncPeriod(string $from, string $till, ?string $accountNumber = null, int $chunkDays = 30): array
+    public function syncPeriod(string $from, string $till, ?string $accountNumber = null, int $chunkDays = 30, array $runContext = []): array
     {
         $fromDate = Carbon::parse($from)->startOfDay();
         $tillDate = Carbon::parse($till)->startOfDay();
@@ -60,7 +62,7 @@ class TinkoffBankSyncService
             'from' => $from,
             'till' => $till,
         ];
-        $syncRunId = $this->startRun($from, $till);
+        $syncRunId = $this->startRun($from, $till, $runContext);
         $summary['sync_run_id'] = $syncRunId;
 
         try {
@@ -113,7 +115,7 @@ class TinkoffBankSyncService
         }
     }
 
-    public function syncSinceActivationDates(?string $accountNumber = null, int $chunkDays = 30): array
+    public function syncSinceActivationDates(?string $accountNumber = null, int $chunkDays = 30, array $runContext = []): array
     {
         if ($chunkDays < 1) {
             throw new RuntimeException('The chunk size must be greater than zero.');
@@ -134,7 +136,7 @@ class TinkoffBankSyncService
             'from' => $from,
             'till' => $till,
         ];
-        $syncRunId = $this->startRun($from, $till);
+        $syncRunId = $this->startRun($from, $till, $runContext);
         $summary['sync_run_id'] = $syncRunId;
 
         try {
@@ -304,9 +306,12 @@ class TinkoffBankSyncService
         $this->bankOperationDocumentTypeId();
     }
 
-    private function startRun(string $from, string $till): int
+    private function startRun(string $from, string $till, array $runContext = []): int
     {
         $now = now();
+        $startedByType = $runContext['started_by_type'] ?? (app()->runningInConsole() ? 'console' : 'user');
+        $startedByUserId = $runContext['started_by_user_id'] ?? null;
+        $startedFrom = $runContext['started_from'] ?? (app()->runningInConsole() ? 'cli' : 'web');
         $row = DB::selectOne('
             INSERT INTO legal.api_sync_runs (
                 provider,
@@ -314,10 +319,13 @@ class TinkoffBankSyncService
                 status,
                 period_from,
                 period_till,
+                started_by_type,
+                started_by_user_id,
+                started_from,
                 started_at,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING api_sync_run_id
         ', [
             'tinkoff',
@@ -325,6 +333,9 @@ class TinkoffBankSyncService
             'started',
             $from,
             $till,
+            $startedByType,
+            $startedByUserId,
+            $startedFrom,
             $now,
             $now,
             $now,
@@ -372,7 +383,7 @@ class TinkoffBankSyncService
             'bank_id' => $bankId,
             'legal_id' => $legalId,
             'name' => (string) data_get($account, 'name', $accountNumber),
-            'currency' => (string) data_get($account, 'currency', 'RUB'),
+            'currency' => $this->currencyNormalizer->normalize(data_get($account, 'currency')),
             'account_type' => (string) data_get($account, 'accountType', 'unknown'),
             'activation_date' => data_get($account, 'activationDate'),
             'balance_otb' => data_get($account, 'balance.otb'),
@@ -1076,7 +1087,7 @@ SQL, [
 
     private function currency(array $operation, object $account): string
     {
-        return (string) (data_get($operation, 'currency') ?: ($account->currency ?? 'RUB'));
+        return $this->currencyNormalizer->normalize(data_get($operation, 'currency') ?: ($account->currency ?? null));
     }
 
     private function signedAmount(array $operation, string $accountNumber): float

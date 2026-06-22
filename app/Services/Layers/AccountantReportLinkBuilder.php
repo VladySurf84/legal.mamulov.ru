@@ -243,7 +243,7 @@ SQL, $this->bindings($filters, [self::ALGORITHM]));
                 'document_bank_transaction_id' => (int) $transaction->document_bank_transaction_id,
                 'amount' => $amount,
                 'vat_amount' => $vatAmount,
-                'currency' => $transaction->currency ?? 'RUB',
+                'currency' => $transaction->currency ?? '643',
                 'matched_on' => now()->toDateString(),
                 'confidence' => 0.9000,
                 'source' => 'algorithm',
@@ -355,11 +355,14 @@ WITH available_transactions AS (
         dbt.document_bank_transaction_id,
         dbt.operation_date AS bank_operation_date,
         ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) AS bank_amount,
-        COALESCE(dbt.currency, 'RUB') AS currency
+        COALESCE(dbt_currency.currency_code, dbt.currency, '643') AS currency
     FROM legal.document_bank_transaction dbt
     JOIN legal.bank_account ba
         ON ba.bank_account_id = dbt.bank_account_id
         AND ba.legal_id = ?
+    LEFT JOIN legal.currency_aliases dbt_currency
+        ON dbt.currency IS NOT NULL
+        AND upper(btrim(dbt.currency::text)) = dbt_currency.currency_alias
     WHERE dbt.operation_date IS NOT NULL
       AND {$contractorInnWhere}
       AND {$directionWhere}
@@ -524,7 +527,7 @@ SELECT
     dbt.operation_date AS bank_operation_date,
     e.amount_total AS amount,
     e.vat_amount,
-    COALESCE(dbt.currency, 'RUB') AS currency,
+    COALESCE(dbt_currency.currency_code, dbt.currency, '643') AS currency,
     ABS(COALESCE(dbt.amount, dbt.signed_amount, 0)) AS bank_amount
 FROM legal.vat_book_entries e
 JOIN legal.vat_book_imports i
@@ -534,6 +537,9 @@ JOIN legal.document_bank_transaction dbt
 JOIN legal.bank_account ba
     ON ba.bank_account_id = dbt.bank_account_id
     AND ba.legal_id = e.legal_id
+LEFT JOIN legal.currency_aliases dbt_currency
+    ON dbt.currency IS NOT NULL
+    AND upper(btrim(dbt.currency::text)) = dbt_currency.currency_alias
 WHERE i.is_active
   AND e.book_type = 'purchase'
   AND e.amount_total IS NOT NULL

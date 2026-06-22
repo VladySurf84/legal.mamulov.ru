@@ -14,7 +14,10 @@ class SyncTinkoffBank extends Command
         {--from= : Statement period start date, YYYY-MM-DD}
         {--till= : Statement period end date, YYYY-MM-DD}
         {--account= : Sync only one bank account number}
-        {--chunk-days=30 : Split statement requests into chunks of N days}';
+        {--chunk-days=30 : Split statement requests into chunks of N days}
+        {--started-by-type=console : Run initiator type: system, user, console}
+        {--started-by-user-id= : User id when started-by-type=user}
+        {--started-from=cli : Run source label: scheduler, ui, cli}';
 
     protected $description = 'Sync Tinkoff bank accounts and recent bank statement operations.';
 
@@ -27,11 +30,13 @@ class SyncTinkoffBank extends Command
                     $this->dateOption('till') ?: now()->toDateString(),
                     $this->accountOption(),
                     $this->chunkDaysOption(),
+                    $this->runContext(),
                 )
                 : $service->sync(
                     (int) ($this->option('days') ?: config('bank.tinkoff.sync_days')),
                     $this->accountOption(),
                     $this->chunkDaysOption(),
+                    $this->runContext(),
                 );
         } catch (InvalidArgumentException $exception) {
             $this->error($exception->getMessage());
@@ -93,5 +98,25 @@ class SyncTinkoffBank extends Command
         }
 
         return $chunkDays;
+    }
+
+    /**
+     * @return array{started_by_type: string, started_by_user_id: int|null, started_from: string}
+     */
+    private function runContext(): array
+    {
+        $type = (string) ($this->option('started-by-type') ?: 'console');
+
+        if (! in_array($type, ['system', 'user', 'console'], true)) {
+            throw new InvalidArgumentException('The --started-by-type option must be system, user, or console.');
+        }
+
+        $userId = $this->option('started-by-user-id');
+
+        return [
+            'started_by_type' => $type,
+            'started_by_user_id' => $userId === null || $userId === '' ? null : (int) $userId,
+            'started_from' => (string) ($this->option('started-from') ?: 'cli'),
+        ];
     }
 }

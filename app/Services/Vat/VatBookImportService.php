@@ -2,6 +2,7 @@
 
 namespace App\Services\Vat;
 
+use App\Services\Currency\CurrencyNormalizer;
 use App\Services\Layers\AccountantReportLinkBuilder;
 use App\Services\Layers\VatLayerBuilder;
 use Illuminate\Http\UploadedFile;
@@ -16,6 +17,7 @@ class VatBookImportService
     public function __construct(
         private readonly VatLayerBuilder $vatLayerBuilder,
         private readonly AccountantReportLinkBuilder $accountantReportLinkBuilder,
+        private readonly CurrencyNormalizer $currencyNormalizer = new CurrencyNormalizer,
     ) {
     }
 
@@ -282,7 +284,7 @@ class VatBookImportService
                     'contractor_name' => $entry['contractor_name'],
                     'contractor_inn' => $entry['contractor_inn'],
                     'contractor_kpp' => $entry['contractor_kpp'],
-                    'currency_code' => $entry['currency_code'],
+                    'currency_code' => $this->currencyNormalizer->normalize($entry['currency_code']),
                     'amount_total' => $entry['amount_total'],
                     'amount_without_vat' => $entry['amount_without_vat'],
                     'vat_amount' => $entry['vat_amount'],

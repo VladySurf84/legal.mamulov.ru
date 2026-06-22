@@ -55,6 +55,8 @@ class AuthEdoLight extends Command
             'accounts_count' => 1,
             'operations_count' => 0,
             'requests_count' => 0,
+            'started_by_type' => 'console',
+            'started_from' => 'cli',
             'started_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,

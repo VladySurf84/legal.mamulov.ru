@@ -39,7 +39,7 @@ SELECT
     recipient.document_party_id,
     dbt.operation_date,
     COALESCE(ABS(dbt.amount), ABS(dbt.signed_amount), 0),
-    COALESCE(dbt.currency, 'RUB'),
+    COALESCE(dbt_currency.currency_code, dbt.currency, '643'),
     COALESCE(payer.name_snapshot, dbt.payer_name),
     COALESCE(payer.inn_snapshot, dbt.payer_inn),
     COALESCE(recipient.name_snapshot, dbt.recipient_name),
@@ -61,6 +61,9 @@ LEFT JOIN legal.document_parties recipient
     ON recipient.document_id = dbt.document_id
     AND recipient.document_party_role_id = ?
     AND recipient.role_index = 1
+LEFT JOIN legal.currency_aliases dbt_currency
+    ON dbt.currency IS NOT NULL
+    AND upper(btrim(dbt.currency::text)) = dbt_currency.currency_alias
 SQL, [$payerRoleId, $recipientRoleId]);
 
             DB::insert(<<<'SQL'
@@ -89,7 +92,7 @@ SELECT
     recipient.document_party_id,
     d.document_date,
     ABS(COALESCE(d.amount, 0)),
-    COALESCE(d.currency, 'RUB'),
+    COALESCE(document_currency.currency_code, d.currency, '643'),
     payer.name_snapshot,
     payer.inn_snapshot,
     recipient.name_snapshot,
@@ -116,6 +119,9 @@ LEFT JOIN legal.document_parties recipient
     ON recipient.document_id = d.document_id
     AND recipient.document_party_role_id = ?
     AND recipient.role_index = 1
+LEFT JOIN legal.currency_aliases document_currency
+    ON d.currency IS NOT NULL
+    AND upper(btrim(d.currency::text)) = document_currency.currency_alias
 WHERE COALESCE(d.amount, 0) <> 0
 SQL, [$payerRoleId, $recipientRoleId]);
 

@@ -4,6 +4,7 @@
     'description' => null,
     'size' => 'lg',
     'closeLabel' => 'Закрыть',
+    'open' => false,
 ])
 
 @php
@@ -22,11 +23,19 @@
     id="{{ $id }}"
     {{ $attributes->class('fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent p-0 text-left backdrop:bg-transparent') }}
     data-ui-modal
+    @if ($open) data-ui-modal-open-on-load @endif
 >
-    <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/50" data-ui-modal-close></div>
+    <div
+        class="fixed inset-0 bg-gray-500/75 transition-opacity duration-300 ease-out data-[ui-closed]:opacity-0 data-[ui-leave]:duration-200 data-[ui-leave]:ease-in dark:bg-gray-900/50"
+        data-ui-modal-backdrop
+        data-ui-modal-close
+    ></div>
 
     <div tabindex="0" class="flex min-h-full items-end justify-center p-4 text-center focus:outline-none sm:items-center sm:p-0">
-        <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl ring-1 ring-gray-950/10 sm:my-8 sm:w-full {{ $sizeClass }} dark:bg-gray-800 dark:ring-white/10" data-ui-modal-panel>
+        <div
+            class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl ring-1 ring-gray-950/10 transition-all duration-300 ease-out data-[ui-closed]:translate-y-4 data-[ui-closed]:opacity-0 data-[ui-leave]:duration-200 data-[ui-leave]:ease-in sm:my-8 sm:w-full {{ $sizeClass }} sm:data-[ui-closed]:translate-y-0 sm:data-[ui-closed]:scale-95 dark:bg-gray-800 dark:ring-white/10"
+            data-ui-modal-panel
+        >
             @if ($title || $description)
                 <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5 dark:border-white/10">
                     <div class="min-w-0">
@@ -61,31 +70,81 @@
 @once
     <script>
         (() => {
+            const animatedParts = (dialog) => [
+                dialog?.querySelector('[data-ui-modal-backdrop]'),
+                dialog?.querySelector('[data-ui-modal-panel]'),
+            ].filter(Boolean);
+
+            const setState = (dialog, state, enabled = true) => {
+                animatedParts(dialog).forEach((part) => {
+                    part.toggleAttribute(state, enabled);
+                });
+            };
+
+            const resetState = (dialog) => {
+                animatedParts(dialog).forEach((part) => {
+                    part.removeAttribute('data-ui-enter');
+                    part.removeAttribute('data-ui-leave');
+                    part.removeAttribute('data-ui-closed');
+                });
+            };
+
             const openModal = (dialog) => {
-                if (!dialog) {
+                if (!dialog || dialog.open) {
                     return;
                 }
+
+                resetState(dialog);
+                setState(dialog, 'data-ui-enter', true);
+                setState(dialog, 'data-ui-closed', true);
 
                 if (typeof dialog.showModal === 'function') {
                     dialog.showModal();
-                    return;
+                } else {
+                    dialog.setAttribute('open', 'open');
                 }
 
-                dialog.setAttribute('open', 'open');
+                requestAnimationFrame(() => {
+                    setState(dialog, 'data-ui-closed', false);
+
+                    window.setTimeout(() => {
+                        setState(dialog, 'data-ui-enter', false);
+                    }, 300);
+                });
             };
 
             const closeModal = (dialog) => {
+                if (!dialog || !dialog.open || dialog.hasAttribute('data-ui-closing')) {
+                    return;
+                }
+
+                dialog.setAttribute('data-ui-closing', 'true');
+                setState(dialog, 'data-ui-enter', false);
+                setState(dialog, 'data-ui-leave', true);
+                setState(dialog, 'data-ui-closed', true);
+
+                window.setTimeout(() => {
+                    if (typeof dialog.close === 'function') {
+                        dialog.close();
+                    } else {
+                        dialog.removeAttribute('open');
+                    }
+
+                    dialog.removeAttribute('data-ui-closing');
+                    resetState(dialog);
+                }, 200);
+            };
+
+            document.addEventListener('cancel', (event) => {
+                const dialog = event.target.matches?.('[data-ui-modal]') ? event.target : null;
+
                 if (!dialog) {
                     return;
                 }
 
-                if (typeof dialog.close === 'function') {
-                    dialog.close();
-                    return;
-                }
-
-                dialog.removeAttribute('open');
-            };
+                event.preventDefault();
+                closeModal(dialog);
+            }, true);
 
             document.addEventListener('click', (event) => {
                 const openButton = event.target.closest('[data-ui-modal-open]');
@@ -99,11 +158,25 @@
                 const closeButton = event.target.closest('[data-ui-modal-close]');
 
                 if (closeButton) {
+                    event.preventDefault();
+
                     const targetId = closeButton.getAttribute('data-ui-modal-close');
-                    const dialog = targetId ? document.getElementById(targetId) : closeButton.closest('dialog');
+                    const dialog = targetId ? document.getElementById(targetId) : closeButton.closest('[data-ui-modal]');
                     closeModal(dialog);
                 }
             });
+
+            const openInitialModals = () => {
+                document.querySelectorAll('[data-ui-modal][data-ui-modal-open-on-load]').forEach((dialog) => {
+                    openModal(dialog);
+                });
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', openInitialModals, { once: true });
+            } else {
+                openInitialModals();
+            }
         })();
     </script>
 @endonce
