@@ -41,12 +41,31 @@ class BankTransactionController extends Controller
         $summary = $this->summary($where, $bindings);
         $transactions = $this->transactions($where, $bindings, $page);
         $hasMore = $page * self::PER_PAGE < $summary['count'];
+        $selectedAccountNumbers = ! empty($filters['account_numbers'])
+            ? $filters['account_numbers']
+            : array_filter([(string) ($filters['account_number'] ?? '')]);
+        $showAccountColumn = count($selectedAccountNumbers) !== 1;
+        $tableColspan = $showAccountColumn ? 7 : 6;
 
         if ($request->ajax()) {
             return response()->json([
-                'html' => view('bank-transactions.partials.rows', [
-                    'transactions' => $transactions,
+                'head_html' => view('bank-transactions.partials.head', [
+                    'showAccountColumn' => $showAccountColumn,
                 ])->render(),
+                'html' => view('bank-transactions.partials.body', [
+                    'transactions' => $transactions,
+                    'showAccountColumn' => $showAccountColumn,
+                    'tableColspan' => $tableColspan,
+                ])->render(),
+                'loader_html' => view('bank-transactions.partials.loader-row', [
+                    'nextPage' => $hasMore ? $page + 1 : null,
+                    'tableColspan' => $tableColspan,
+                ])->render(),
+                'sticky_summary_html' => view('bank-transactions.partials.foot', [
+                    'summary' => $summary,
+                    'showAccountColumn' => $showAccountColumn,
+                ])->render(),
+                'summary' => $summary,
                 'next_page' => $hasMore ? $page + 1 : null,
                 'has_more' => $hasMore,
             ]);
@@ -78,6 +97,8 @@ class BankTransactionController extends Controller
             'transactions' => $transactions,
             'summary' => $summary,
             'nextPage' => $hasMore ? $page + 1 : null,
+            'showAccountColumn' => $showAccountColumn,
+            'tableColspan' => $tableColspan,
         ]);
     }
 

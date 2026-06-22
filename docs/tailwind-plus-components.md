@@ -43,6 +43,7 @@
 - `resources/views/components/ui/select.blade.php`
 - `resources/views/components/ui/select-with-secondary-text.blade.php`
 - `resources/views/components/ui/multi-select-with-secondary-text.blade.php`
+- `resources/views/components/ui/airdatepicker/date-range.blade.php`
 - `resources/views/components/ui/sticky-table.blade.php`
 - `resources/views/components/ui/sticky-table-th.blade.php`
 - `resources/views/components/ui/sticky-table-td.blade.php`
@@ -117,6 +118,18 @@
         'secondary' => $account->account_number,
     ])"
     placeholder="Все счета"
+/>
+```
+
+Пример date range:
+
+```blade
+<x-ui.airdatepicker.date-range
+    label="Период"
+    name-from="date_from"
+    name-to="date_to"
+    :value-from="$filters['date_from'] ?? null"
+    :value-to="$filters['date_to'] ?? null"
 />
 ```
 

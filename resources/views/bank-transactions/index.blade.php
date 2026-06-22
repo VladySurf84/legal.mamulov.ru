@@ -1,30 +1,25 @@
-@extends('layouts.app', ['title' => 'Банковские транзакции'])
+@extends('layouts.app', [
+    'title' => 'Банковские транзакции',
+    'titleAttribute' => 'Операции по расчетным счетам, загруженные через API банка или из файлов 1CClientBankExchange.',
+])
 
 @section('page_actions')
-    <form method="post" action="{{ route('bank-transactions.sync') }}">
-        @csrf
-        <input type="hidden" name="days" value="5">
-        <x-ui.button class="inline-flex items-center gap-2" type="submit" size="lg">
-            Обновить Тинек за 5 дней
+    <div class="flex flex-wrap items-center gap-2">
+        <x-ui.button type="button" size="lg" data-bank-statement-import-open>
+            Загрузить выписку
         </x-ui.button>
-    </form>
+
+        <form method="post" action="{{ route('bank-transactions.sync') }}">
+            @csrf
+            <input type="hidden" name="days" value="5">
+            <x-ui.button class="inline-flex items-center gap-2" type="submit" size="lg">
+                Обновить Тинек за 5 дней
+            </x-ui.button>
+        </form>
+    </div>
 @endsection
 
 @section('content')
-    <div class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-            <div class="max-w-3xl text-sm text-slate-500">
-                Операции по расчетным счетам, загруженные через API банка или из файлов 1CClientBankExchange.
-            </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-            <x-ui.button type="button" size="lg" data-bank-statement-import-open>
-                Загрузить выписку
-            </x-ui.button>
-        </div>
-    </div>
-
     <dialog class="w-[min(720px,calc(100vw-32px))] rounded-lg border-0 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-900/45" data-bank-statement-import-dialog>
         <div class="bg-white">
             <div class="flex items-start justify-between gap-4 px-5 pt-5">
@@ -74,7 +69,7 @@
     @endif
 
     <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm">
-        <form class="p-4" method="get" action="{{ route('bank-transactions.index') }}">
+        <form class="p-4" method="get" action="{{ route('bank-transactions.index') }}" data-auto-filter-form>
             <div class="grid gap-4 lg:grid-cols-4">
                 <x-ui.multi-select-with-secondary-text
                     label="Счет"
@@ -113,75 +108,241 @@
 
                 <label class="grid gap-1.5 text-sm font-medium text-slate-700">
                     <span>Контрагент / ИНН</span>
-                    <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="contractor" value="{{ $filters['contractor'] ?? '' }}">
+                    <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="contractor" value="{{ $filters['contractor'] ?? '' }}" data-auto-filter-input>
                 </label>
 
-                <div class="grid gap-1.5 text-sm font-medium text-slate-700">
-                    <span>Период</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
-                        <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
-                    </div>
-                </div>
+                <x-ui.airdatepicker.date-range
+                    label="Период"
+                    name-from="date_from"
+                    name-to="date_to"
+                    :value-from="$filters['date_from'] ?? null"
+                    :value-to="$filters['date_to'] ?? null"
+                />
             </div>
 
-            <div class="mt-4 flex justify-end gap-2">
-                <x-ui.button href="{{ route('bank-transactions.index') }}" size="lg" wire:navigate>
-                    Сбросить
-                </x-ui.button>
-                <x-ui.button type="submit" size="lg">
-                    Показать
-                </x-ui.button>
-            </div>
         </form>
     </div>
 
+    @once
+        <script>
+            (() => {
+                const tableRows = () => document.getElementById('bank-transactions-rows');
+                const tableLoader = () => document.getElementById('bank-transactions-loader');
+                const stickySummaryBody = () => document.querySelector('[data-ui-sticky-table-summary-body]');
+                const tableHead = () => document.querySelector('[data-bank-transactions-table] thead');
 
-    <x-ui.sticky-table :contained="false" body-id="bank-transactions-rows">
+                const filteredUrl = (form) => {
+                    const url = new URL(form.action, window.location.origin);
+                    const formData = new FormData(form);
+
+                    for (const [key, value] of formData.entries()) {
+                        if (String(value) !== '') {
+                            url.searchParams.append(key, value);
+                        }
+                    }
+
+                    return url;
+                };
+
+                const replaceTable = (payload) => {
+                    const rows = tableRows();
+                    const loader = tableLoader();
+                    const summaryBody = stickySummaryBody();
+                    const head = tableHead();
+
+                    if (head) {
+                        head.innerHTML = payload.head_html || '';
+                    }
+
+                    if (rows) {
+                        rows.innerHTML = (payload.html || '') + (payload.loader_html || '');
+                    }
+
+                    if (summaryBody) {
+                        summaryBody.innerHTML = payload.sticky_summary_html || '';
+                    }
+
+                    if (!loader) {
+                        return;
+                    }
+
+                    if (payload.has_more && payload.next_page) {
+                        loader.dataset.nextPage = payload.next_page;
+                        loader.textContent = 'Загрузка при прокрутке...';
+                    } else {
+                        delete loader.dataset.nextPage;
+                        loader.textContent = '';
+                    }
+
+                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                };
+
+                const fetchTable = async (form) => {
+                    if (!form || form.dataset.autoFilterLoading === 'true') {
+                        return;
+                    }
+
+                    const url = filteredUrl(form);
+                    const rows = tableRows();
+
+                    form.dataset.autoFilterLoading = 'true';
+                    rows?.classList.add('opacity-60');
+
+                    try {
+                        const response = await fetch(url.toString(), {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Request failed');
+                        }
+
+                        replaceTable(await response.json());
+                        window.history.replaceState({}, '', url.toString());
+                    } catch (error) {
+                        form.submit();
+                    } finally {
+                        form.dataset.autoFilterLoading = 'false';
+                        rows?.classList.remove('opacity-60');
+                    }
+                };
+
+                const submitForm = (form) => {
+                    if (!form || form.dataset.autoFilterSubmitting === 'true') {
+                        return;
+                    }
+
+                    form.dataset.autoFilterSubmitting = 'true';
+                    fetchTable(form).finally(() => {
+                        form.dataset.autoFilterSubmitting = 'false';
+                    });
+                };
+
+                const initAutoFilterForms = () => {
+                    document.querySelectorAll('[data-auto-filter-form]:not([data-auto-filter-ready])').forEach((form) => {
+                        let inputTimer = null;
+                        let dateRangeTimer = null;
+
+                        form.dataset.autoFilterReady = 'true';
+
+                        form.addEventListener('submit', (event) => {
+                            event.preventDefault();
+                            submitForm(form);
+                        });
+
+                        form.addEventListener('change', (event) => {
+                            if (event.target.matches('[data-auto-filter-input]')) {
+                                return;
+                            }
+
+                            submitForm(form);
+                        });
+
+                        form.addEventListener('airdatepicker-range-change', (event) => {
+                            window.clearTimeout(dateRangeTimer);
+
+                            if (event.detail?.selectedCount === 1) {
+                                dateRangeTimer = window.setTimeout(() => submitForm(form), 1200);
+                                return;
+                            }
+
+                            submitForm(form);
+                        });
+
+                        form.querySelectorAll('[data-auto-filter-input]').forEach((input) => {
+                            input.addEventListener('input', () => {
+                                window.clearTimeout(inputTimer);
+                                inputTimer = window.setTimeout(() => submitForm(form), 650);
+                            });
+                        });
+                    });
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initAutoFilterForms);
+                } else {
+                    initAutoFilterForms();
+                }
+
+                document.addEventListener('livewire:navigated', initAutoFilterForms);
+            })();
+        </script>
+    @endonce
+
+
+    <x-ui.sticky-table
+        :contained="false"
+        :scrollable="true"
+        :viewport-sticky="true"
+        :sticky-summary-enabled="true"
+        :bottom-scrollbar="true"
+        scroll-class="overflow-x-auto overflow-y-visible"
+        table-class="!min-w-[1500px]"
+        body-id="bank-transactions-rows"
+        data-bank-transactions-table
+    >
         <x-slot:head>
-            <tr>
-                <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Юрлицо / счет</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Контрагент</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Расход</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Назначение</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th last align="right">Итог</x-ui.sticky-table-th>
-            </tr>
+            @include('bank-transactions.partials.head', ['showAccountColumn' => $showAccountColumn])
         </x-slot:head>
 
-        @if (count($transactions) > 0)
-            @include('bank-transactions.partials.rows', ['transactions' => $transactions])
-        @else
-            <tr>
-                <td class="py-8 text-center text-sm text-gray-500 dark:text-gray-400" colspan="7">Банковские транзакции пока не загружены.</td>
-            </tr>
-        @endif
+        @include('bank-transactions.partials.body', [
+            'transactions' => $transactions,
+            'showAccountColumn' => $showAccountColumn,
+            'tableColspan' => $tableColspan,
+        ])
 
-        <x-slot:foot>
-            <tr>
-                <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">Итого операций: {{ $summary['count'] }}</th>
-                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">
-                    {{ number_format($summary['income'], 2, ',', ' ') }}
-                </td>
-                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-rose-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">
-                    {{ number_format($summary['expense'], 2, ',', ' ') }}
-                </td>
-                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
-                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-4 pl-3 backdrop-blur-sm backdrop-filter sm:pr-6 lg:pr-8 dark:border-white/15 dark:bg-gray-900/75"></td>
-            </tr>
-        </x-slot:foot>
+        @include('bank-transactions.partials.loader-row', [
+            'nextPage' => $nextPage,
+            'tableColspan' => $tableColspan,
+        ])
+
+        <x-slot:stickySummary>
+            @include('bank-transactions.partials.foot', [
+                'summary' => $summary,
+                'showAccountColumn' => $showAccountColumn,
+            ])
+        </x-slot:stickySummary>
     </x-ui.sticky-table>
 
-    <div
-        id="bank-transactions-loader"
-        class="text-center text-sm text-slate-500"
-        data-next-page="{{ $nextPage }}"
-    >
-        @if ($nextPage)
-            Загрузка при прокрутке...
-        @endif
-    </div>
+    <x-ui.context-menu trigger-selector="[data-bank-transaction-context-row]">
+        <x-slot:menu>
+            <x-ui.context-menu-item>
+                Открыть операцию
+            </x-ui.context-menu-item>
+
+            <x-ui.context-menu-item>
+                Показать первоисточник
+            </x-ui.context-menu-item>
+
+            <div class="group/submenu relative">
+                <button type="button" role="menuitem" tabindex="-1" class="flex w-full items-center justify-between gap-x-3 rounded-md px-3 py-1.5 text-left text-sm text-gray-700 outline-none hover:bg-gray-50 focus:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/10 dark:focus:bg-white/10">
+                    <span>Тестовое подменю</span>
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-4 text-gray-400">
+                        <path d="M7.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L10.94 10 7.22 6.28a.75.75 0 0 1 0-1.06Z" />
+                    </svg>
+                </button>
+
+                <div class="absolute top-0 left-full ml-1 hidden min-w-52 rounded-lg border border-gray-200 bg-white p-1 shadow-xl ring-1 ring-black/5 group-hover/submenu:block group-focus-within/submenu:block dark:border-white/10 dark:bg-gray-900 dark:ring-white/10">
+                    <x-ui.context-menu-item>
+                        Создать связь
+                    </x-ui.context-menu-item>
+                    <x-ui.context-menu-item>
+                        Пометить НДС
+                    </x-ui.context-menu-item>
+                    <x-ui.context-menu-item danger>
+                        Тест удалить
+                    </x-ui.context-menu-item>
+                </div>
+            </div>
+
+            <x-ui.context-menu-item danger>
+                Тестовое действие
+            </x-ui.context-menu-item>
+        </x-slot:menu>
+    </x-ui.context-menu>
 
     <script>
         (() => {
@@ -223,8 +384,9 @@
         (() => {
             const rows = document.getElementById('bank-transactions-rows');
             const loader = document.getElementById('bank-transactions-loader');
+            const loaderRow = document.getElementById('bank-transactions-loader-row');
 
-            if (!rows || !loader || !loader.dataset.nextPage) {
+            if (!rows || !loader || !loaderRow) {
                 return;
             }
 
@@ -254,7 +416,7 @@
                     }
 
                     const payload = await response.json();
-                    rows.insertAdjacentHTML('beforeend', payload.html);
+                    loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
 
                     if (payload.has_more && payload.next_page) {
                         loader.dataset.nextPage = payload.next_page;
@@ -262,8 +424,9 @@
                     } else {
                         delete loader.dataset.nextPage;
                         loader.textContent = '';
-                        observer.disconnect();
                     }
+
+                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
                 } catch (error) {
                     loader.textContent = 'Не удалось загрузить следующую страницу.';
                 } finally {

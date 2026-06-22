@@ -22,7 +22,12 @@
     ];
 @endphp
 
-<x-ui.app-shell :title="$title ?? 'Бухгалтерия'" :nav-items="$navItems" :current-user="auth()->user()">
+<x-ui.app-shell
+    :title="$title ?? 'Бухгалтерия'"
+    :title-attribute="$titleAttribute ?? null"
+    :nav-items="$navItems"
+    :current-user="auth()->user()"
+>
     @hasSection('page_actions')
         <x-slot:pageActions>
             @yield('page_actions')

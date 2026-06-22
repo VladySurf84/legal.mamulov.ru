@@ -12,15 +12,23 @@ use Illuminate\View\View;
 
 class CounterpartyController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $filters = $request->validate([
             'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'only_negative_diff' => ['nullable', 'boolean'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $page = (int) ($filters['page'] ?? 1);
+        $perPage = 30;
+        $offset = ($page - 1) * $perPage;
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
+        $listBindings = $bindings + [
+            'limit' => $perPage + 1,
+            'offset' => $offset,
+        ];
         $openingWhere = $this->openingWhereClause($filters);
         $vatWhere = $this->vatWhereClause($filters);
         $negativeDiffWhere = $this->negativeDifferenceWhere($filters);
@@ -162,8 +170,13 @@ LEFT JOIN vat_agg va
 WHERE {$this->excludeOwnLegalWhere($filters)}
     AND {$negativeDiffWhere}
 ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)) DESC, contractor_name, ck.contractor_inn
-LIMIT 500
-SQL, $bindings);
+LIMIT :limit OFFSET :offset
+SQL, $listBindings);
+
+        $hasMoreCounterparties = count($counterparties) > $perPage;
+        if ($hasMoreCounterparties) {
+            array_pop($counterparties);
+        }
 
         $summary = DB::selectOne(<<<SQL
 WITH document_money AS (
@@ -290,18 +303,50 @@ WHERE {$this->excludeOwnLegalWhere($filters)}
     AND {$negativeDiffWhere}
 SQL, $bindings);
 
+        $summaryData = [
+            'count' => (int) $summary->count,
+            'saldo' => (float) $summary->saldo,
+            'buh_saldo' => (float) $summary->buh_saldo,
+            'opening_amount' => (float) $summary->opening_amount,
+            'saldo_diff' => (float) $summary->saldo_diff,
+            'vat_diff' => (float) $summary->vat_diff,
+        ];
+        $showLegalEntitiesCount = empty($filters['legal_id']);
+        $emptyColspan = $showLegalEntitiesCount ? 12 : 11;
+        $nextPage = $hasMoreCounterparties ? $page + 1 : null;
+
+        if ($request->ajax()) {
+            return response()->json([
+                'summary_html' => view('counterparties.partials.summary', [
+                    'summary' => $summaryData,
+                ])->render(),
+                'html' => view('counterparties.partials.rows', [
+                    'counterparties' => $counterparties,
+                    'filters' => $filters,
+                    'showLegalEntitiesCount' => $showLegalEntitiesCount,
+                    'emptyColspan' => $emptyColspan,
+                ])->render(),
+                'loader_html' => view('counterparties.partials.loader-row', [
+                    'nextPage' => $nextPage,
+                    'emptyColspan' => $emptyColspan,
+                ])->render(),
+                'sticky_summary_html' => view('counterparties.partials.foot', [
+                    'summary' => $summaryData,
+                    'showLegalEntitiesCount' => $showLegalEntitiesCount,
+                ])->render(),
+                'next_page' => $nextPage,
+                'has_more' => $hasMoreCounterparties,
+            ]);
+        }
+
         return view('counterparties.index', [
             'counterparties' => $counterparties,
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
-            'summary' => [
-                'count' => (int) $summary->count,
-                'saldo' => (float) $summary->saldo,
-                'buh_saldo' => (float) $summary->buh_saldo,
-                'opening_amount' => (float) $summary->opening_amount,
-                'saldo_diff' => (float) $summary->saldo_diff,
-                'vat_diff' => (float) $summary->vat_diff,
-            ],
+            'summary' => $summaryData,
+            'showLegalEntitiesCount' => $showLegalEntitiesCount,
+            'emptyColspan' => $emptyColspan,
+            'nextPage' => $nextPage,
         ]);
     }
 

@@ -18,7 +18,14 @@
 @endsection
 
 @section('content')
-    <x-ui.sticky-table :contained="false">
+    <x-ui.sticky-table
+        :contained="false"
+        :scrollable="true"
+        :viewport-sticky="true"
+        :bottom-scrollbar="true"
+        scroll-class="overflow-x-auto overflow-y-visible"
+        table-class="!min-w-[1200px]"
+    >
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first>Юрлицо</x-ui.sticky-table-th>

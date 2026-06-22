@@ -1,5 +1,6 @@
 @props([
     'title' => 'Бухгалтерия',
+    'titleAttribute' => null,
     'navItems' => [],
     'currentUser' => null,
 ])
@@ -124,7 +125,7 @@
 
     <header class="relative bg-white shadow-sm dark:bg-gray-800 dark:shadow-none dark:after:pointer-events-none dark:after:absolute dark:after:inset-x-0 dark:after:inset-y-0 dark:after:border-y dark:after:border-white/10">
         <div class="mx-auto flex flex-col gap-4 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $title }}</h1>
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white" @if ($titleAttribute) title="{{ $titleAttribute }}" @endif>{{ $title }}</h1>
             @if ($hasPageActions)
                 <div class="flex flex-wrap items-center gap-2">
                     {{ $pageActions }}
@@ -133,7 +134,7 @@
         </div>
     </header>
 
-    <main style="overflow-x0: scroll">
+    <main>
         <div class="mx-auto px-4 py-6 sm:px-6 lg:px-8 pb-0">
             @if ($hasBeforeContent)
                 {{ $beforeContent }}

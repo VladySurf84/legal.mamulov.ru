@@ -1,130 +1,332 @@
 @extends('layouts.app', ['title' => 'Контрагенты'])
 
+@section('page_actions')
+    <form method="post" action="{{ route('counterparties.rebuild-links') }}" data-counterparties-rebuild-form>
+        @csrf
+        <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}" data-rebuild-legal-id>
+        <input type="hidden" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" data-rebuild-contractor-inn>
+        <input type="hidden" name="only_negative_diff" value="{{ ! empty($filters['only_negative_diff']) ? 1 : '' }}" data-rebuild-only-negative-diff>
+        <x-ui.button type="submit" size="lg">
+            Пересчитать связи
+        </x-ui.button>
+    </form>
+@endsection
+
 @section('content')
-    @php
-        $showLegalEntitiesCount = empty($filters['legal_id']);
-        $emptyColspan = $showLegalEntitiesCount ? 12 : 11;
-    @endphp
-
-    <div class="page-head">
-        <div>
-            <h1>Контрагенты</h1>
-            <div class="subtle">Сводка по контрагентам из новых документов: legal.documents и legal.document_bank_transaction.</div>
-        </div>
-    </div>
-
     @if (session('status'))
-        <div class="notice">{{ session('status') }}</div>
+        <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {{ session('status') }}
+        </div>
     @endif
 
-    <div class="panel" style="margin-bottom: 16px;">
-        <form class="form" method="get" action="{{ route('counterparties.index') }}">
-            <div class="grid">
-                <div class="field">
-                    <label for="legal_id">Наше юрлицо</label>
-                    <select id="legal_id" name="legal_id">
-                        <option value="">Все юрлица</option>
-                        @foreach ($legalEntities as $legalEntity)
-                            <option value="{{ $legalEntity->legal_id }}" @selected((string) ($filters['legal_id'] ?? '') === (string) $legalEntity->legal_id)>
-                                {{ $legalEntity->legal_name }}@if ($legalEntity->legal_inn) · ИНН {{ $legalEntity->legal_inn }}@endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+    <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <form class="p-4" method="get" action="{{ route('counterparties.index') }}" data-counterparties-filter-form>
+            <div class="grid gap-4 lg:grid-cols-3">
+                <x-ui.select-with-secondary-text
+                    label="Наше юрлицо"
+                    name="legal_id"
+                    :value="$filters['legal_id'] ?? ''"
+                    :options="$legalEntities->map(fn ($legalEntity) => [
+                        'value' => $legalEntity->legal_id,
+                        'label' => $legalEntity->legal_name,
+                        'secondary' => $legalEntity->legal_inn ? 'ИНН ' . $legalEntity->legal_inn : '',
+                    ])->prepend([
+                        'value' => '',
+                        'label' => 'Все юрлица',
+                        'secondary' => '',
+                    ])->values()"
+                />
 
-                <div class="field">
-                    <label for="contractor_inn">ИНН контрагента</label>
-                    <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
-                </div>
-
-                <label class="checkline" for="only_negative_diff">
+                <label class="block">
+                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">ИНН контрагента</span>
                     <input
-                        id="only_negative_diff"
-                        name="only_negative_diff"
-                        type="checkbox"
-                        value="1"
-                        @checked((bool) ($filters['only_negative_diff'] ?? false))
+                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
+                        name="contractor_inn"
+                        value="{{ $filters['contractor_inn'] ?? '' }}"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        data-counterparties-filter-input
                     >
-                    <span>Только с отрицательной разницей</span>
+                </label>
+
+                <label class="flex items-end gap-3 pb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    <span class="grid size-5 shrink-0 place-items-center">
+                        <input
+                            type="checkbox"
+                            name="only_negative_diff"
+                            value="1"
+                            @checked((bool) ($filters['only_negative_diff'] ?? false))
+                            class="peer col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:border-white/10 dark:bg-white/5 dark:checked:border-indigo-500 dark:checked:bg-indigo-500"
+                        >
+                        <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 stroke-white opacity-0 peer-checked:opacity-100">
+                            <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    Только с отрицательной разницей
                 </label>
             </div>
-
-            <div class="form-actions">
-                <a class="button secondary" href="{{ route('counterparties.index') }}" wire:navigate>Сбросить</a>
-                <button type="submit">Показать</button>
-            </div>
-        </form>
-
-        <form class="form-actions" method="post" action="{{ route('counterparties.rebuild-links') }}" style="margin-top: 12px;">
-            @csrf
-            <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}">
-            <input type="hidden" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}">
-            @if (! empty($filters['only_negative_diff']))
-                <input type="hidden" name="only_negative_diff" value="1">
-            @endif
-            <button type="submit">Пересчитать связи</button>
         </form>
     </div>
 
-    <div class="badges" style="margin-bottom: 16px;">
-        <span class="badge">Контрагентов: {{ number_format($summary['count'], 0, ',', ' ') }}</span>
-        <span class="badge">Входящее: {{ number_format($summary['opening_amount'], 2, ',', ' ') }}</span>
-        <span class="badge">Наше сальдо: {{ number_format($summary['saldo'], 2, ',', ' ') }}</span>
-        <span class="badge">Книги покупок: {{ number_format($summary['buh_saldo'], 2, ',', ' ') }}</span>
-        <span class="badge">Разница: {{ number_format($summary['saldo_diff'], 2, ',', ' ') }}</span>
-        <span class="badge">Разница НДС: {{ number_format($summary['vat_diff'], 2, ',', ' ') }}</span>
+    <div class="mb-4 flex flex-wrap gap-2" id="counterparties-summary">
+        @include('counterparties.partials.summary', ['summary' => $summary])
     </div>
 
-    <div class="panel">
-        <table>
-            <thead>
+    <x-ui.sticky-table
+        :contained="false"
+        :scrollable="true"
+        :viewport-sticky="true"
+        :sticky-summary-enabled="true"
+        :bottom-scrollbar="true"
+        scroll-class="overflow-x-auto overflow-y-visible"
+        table-class="!min-w-[1400px]"
+        body-id="counterparties-rows"
+    >
+        <x-slot:head>
             <tr>
-                <th>Контрагент</th>
-                <th>ИНН</th>
-                <th class="money">Входящее</th>
-                <th class="money">Наше сальдо</th>
-                <th class="money">Книги покупок</th>
-                <th class="money">Разница</th>
-                <th class="money">Разница НДС</th>
-                <th class="money">Приход</th>
-                <th class="money">Расход</th>
-                <th class="money">Операций</th>
+                <x-ui.sticky-table-th first>Контрагент</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>ИНН</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Входящее</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Наше сальдо</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Книги покупок</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Разница</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Разница НДС</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Расход</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Операций</x-ui.sticky-table-th>
                 @if ($showLegalEntitiesCount)
-                    <th class="money">Наших юрлиц</th>
+                    <x-ui.sticky-table-th align="right">Наших юрлиц</x-ui.sticky-table-th>
                 @endif
-                <th></th>
+                <x-ui.sticky-table-th last align="right"></x-ui.sticky-table-th>
             </tr>
-            </thead>
-            <tbody>
-            @forelse ($counterparties as $counterparty)
-                <tr>
-                    <td><strong>{{ $counterparty->contractor_name }}</strong></td>
-                    <td class="code">{{ $counterparty->contractor_inn }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->opening_amount, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->saldo, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->buh_saldo, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->saldo_diff, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->vat_diff, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->income_amount, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}</td>
-                    <td class="money">{{ number_format((int) $counterparty->operations_count, 0, ',', ' ') }}</td>
-                    @if ($showLegalEntitiesCount)
-                        <td class="money">{{ number_format((int) $counterparty->legal_entities_count, 0, ',', ' ') }}</td>
-                    @endif
-                    <td>
-                        <div class="actions">
-                            <a class="button secondary" href="{{ route('counterparties.show', ['contractorInn' => $counterparty->contractor_inn, 'legal_id' => $filters['legal_id'] ?? null]) }}" wire:navigate>
-                                Детализация
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="{{ $emptyColspan }}">По этим фильтрам контрагентов нет.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
+        </x-slot:head>
+
+        @include('counterparties.partials.rows', [
+            'counterparties' => $counterparties,
+            'filters' => $filters,
+            'showLegalEntitiesCount' => $showLegalEntitiesCount,
+            'emptyColspan' => $emptyColspan,
+        ])
+
+        @include('counterparties.partials.loader-row', [
+            'nextPage' => $nextPage,
+            'emptyColspan' => $emptyColspan,
+        ])
+
+        <x-slot:stickySummary>
+            @include('counterparties.partials.foot', [
+                'summary' => $summary,
+                'showLegalEntitiesCount' => $showLegalEntitiesCount,
+            ])
+        </x-slot:stickySummary>
+    </x-ui.sticky-table>
+
+    @once
+        <script>
+            (() => {
+                const tableRows = () => document.getElementById('counterparties-rows');
+                const tableLoader = () => document.getElementById('counterparties-loader');
+                const stickySummaryBody = () => document.querySelector('[data-ui-sticky-table-summary-body]');
+
+                const filteredUrl = (form) => {
+                    const url = new URL(form.action, window.location.origin);
+                    const formData = new FormData(form);
+
+                    for (const [key, value] of formData.entries()) {
+                        if (String(value) !== '') {
+                            url.searchParams.append(key, value);
+                        }
+                    }
+
+                    return url;
+                };
+
+                const replaceCounterparties = (payload) => {
+                    const summary = document.getElementById('counterparties-summary');
+                    const rows = tableRows();
+                    const loader = tableLoader();
+                    const summaryBody = stickySummaryBody();
+
+                    if (summary) {
+                        summary.innerHTML = payload.summary_html || '';
+                    }
+
+                    if (rows) {
+                        rows.innerHTML = (payload.html || '') + (payload.loader_html || '');
+                    }
+
+                    if (summaryBody) {
+                        summaryBody.innerHTML = payload.sticky_summary_html || '';
+                    }
+
+                    if (loader) {
+                        if (payload.has_more && payload.next_page) {
+                            loader.dataset.nextPage = payload.next_page;
+                            loader.textContent = 'Загрузка при прокрутке...';
+                        } else {
+                            delete loader.dataset.nextPage;
+                            loader.textContent = '';
+                        }
+                    }
+
+                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                };
+
+                const syncRebuildForm = (filterForm) => {
+                    const rebuildForm = document.querySelector('[data-counterparties-rebuild-form]');
+
+                    if (!rebuildForm) {
+                        return;
+                    }
+
+                    rebuildForm.querySelector('[data-rebuild-legal-id]').value = filterForm.querySelector('[name="legal_id"]')?.value || '';
+                    rebuildForm.querySelector('[data-rebuild-contractor-inn]').value = filterForm.querySelector('[name="contractor_inn"]')?.value || '';
+                    rebuildForm.querySelector('[data-rebuild-only-negative-diff]').value = filterForm.querySelector('[name="only_negative_diff"]')?.checked ? '1' : '';
+                };
+
+                const fetchCounterparties = async (form) => {
+                    if (!form || form.dataset.counterpartiesFilterLoading === 'true') {
+                        return;
+                    }
+
+                    const url = filteredUrl(form);
+                    const rows = tableRows();
+
+                    form.dataset.counterpartiesFilterLoading = 'true';
+                    rows?.classList.add('opacity-60');
+
+                    try {
+                        const response = await fetch(url.toString(), {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Request failed');
+                        }
+
+                        replaceCounterparties(await response.json());
+                        syncRebuildForm(form);
+                        window.history.replaceState({}, '', url.toString());
+                    } catch (error) {
+                        form.submit();
+                    } finally {
+                        form.dataset.counterpartiesFilterLoading = 'false';
+                        rows?.classList.remove('opacity-60');
+                    }
+                };
+
+                const initCounterpartiesFilters = () => {
+                    document.querySelectorAll('[data-counterparties-filter-form]:not([data-counterparties-filter-ready])').forEach((form) => {
+                        let inputTimer = null;
+
+                        form.dataset.counterpartiesFilterReady = 'true';
+
+                        form.addEventListener('submit', (event) => {
+                            event.preventDefault();
+                            fetchCounterparties(form);
+                        });
+
+                        form.addEventListener('change', (event) => {
+                            if (event.target.matches('[data-counterparties-filter-input]')) {
+                                return;
+                            }
+
+                            fetchCounterparties(form);
+                        });
+
+                        form.querySelectorAll('[data-counterparties-filter-input]').forEach((input) => {
+                            input.addEventListener('input', () => {
+                                window.clearTimeout(inputTimer);
+                                inputTimer = window.setTimeout(() => fetchCounterparties(form), 650);
+                            });
+                        });
+                    });
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initCounterpartiesFilters);
+                } else {
+                    initCounterpartiesFilters();
+                }
+
+                document.addEventListener('livewire:navigated', initCounterpartiesFilters);
+            })();
+
+            (() => {
+                const initCounterpartiesLoader = () => {
+                    const rows = document.getElementById('counterparties-rows');
+                    const loader = document.getElementById('counterparties-loader');
+                    const loaderRow = document.getElementById('counterparties-loader-row');
+
+                    if (!rows || !loader || !loaderRow || loader.dataset.counterpartiesLoaderReady === 'true') {
+                        return;
+                    }
+
+                    let loading = false;
+                    loader.dataset.counterpartiesLoaderReady = 'true';
+
+                    const loadNextPage = async () => {
+                        if (loading || !loader.dataset.nextPage) {
+                            return;
+                        }
+
+                        loading = true;
+                        loader.textContent = 'Загружаем...';
+
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('page', loader.dataset.nextPage);
+
+                        try {
+                            const response = await fetch(url.toString(), {
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+
+                            if (!response.ok) {
+                                throw new Error('Request failed');
+                            }
+
+                            const payload = await response.json();
+                            loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
+
+                            if (payload.has_more && payload.next_page) {
+                                loader.dataset.nextPage = payload.next_page;
+                                loader.textContent = 'Загрузка при прокрутке...';
+                            } else {
+                                delete loader.dataset.nextPage;
+                                loader.textContent = '';
+                            }
+
+                            document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                        } catch (error) {
+                            loader.textContent = 'Не удалось загрузить следующую страницу.';
+                        } finally {
+                            loading = false;
+                        }
+                    };
+
+                    const observer = new IntersectionObserver((entries) => {
+                        if (entries.some((entry) => entry.isIntersecting)) {
+                            loadNextPage();
+                        }
+                    }, { rootMargin: '600px 0px' });
+
+                    observer.observe(loader);
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initCounterpartiesLoader);
+                } else {
+                    initCounterpartiesLoader();
+                }
+
+                document.addEventListener('livewire:navigated', initCounterpartiesLoader);
+            })();
+        </script>
+    @endonce
 @endsection

@@ -20,9 +20,9 @@
     ][$hiddenUntil] ?? '';
 
     $paddingClass = match (true) {
-        $first => 'py-3.5 pr-3 pl-4 sm:pl-6 lg:pl-8',
-        $last => 'py-3.5 pr-4 pl-3 sm:pr-6 lg:pr-8',
-        default => 'px-3 py-3.5',
+        $first => 'py-2.5 pr-3 pl-4 sm:pl-6 lg:pl-8',
+        $last => 'py-2.5 pr-4 pl-3 sm:pr-6 lg:pr-8',
+        default => 'px-3 py-2.5',
     };
 @endphp
 
