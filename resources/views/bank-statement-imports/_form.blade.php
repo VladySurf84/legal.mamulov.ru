@@ -34,6 +34,6 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit">{{ $submitLabel }}</button>
+        <x-ui.button type="submit" size="lg">{{ $submitLabel }}</x-ui.button>
     </div>
 </form>

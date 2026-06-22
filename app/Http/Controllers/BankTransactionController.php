@@ -20,12 +20,19 @@ class BankTransactionController extends Controller
     {
         $filters = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
+            'account_numbers' => ['nullable', 'array'],
+            'account_numbers.*' => ['nullable', 'string', 'max:20'],
             'type' => ['nullable', 'in:income,expense'],
             'contractor' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $filters['account_numbers'] = collect($filters['account_numbers'] ?? [])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         $page = (int) ($filters['page'] ?? 1);
         unset($filters['page']);
@@ -225,7 +232,17 @@ SQL, $bindings);
         $where = ['true'];
         $bindings = [];
 
-        if (! empty($filters['account_number'])) {
+        if (! empty($filters['account_numbers'])) {
+            $placeholders = [];
+
+            foreach ($filters['account_numbers'] as $index => $accountNumber) {
+                $binding = 'account_number_'.$index;
+                $placeholders[] = ':'.$binding;
+                $bindings[$binding] = $accountNumber;
+            }
+
+            $where[] = 'dbt.account_number IN ('.implode(', ', $placeholders).')';
+        } elseif (! empty($filters['account_number'])) {
             $where[] = 'dbt.account_number = :account_number';
             $bindings['account_number'] = $filters['account_number'];
         }

@@ -1,71 +1,27 @@
 @extends('layouts.app', ['title' => 'Банковские транзакции'])
 
+@section('page_actions')
+    <form method="post" action="{{ route('bank-transactions.sync') }}">
+        @csrf
+        <input type="hidden" name="days" value="5">
+        <x-ui.button class="inline-flex items-center gap-2" type="submit" size="lg">
+            Обновить Тинек за 5 дней
+        </x-ui.button>
+    </form>
+@endsection
+
 @section('content')
     <div class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-            <h1 class="!mb-2 !text-2xl !font-semibold !tracking-normal text-slate-950">Банковские транзакции</h1>
             <div class="max-w-3xl text-sm text-slate-500">
                 Операции по расчетным счетам, загруженные через API банка или из файлов 1CClientBankExchange.
             </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            <button
-                class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                type="button"
-                data-bank-statement-import-open
-            >
+            <x-ui.button type="button" size="lg" data-bank-statement-import-open>
                 Загрузить выписку
-            </button>
-
-            <div class="inline-flex items-stretch">
-                <form method="post" action="{{ route('bank-transactions.sync') }}">
-                    @csrf
-                    <input type="hidden" name="full" value="1">
-                    <button
-                        class="inline-flex h-9 items-center gap-2 rounded-l-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-700 shadow-sm hover:bg-emerald-100"
-                        type="submit"
-                    >
-                        <span class="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
-                        Все API-счета
-                    </button>
-                </form>
-
-                <details class="group relative">
-                    <summary
-                        class="flex h-9 w-10 cursor-pointer list-none items-center justify-center rounded-r-md border border-l-0 border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 [&::-webkit-details-marker]:hidden"
-                        title="Выбрать счет"
-                    >
-                        <span class="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-current"></span>
-                    </summary>
-                    <div class="absolute right-0 z-30 mt-2 w-[min(420px,calc(100vw-40px))] overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
-                        @if ($apiAccounts->isNotEmpty())
-                            @foreach ($apiAccounts as $account)
-                                <form method="post" action="{{ route('bank-transactions.sync') }}">
-                                    @csrf
-                                    <input type="hidden" name="full" value="1">
-                                    <input type="hidden" name="account_number" value="{{ $account->account_number }}">
-                                    <button
-                                        class="flex w-full items-center gap-3 rounded-md bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-emerald-50"
-                                        type="submit"
-                                        title="Обновить счет {{ $account->account_number }}"
-                                    >
-                                        <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
-                                        <span class="grid min-w-0 gap-0.5">
-                                            <span class="truncate font-medium">{{ $account->name ?: $account->account_number }}</span>
-                                            <small class="truncate text-xs text-slate-500">
-                                                {{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->account_number }}
-                                            </small>
-                                        </span>
-                                    </button>
-                                </form>
-                            @endforeach
-                        @else
-                            <div class="px-3 py-2 text-sm text-slate-500">API-счета Тинькофф пока не найдены.</div>
-                        @endif
-                    </div>
-                </details>
-            </div>
+            </x-ui.button>
         </div>
     </div>
 
@@ -78,14 +34,15 @@
                         Файл 1CClientBankExchange будет добавлен в новые документы и Money layer.
                     </div>
                 </div>
-                <button
-                    class="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-xl leading-none text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                <x-ui.button
+                    class="flex h-9 w-9 items-center justify-center !px-0 !py-0 text-xl leading-none text-slate-500"
                     type="button"
+                    size="md"
                     title="Закрыть"
                     data-bank-statement-import-close
                 >
                     &times;
-                </button>
+                </x-ui.button>
             </div>
 
             @include('bank-statement-imports._form', [
@@ -119,26 +76,40 @@
     <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm">
         <form class="p-4" method="get" action="{{ route('bank-transactions.index') }}">
             <div class="grid gap-4 lg:grid-cols-4">
-                <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-                    <span>Счет</span>
-                    <select class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="account_number">
-                        <option value="">Все счета</option>
-                        @foreach ($accounts as $account)
-                            <option value="{{ $account->account_number }}" @selected(($filters['account_number'] ?? '') === $account->account_number)>
-                                {{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }} · {{ $account->name }} · {{ $account->account_number }}
-                            </option>
-                        @endforeach
-                    </select>
-                </label>
+                <x-ui.multi-select-with-secondary-text
+                    label="Счет"
+                    name="account_numbers"
+                    :value="$filters['account_numbers'] ?? array_filter([($filters['account_number'] ?? null)])"
+                    :options="$accounts->map(fn ($account) => [
+                        'value' => $account->account_number,
+                        'label' => $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id,
+                        'secondary' => trim(($account->name ?: 'Счет') . ' · ' . $account->account_number),
+                    ])->values()"
+                    placeholder="Все счета"
+                />
 
-                <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-                    <span>Тип</span>
-                    <select class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="type">
-                        <option value="">Все движения</option>
-                        <option value="income" @selected(($filters['type'] ?? '') === 'income')>Приход</option>
-                        <option value="expense" @selected(($filters['type'] ?? '') === 'expense')>Расход</option>
-                    </select>
-                </label>
+                <x-ui.select-with-secondary-text
+                    label="Тип"
+                    name="type"
+                    :value="$filters['type'] ?? ''"
+                    :options="[
+                        [
+                            'value' => '',
+                            'label' => 'Все движения',
+                            'secondary' => '',
+                        ],
+                        [
+                            'value' => 'income',
+                            'label' => 'Приход',
+                            'secondary' => 'Поступления на счет',
+                        ],
+                        [
+                            'value' => 'expense',
+                            'label' => 'Расход',
+                            'secondary' => 'Списания со счета',
+                        ],
+                    ]"
+                />
 
                 <label class="grid gap-1.5 text-sm font-medium text-slate-700">
                     <span>Контрагент / ИНН</span>
@@ -155,61 +126,56 @@
             </div>
 
             <div class="mt-4 flex justify-end gap-2">
-                <a class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50" href="{{ route('bank-transactions.index') }}" wire:navigate>
+                <x-ui.button href="{{ route('bank-transactions.index') }}" size="lg" wire:navigate>
                     Сбросить
-                </a>
-                <button class="inline-flex h-9 items-center rounded-md bg-cyan-800 px-4 text-sm font-medium text-white shadow-sm hover:bg-cyan-900" type="submit">
+                </x-ui.button>
+                <x-ui.button type="submit" size="lg">
                     Показать
-                </button>
+                </x-ui.button>
             </div>
         </form>
     </div>
 
-    <div class="mb-4 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div class="text-xs font-medium uppercase text-slate-500">Операций</div>
-            <div class="mt-1 text-xl font-semibold tabular-nums text-slate-950">{{ $summary['count'] }}</div>
-        </div>
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
-            <div class="text-xs font-medium uppercase text-emerald-700">Приход</div>
-            <div class="mt-1 text-xl font-semibold tabular-nums text-emerald-900">{{ number_format($summary['income'], 2, ',', ' ') }}</div>
-        </div>
-        <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 shadow-sm">
-            <div class="text-xs font-medium uppercase text-rose-700">Расход</div>
-            <div class="mt-1 text-xl font-semibold tabular-nums text-rose-900">{{ number_format($summary['expense'], 2, ',', ' ') }}</div>
-        </div>
-    </div>
 
-    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="min-w-full border-separate border-spacing-0 text-sm">
-                <thead class="sticky top-0 z-10 bg-slate-50">
-                <tr>
-                    <th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Дата</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Юрлицо / счет</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Контрагент</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Приход</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Расход</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Назначение</th>
-                    <th class="border-b border-slate-200 px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Итог</th>
-                </tr>
-                </thead>
-                <tbody id="bank-transactions-rows" class="divide-y divide-slate-100 bg-white">
-                @if (count($transactions) > 0)
-                    @include('bank-transactions.partials.rows', ['transactions' => $transactions])
-                @else
-                    <tr>
-                        <td class="px-4 py-8 text-center text-sm text-slate-500" colspan="7">Банковские транзакции пока не загружены.</td>
-                    </tr>
-                @endif
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <x-ui.sticky-table :contained="false" body-id="bank-transactions-rows">
+        <x-slot:head>
+            <tr>
+                <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Юрлицо / счет</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Контрагент</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Расход</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Назначение</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th last align="right">Итог</x-ui.sticky-table-th>
+            </tr>
+        </x-slot:head>
+
+        @if (count($transactions) > 0)
+            @include('bank-transactions.partials.rows', ['transactions' => $transactions])
+        @else
+            <tr>
+                <td class="py-8 text-center text-sm text-gray-500 dark:text-gray-400" colspan="7">Банковские транзакции пока не загружены.</td>
+            </tr>
+        @endif
+
+        <x-slot:foot>
+            <tr>
+                <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">Итого операций: {{ $summary['count'] }}</th>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">
+                    {{ number_format($summary['income'], 2, ',', ' ') }}
+                </td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-rose-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">
+                    {{ number_format($summary['expense'], 2, ',', ' ') }}
+                </td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-4 pl-3 backdrop-blur-sm backdrop-filter sm:pr-6 lg:pr-8 dark:border-white/15 dark:bg-gray-900/75"></td>
+            </tr>
+        </x-slot:foot>
+    </x-ui.sticky-table>
 
     <div
         id="bank-transactions-loader"
-        class="py-4 text-center text-sm text-slate-500"
+        class="text-center text-sm text-slate-500"
         data-next-page="{{ $nextPage }}"
     >
         @if ($nextPage)

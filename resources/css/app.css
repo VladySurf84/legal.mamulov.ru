@@ -4,8 +4,21 @@
 @import '@fontsource-variable/inter';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../views/**/*.blade.php';
+@source '../views/auth/**/*.blade.php';
+@source '../views/bank-accounts/**/*.blade.php';
+@source '../views/bank-statement-imports/**/*.blade.php';
+@source '../views/bank-transactions/**/*.blade.php';
+@source '../views/components/*.blade.php';
+@source '../views/components/ui/*.blade.php';
+@source '../views/counterparties/**/*.blade.php';
+@source '../views/document-types/**/*.blade.php';
+@source '../views/layouts/**/*.blade.php';
+@source '../views/money-layer/**/*.blade.php';
+@source '../views/ozon-bank-statements/**/*.blade.php';
+@source '../views/scheduler/**/*.blade.php';
+@source '../views/vat-books/**/*.blade.php';
+@source '../views/vat-layer/**/*.blade.php';
+@source not '../../docs/iu/tailwind/**/*';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
@@ -98,7 +111,7 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground text-sm leading-relaxed;
     }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
