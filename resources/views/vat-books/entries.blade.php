@@ -1,4 +1,7 @@
-@extends('layouts.app', ['title' => 'Содержание книг бухгалтера'])
+@extends('layouts.app', [
+    'title' => 'Содержание книг бухгалтера',
+    'titleAttribute' => 'Строки из книг покупок и продаж, загруженных из XML бухгалтера.',
+])
 
 @php
     $bookLabels = [
@@ -7,165 +10,218 @@
     ];
 @endphp
 
+@section('page_actions')
+    <x-ui.button href="{{ route('vat-books.index') }}" size="lg" wire:navigate>
+        Импорт книг
+    </x-ui.button>
+@endsection
+
 @section('content')
-    <div class="page-head">
-        <div>
-            <h1>Содержание книг бухгалтера</h1>
-            <div class="subtle">Строки из книг покупок и продаж, которые загрузил бухгалтер.</div>
-        </div>
-        <div class="actions">
-            <a class="button secondary" href="{{ route('vat-books.index') }}" wire:navigate>Импорт книг</a>
-        </div>
-    </div>
+    <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
+        <form class="p-4" method="get" action="{{ route('vat-book-entries.index') }}">
+            <div class="grid gap-4 lg:grid-cols-5">
+                <x-ui.select
+                    label="Год"
+                    name="year"
+                    :value="$filters['year'] ?? ''"
+                    :options="$years->mapWithKeys(fn ($year) => [$year => $year])->prepend('Все годы', '')"
+                />
 
-    <div class="panel" style="margin-bottom: 16px;">
-        <form class="form" method="get" action="{{ route('vat-book-entries.index') }}">
-            <div class="grid">
-                <div class="field">
-                    <label for="year">Год</label>
-                    <select id="year" name="year">
-                        <option value="">Все годы</option>
-                        @foreach ($years as $year)
-                            <option value="{{ $year }}" @selected((string) ($filters['year'] ?? '') === (string) $year)>{{ $year }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-ui.select
+                    label="Квартал"
+                    name="quarter"
+                    :value="$filters['quarter'] ?? ''"
+                    :options="collect([
+                        '' => 'Все кварталы',
+                        1 => 'Q1',
+                        2 => 'Q2',
+                        3 => 'Q3',
+                        4 => 'Q4',
+                    ])"
+                />
 
-                <div class="field">
-                    <label for="quarter">Квартал</label>
-                    <select id="quarter" name="quarter">
-                        <option value="">Все кварталы</option>
-                        @foreach ([1, 2, 3, 4] as $quarter)
-                            <option value="{{ $quarter }}" @selected((string) ($filters['quarter'] ?? '') === (string) $quarter)>Q{{ $quarter }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-ui.select
+                    label="Книга"
+                    name="book_type"
+                    :value="$filters['book_type'] ?? ''"
+                    :options="collect(['' => 'Покупки и продажи'] + $bookLabels)"
+                />
 
-                <div class="field">
-                    <label for="book_type">Книга</label>
-                    <select id="book_type" name="book_type">
-                        <option value="">Покупки и продажи</option>
-                        @foreach ($bookLabels as $value => $label)
-                            <option value="{{ $value }}" @selected(($filters['book_type'] ?? '') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-ui.select-with-secondary-text
+                    label="Юрлицо"
+                    name="legal_id"
+                    :value="$filters['legal_id'] ?? ''"
+                    :options="$legals->map(fn ($legal) => [
+                        'value' => $legal->legal_id,
+                        'label' => $legal->legal_name,
+                        'secondary' => $legal->legal_inn ? 'ИНН ' . $legal->legal_inn : '',
+                    ])->prepend([
+                        'value' => '',
+                        'label' => 'Все юрлица',
+                        'secondary' => '',
+                    ])->values()"
+                />
 
-                <div class="field">
-                    <label for="legal_id">Юрлицо</label>
-                    <select id="legal_id" name="legal_id">
-                        <option value="">Все юрлица</option>
-                        @foreach ($legals as $legal)
-                            <option value="{{ $legal->legal_id }}" @selected((string) ($filters['legal_id'] ?? '') === (string) $legal->legal_id)>
-                                {{ $legal->legal_name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label for="contractor_inn">ИНН контрагента</label>
-                    <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
-                </div>
-
-                <div class="field">
-                    <label for="q">Поиск</label>
-                    <input id="q" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Контрагент, счет-фактура, код">
-                </div>
+                <label class="block">
+                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Поиск</span>
+                    <input
+                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
+                        name="q"
+                        value="{{ $filters['q'] ?? '' }}"
+                        placeholder="ИНН, контрагент, счет-фактура, код"
+                        autocomplete="off"
+                    >
+                </label>
             </div>
 
-            <div class="form-actions">
-                <a class="button secondary" href="{{ route('vat-book-entries.index') }}" wire:navigate>Сбросить</a>
-                <button type="submit">Показать</button>
+            <div class="mt-4 flex justify-end gap-2">
+                <x-ui.button href="{{ route('vat-book-entries.index') }}" size="lg" wire:navigate>
+                    Сбросить
+                </x-ui.button>
+                <x-ui.button type="submit" size="lg" variant="soft">
+                    Показать
+                </x-ui.button>
             </div>
         </form>
     </div>
 
-    <div class="badges" style="margin-bottom: 16px;">
-        <span class="badge">Строк: {{ number_format((int) $summary->entries_count, 0, ',', ' ') }}</span>
-        <span class="badge">Сумма: {{ number_format((float) $summary->amount_total, 2, ',', ' ') }}</span>
-        <span class="badge">Без НДС: {{ number_format((float) $summary->amount_without_vat, 2, ',', ' ') }}</span>
-        <span class="badge">НДС: {{ number_format((float) $summary->vat_amount, 2, ',', ' ') }}</span>
+    <div class="mb-4 flex flex-wrap gap-2">
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">Строк: {{ number_format((int) $summary->entries_count, 0, ',', ' ') }}</span>
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">Сумма: {{ number_format((float) $summary->amount_total, 2, ',', ' ') }}</span>
+        <span class="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700 ring-1 ring-cyan-200">Без НДС: {{ number_format((float) $summary->amount_without_vat, 2, ',', ' ') }}</span>
+        <span class="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200">НДС: {{ number_format((float) $summary->vat_amount, 2, ',', ' ') }}</span>
     </div>
 
-    <div class="panel">
-        <table>
-            <thead>
+    <x-ui.sticky-table
+        :contained="false"
+        :scrollable="true"
+        :viewport-sticky="true"
+        :sticky-summary-enabled="true"
+        :bottom-scrollbar="true"
+        scroll-class="overflow-x-auto overflow-y-visible"
+    >
+        <x-slot:head>
             <tr>
-                <th>Период</th>
-                <th>Книга</th>
-                <th>Строка</th>
-                <th>Юрлицо</th>
-                <th>Счет-фактура</th>
-                <th>Контрагент</th>
-                <th>Платеж</th>
-                <th class="money">Сумма</th>
-                <th class="money">Без НДС</th>
-                <th class="money">НДС</th>
+                <x-ui.sticky-table-th first>Период</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Книга</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Строка</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Юрлицо</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Счет-фактура</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Контрагент</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Платеж</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Сумма</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Без НДС</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th last align="right">НДС</x-ui.sticky-table-th>
             </tr>
-            </thead>
-            <tbody>
-            @forelse ($entries as $entry)
-                <tr>
-                    <td>{{ $entry->year }} Q{{ $entry->quarter }}</td>
-                    <td>{{ $bookLabels[$entry->book_type] ?? $entry->book_type }}</td>
-                    <td class="money">{{ number_format((int) $entry->row_number, 0, ',', ' ') }}</td>
-                    <td>
-                        <strong>{{ $entry->legal_name }}</strong>
-                        <div class="subtle">ИНН {{ $entry->legal_inn }}</div>
-                    </td>
-                    <td>
-                        <div>{{ $entry->invoice_number ?: '—' }}</div>
-                        <div class="subtle">{{ $entry->invoice_date ? \Illuminate\Support\Carbon::parse($entry->invoice_date)->format('d.m.Y') : '' }}</div>
-                        @if ($entry->correction_invoice_number)
-                            <div class="subtle">Корр. {{ $entry->correction_invoice_number }}</div>
-                        @endif
-                    </td>
-                    <td>
-                        <strong>{{ $entry->contractor_name ?: '—' }}</strong>
-                        <div class="subtle">
-                            ИНН {{ $entry->contractor_inn ?: '—' }}
-                            @if ($entry->contractor_kpp)
-                                КПП {{ $entry->contractor_kpp }}
-                            @endif
-                        </div>
-                        @if ($entry->operation_code)
-                            <div class="subtle">Код {{ $entry->operation_code }}</div>
-                        @endif
-                    </td>
-                    <td>
-                        <div>{{ $entry->payment_doc_number ?: '—' }}</div>
-                        <div class="subtle">{{ $entry->payment_doc_date ? \Illuminate\Support\Carbon::parse($entry->payment_doc_date)->format('d.m.Y') : '' }}</div>
-                        @if ($entry->acceptance_date)
-                            <div class="subtle">Принят {{ \Illuminate\Support\Carbon::parse($entry->acceptance_date)->format('d.m.Y') }}</div>
-                        @endif
-                    </td>
-                    <td class="money">{{ $entry->amount_total !== null ? number_format((float) $entry->amount_total, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ $entry->amount_without_vat !== null ? number_format((float) $entry->amount_without_vat, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ $entry->vat_amount !== null ? number_format((float) $entry->vat_amount, 2, ',', ' ') : '—' }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="10">По этим фильтрам строк нет.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
+        </x-slot:head>
 
-    <div class="form-actions">
-        @if ($entries->onFirstPage())
-            <span class="button secondary" style="opacity: .55;">Назад</span>
-        @else
-            <a class="button secondary" href="{{ $entries->previousPageUrl() }}" wire:navigate>Назад</a>
-        @endif
+        @include('vat-books.partials.entry-rows', [
+            'entries' => $entries,
+            'bookLabels' => $bookLabels,
+        ])
 
-        <span class="badge">Страница {{ $entries->currentPage() }} из {{ $entries->lastPage() }}</span>
+        @include('vat-books.partials.entries-loader-row', [
+            'nextPage' => $nextPage,
+        ])
 
-        @if ($entries->hasMorePages())
-            <a class="button secondary" href="{{ $entries->nextPageUrl() }}" wire:navigate>Дальше</a>
-        @else
-            <span class="button secondary" style="opacity: .55;">Дальше</span>
-        @endif
-    </div>
+        <x-slot:stickySummary>
+            <tr>
+                <th scope="row" class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
+                    Итого строк: {{ number_format((int) $summary->entries_count, 0, ',', ' ') }}
+                </th>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+                <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-gray-900 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
+                    {{ number_format((float) $summary->amount_total, 2, ',', ' ') }}
+                </td>
+                <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-cyan-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">
+                    {{ number_format((float) $summary->amount_without_vat, 2, ',', ' ') }}
+                </td>
+                <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 py-3.5 pr-4 pl-3 text-right text-sm font-semibold tabular-nums text-indigo-700 backdrop-blur-sm backdrop-filter sm:pr-6 lg:pr-8 dark:border-white/15 dark:bg-gray-900/75">
+                    {{ number_format((float) $summary->vat_amount, 2, ',', ' ') }}
+                </td>
+            </tr>
+        </x-slot:stickySummary>
+    </x-ui.sticky-table>
+
+    @once
+        <script>
+            (() => {
+                const initVatBookEntriesLoader = () => {
+                    const loader = document.getElementById('vat-book-entries-loader');
+                    const loaderRow = document.getElementById('vat-book-entries-loader-row');
+
+                    if (!loader || !loaderRow || loader.dataset.vatBookEntriesLoaderReady === 'true') {
+                        return;
+                    }
+
+                    let loading = false;
+                    loader.dataset.vatBookEntriesLoaderReady = 'true';
+
+                    const loadNextPage = async () => {
+                        if (loading || !loader.dataset.nextPage) {
+                            return;
+                        }
+
+                        loading = true;
+                        loader.textContent = 'Загружаем...';
+
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('page', loader.dataset.nextPage);
+
+                        try {
+                            const response = await fetch(url.toString(), {
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+
+                            if (!response.ok) {
+                                throw new Error('Request failed');
+                            }
+
+                            const payload = await response.json();
+                            loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
+
+                            if (payload.has_more && payload.next_page) {
+                                loader.dataset.nextPage = payload.next_page;
+                                loader.textContent = 'Загрузка при прокрутке...';
+                            } else {
+                                delete loader.dataset.nextPage;
+                                loader.textContent = '';
+                                observer.disconnect();
+                            }
+
+                            document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                        } catch (error) {
+                            loader.textContent = 'Не удалось загрузить следующую страницу.';
+                        } finally {
+                            loading = false;
+                        }
+                    };
+
+                    const observer = new IntersectionObserver((entries) => {
+                        if (entries.some((entry) => entry.isIntersecting)) {
+                            loadNextPage();
+                        }
+                    }, { rootMargin: '600px 0px' });
+
+                    observer.observe(loader);
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initVatBookEntriesLoader);
+                } else {
+                    initVatBookEntriesLoader();
+                }
+
+                document.addEventListener('livewire:navigated', initVatBookEntriesLoader);
+            })();
+        </script>
+    @endonce
 @endsection

@@ -471,7 +471,7 @@ bank_entries AS (
         END AS vat_reconciliation_amount,
         signed_amount AS source_signed_amount,
         signed_amount AS reconciliation_amount,
-        account_number AS primary_ref,
+        COALESCE(NULLIF(document_number, ''), NULLIF(tax_doc_number, ''), NULLIF(external_operation_id, '')) AS primary_ref,
         external_operation_id AS secondary_ref,
         payment_purpose AS description,
         EXISTS (
@@ -842,6 +842,7 @@ SELECT
     dbt.document_bank_transaction_id,
     dbt.operation_date,
     dbt.external_operation_id,
+    dbt.tax_doc_number,
     dbt.account_number,
     dbt.payment_purpose,
     CASE

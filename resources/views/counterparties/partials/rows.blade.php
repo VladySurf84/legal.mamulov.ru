@@ -1,7 +1,9 @@
 @forelse ($counterparties as $counterparty)
     <tr class="align-top hover:bg-gray-50">
-        <x-ui.sticky-table-td first strong>
-            {{ $counterparty->contractor_name }}
+        <x-ui.sticky-table-td first strong :nowrap="false" class="min-w-72 max-w-96">
+            <span class="block whitespace-normal break-words">
+                {{ $counterparty->contractor_name }}
+            </span>
         </x-ui.sticky-table-td>
         <x-ui.sticky-table-td nowrap>
             <span class="font-mono text-xs">{{ $counterparty->contractor_inn }}</span>

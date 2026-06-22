@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Vat\VatBookImportService;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,16 +43,19 @@ class VatBookController extends Controller
         ]);
     }
 
-    public function entries(Request $request): View
+    public function entries(Request $request): View|JsonResponse
     {
         $filters = $request->validate([
             'year' => ['nullable', 'integer', 'between:2000,2100'],
             'quarter' => ['nullable', 'integer', 'between:1,4'],
             'book_type' => ['nullable', 'in:purchase,sales'],
             'legal_id' => ['nullable', 'string', 'max:12'],
-            'contractor_inn' => ['nullable', 'string', 'max:12'],
             'q' => ['nullable', 'string', 'max:255'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $page = (int) ($filters['page'] ?? 1);
+        $perPage = 100;
+        $offset = ($page - 1) * $perPage;
 
         $baseQuery = DB::table('legal.vat_book_entries as e')
             ->join('legal.vat_book_imports as i', 'i.vat_book_import_id', '=', 'e.vat_book_import_id')
@@ -75,16 +78,15 @@ class VatBookController extends Controller
             $baseQuery->where('e.legal_id', (string) $filters['legal_id']);
         }
 
-        if (!empty($filters['contractor_inn'])) {
-            $baseQuery->where('e.contractor_inn', preg_replace('/\D+/', '', $filters['contractor_inn']));
-        }
+        $searchText = trim((string) ($filters['q'] ?? ''));
 
-        if (!empty($filters['q'])) {
-            $search = '%' . $filters['q'] . '%';
+        if ($searchText !== '') {
+            $search = '%' . $searchText . '%';
 
             $baseQuery->where(function ($query) use ($search): void {
                 $query
-                    ->whereRaw('e.contractor_name ILIKE ?', [$search])
+                    ->whereRaw('e.contractor_inn ILIKE ?', [$search])
+                    ->orWhereRaw('e.contractor_name ILIKE ?', [$search])
                     ->orWhereRaw('e.invoice_number ILIKE ?', [$search])
                     ->orWhereRaw('e.payment_doc_number ILIKE ?', [$search])
                     ->orWhereRaw('e.operation_code ILIKE ?', [$search]);
@@ -98,7 +100,6 @@ class VatBookController extends Controller
             ->selectRaw('COALESCE(SUM(e.vat_amount), 0) as vat_amount')
             ->first();
 
-        /** @var LengthAwarePaginator $entries */
         $entries = $baseQuery
             ->orderByDesc('e.year')
             ->orderByDesc('e.quarter')
@@ -129,8 +130,16 @@ class VatBookController extends Controller
                 'l.legal_name',
                 'l.legal_inn',
             ])
-            ->paginate(100)
-            ->withQueryString();
+            ->limit($perPage + 1)
+            ->offset($offset)
+            ->get();
+
+        $hasMoreEntries = $entries->count() > $perPage;
+        if ($hasMoreEntries) {
+            $entries = $entries->slice(0, $perPage)->values();
+        }
+
+        $nextPage = $hasMoreEntries ? $page + 1 : null;
 
         $years = DB::table('legal.vat_book_imports')
             ->where('is_active', true)
@@ -142,12 +151,33 @@ class VatBookController extends Controller
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
 
+        $bookLabels = [
+            'purchase' => 'Покупки',
+            'sales' => 'Продажи',
+        ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('vat-books.partials.entry-rows', [
+                    'entries' => $entries,
+                    'bookLabels' => $bookLabels,
+                ])->render(),
+                'loader_html' => view('vat-books.partials.entries-loader-row', [
+                    'nextPage' => $nextPage,
+                ])->render(),
+                'next_page' => $nextPage,
+                'has_more' => $hasMoreEntries,
+            ]);
+        }
+
         return view('vat-books.entries', [
             'entries' => $entries,
             'filters' => $filters,
             'summary' => $summary,
             'years' => $years,
             'legals' => $legals,
+            'bookLabels' => $bookLabels,
+            'nextPage' => $nextPage,
         ]);
     }
 
