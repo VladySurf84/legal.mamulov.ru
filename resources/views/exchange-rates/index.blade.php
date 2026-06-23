@@ -5,7 +5,8 @@
 
 @php
     $rate = static fn ($value) => $value !== null ? number_format((float) $value, 4, ',', ' ') : '—';
-    $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value)->timezone(config('app.timezone'))->format('d.m.Y H:i:s') : '—';
+    $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
+    $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value, 'UTC')->timezone($displayTimezone)->format('d.m.Y H:i:s') : '—';
     $rateTypeLabels = [
         'cash' => 'Наличные',
         'non_cash' => 'Безналичные',
@@ -20,10 +21,10 @@
             return '—';
         }
 
-        $fromDate = \Illuminate\Support\Carbon::parse((string) $from);
+        $fromDate = \Illuminate\Support\Carbon::parse((string) $from, 'UTC');
         $toDate = $to
-            ? \Illuminate\Support\Carbon::parse((string) $to)
-            : ($lastSeenAt ? \Illuminate\Support\Carbon::parse((string) $lastSeenAt) : now());
+            ? \Illuminate\Support\Carbon::parse((string) $to, 'UTC')
+            : ($lastSeenAt ? \Illuminate\Support\Carbon::parse((string) $lastSeenAt, 'UTC') : now('UTC'));
 
         return $fromDate->diffForHumans($toDate, true, false, 3);
     };
