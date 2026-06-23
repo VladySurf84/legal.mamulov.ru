@@ -3,9 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\TelegramUpdate;
-use App\Models\TelegramChat;
-use App\Services\Telegram\TelegramLoginLinkService;
 use App\Services\Telegram\TelegramService;
+use App\Services\Telegram\TelegramUpdateHandler;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -18,7 +17,7 @@ class SyncTelegramUpdates extends Command
 
     protected $description = 'Fetch Telegram bot updates and record chats that wrote to the bot.';
 
-    public function handle(TelegramService $telegram, TelegramLoginLinkService $loginLinks): int
+    public function handle(TelegramService $telegram, TelegramUpdateHandler $handler): int
     {
         $offsetOption = $this->option('offset');
         $offset = is_numeric($offsetOption)
@@ -36,14 +35,23 @@ class SyncTelegramUpdates extends Command
         $linksSent = 0;
 
         foreach ($updates as $update) {
-            $recordedUpdate = $telegram->recordUpdate($update);
-
-            if ($recordedUpdate) {
-                $recorded++;
-                $linksSent += $this->sendLoginLinkIfNeeded($recordedUpdate, $loginLinks);
-            } else {
+            try {
+                $result = $handler->handle($update);
+            } catch (Throwable $exception) {
+                $this->warn("Could not handle Telegram update: {$exception->getMessage()}");
                 $ignored++;
+
+                continue;
             }
+
+            if (! $result->recorded()) {
+                $ignored++;
+
+                continue;
+            }
+
+            $recorded++;
+            $linksSent += $result->loginLinkSent() ? 1 : 0;
         }
 
         $this->info(sprintf(
@@ -63,28 +71,5 @@ class SyncTelegramUpdates extends Command
         $lastUpdateId = TelegramUpdate::query()->max('telegram_update_id');
 
         return $lastUpdateId === null ? null : ((int) $lastUpdateId + 1);
-    }
-
-    private function sendLoginLinkIfNeeded(TelegramUpdate $update, TelegramLoginLinkService $loginLinks): int
-    {
-        if (! $update->telegram_chat_id) {
-            return 0;
-        }
-
-        $chat = TelegramChat::query()->find($update->telegram_chat_id);
-
-        if (! $chat) {
-            return 0;
-        }
-
-        try {
-            $link = $loginLinks->sendLoginLink($chat);
-        } catch (Throwable $exception) {
-            $this->warn("Could not send Telegram login link to chat {$update->telegram_chat_id}: {$exception->getMessage()}");
-
-            return 0;
-        }
-
-        return $link && $link->wasChanged('last_sent_at') ? 1 : 0;
     }
 }

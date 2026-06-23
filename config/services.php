@@ -44,6 +44,7 @@ return [
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'default_chat_id' => env('TELEGRAM_DEFAULT_CHAT_ID'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
         'timeout' => (int) env('TELEGRAM_TIMEOUT', 10),
     ],
 
