@@ -25,7 +25,7 @@ class ExchangeRateController extends Controller
             ->leftJoin('legal.source_records as last_source', 'last_source.source_record_id', '=', 'rates.last_source_record_id');
 
         if (empty($filters['show_history'])) {
-            $query->whereNull('rates.observed_to');
+            $query->whereNull('rates.valid_to');
         }
 
         if (! empty($filters['provider'])) {
@@ -44,7 +44,7 @@ class ExchangeRateController extends Controller
             ->orderBy('rates.provider')
             ->orderBy('rates.rate_type')
             ->orderBy('rates.currency_code')
-            ->orderByDesc('rates.observed_from')
+            ->orderByDesc('rates.valid_from')
             ->limit(500)
             ->get([
                 'rates.exchange_rate_id',
@@ -56,6 +56,8 @@ class ExchangeRateController extends Controller
                 'rates.sell_rate',
                 'rates.official_rate',
                 'rates.bank_valid_from',
+                'rates.valid_from',
+                'rates.valid_to',
                 'rates.observed_from',
                 'rates.observed_to',
                 'rates.first_seen_at',

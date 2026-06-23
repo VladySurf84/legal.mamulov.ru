@@ -48,4 +48,10 @@ return [
         'timeout' => (int) env('TELEGRAM_TIMEOUT', 10),
     ],
 
+    'mamulov_gateway' => [
+        'base_url' => env('MAMULOV_GATEWAY_API_BASE_URL', 'https://mamulov.com'),
+        'telegram_api_token' => env('MAMULOV_GATEWAY_TELEGRAM_API_TOKEN'),
+        'timeout' => (int) env('MAMULOV_GATEWAY_TIMEOUT', 10),
+    ],
+
 ];

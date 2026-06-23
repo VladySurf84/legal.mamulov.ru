@@ -305,7 +305,7 @@ SQL, [
                     ->where('rate_type', $quote['rate_type'])
                     ->where('currency_code', $quote['currency_code'])
                     ->where('rate_currency_code', $quote['rate_currency_code'])
-                    ->whereNull('observed_to')
+                    ->whereNull('valid_to')
                     ->lockForUpdate()
                     ->first();
 
@@ -334,6 +334,7 @@ SQL, [
                 DB::table('legal.exchange_rates')
                     ->where('exchange_rate_id', $current->exchange_rate_id)
                     ->update([
+                        'valid_to' => $quote['observed_at'],
                         'observed_to' => $quote['observed_at'],
                         'last_seen_at' => $quote['observed_at'],
                         'last_source_record_id' => $sourceRecordId,
@@ -348,7 +349,7 @@ SQL, [
             if ($quotes !== []) {
                 $openRows = DB::table('legal.exchange_rates')
                     ->where('provider', $provider)
-                    ->whereNull('observed_to')
+                    ->whereNull('valid_to')
                     ->lockForUpdate()
                     ->get();
 
@@ -367,6 +368,7 @@ SQL, [
                     DB::table('legal.exchange_rates')
                         ->where('exchange_rate_id', $row->exchange_rate_id)
                         ->update([
+                            'valid_to' => $observedAt,
                             'observed_to' => $observedAt,
                             'last_seen_at' => $observedAt,
                             'updated_at' => now(),
@@ -513,6 +515,8 @@ SQL, [
             'sell_rate' => $quote['sell_rate'],
             'official_rate' => $quote['official_rate'],
             'bank_valid_from' => $quote['bank_valid_from'],
+            'valid_from' => $quote['observed_at'],
+            'valid_to' => null,
             'observed_from' => $quote['observed_at'],
             'observed_to' => null,
             'first_seen_at' => $quote['observed_at'],

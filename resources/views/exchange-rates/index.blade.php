@@ -1,6 +1,6 @@
 @extends('layouts.app', [
     'title' => 'Курсы валют',
-    'titleDescription' => 'Интервалы наблюдения курсов MBank и Obank. Для графика главным временем является период, когда мы реально видели курс: от observed_from до observed_to.',
+    'titleDescription' => 'Интервалы действия курсов MBank и Obank: внутри периода valid_from — valid_to курс не менялся.',
 ])
 
 @php
@@ -113,8 +113,8 @@
                 <x-ui.sticky-table-th align="right">Покупка</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Продажа</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Офиц.</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Наблюдали с</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Наблюдали до</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Действует с</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Действует до</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Интервал</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Последний раз</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last>Источник</x-ui.sticky-table-th>
@@ -135,11 +135,11 @@
                 data-exchange-rate-buy="{{ $rate($item->buy_rate) }}"
                 data-exchange-rate-sell="{{ $rate($item->sell_rate) }}"
                 data-exchange-rate-official="{{ $rate($item->official_rate) }}"
-                data-exchange-rate-observed-from="{{ $date($item->observed_from) }}"
-                data-exchange-rate-observed-to="{{ $item->observed_to ? $date($item->observed_to) : 'текущий' }}"
+                data-exchange-rate-valid-from="{{ $date($item->valid_from) }}"
+                data-exchange-rate-valid-to="{{ $item->valid_to ? $date($item->valid_to) : 'текущий' }}"
                 data-exchange-rate-last-seen="{{ $date($item->last_seen_at) }}"
                 data-exchange-rate-bank-valid-from="{{ $item->bank_valid_from ? $date($item->bank_valid_from) : '—' }}"
-                data-exchange-rate-interval="{{ $interval($item->observed_from, $item->observed_to, $item->last_seen_at) }}"
+                data-exchange-rate-interval="{{ $interval($item->valid_from, $item->valid_to, $item->last_seen_at) }}"
             >
                 <x-ui.sticky-table-td first strong>
                     {{ $providerLabels[$item->provider] ?? $item->provider }}
@@ -169,7 +169,7 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td class="tabular-nums">
-                    {{ $date($item->observed_from) }}
+                    {{ $date($item->valid_from) }}
                     @if ($item->bank_valid_from)
                         <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             банк: {{ $date($item->bank_valid_from) }}
@@ -178,8 +178,8 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td class="tabular-nums">
-                    @if ($item->observed_to)
-                        {{ $date($item->observed_to) }}
+                    @if ($item->valid_to)
+                        {{ $date($item->valid_to) }}
                     @else
                         <span class="inline-flex rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20">
                             текущий
@@ -188,7 +188,7 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td>
-                    {{ $interval($item->observed_from, $item->observed_to, $item->last_seen_at) }}
+                    {{ $interval($item->valid_from, $item->valid_to, $item->last_seen_at) }}
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td class="tabular-nums">
@@ -305,12 +305,12 @@
                     <dd class="mt-1 text-gray-900 dark:text-white" data-exchange-rate-property="interval">—</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-gray-500 dark:text-gray-400">Наблюдали с</dt>
-                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-exchange-rate-property="observedFrom">—</dd>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Действует с</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-exchange-rate-property="validFrom">—</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-gray-500 dark:text-gray-400">Наблюдали до</dt>
-                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-exchange-rate-property="observedTo">—</dd>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Действует до</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-exchange-rate-property="validTo">—</dd>
                 </div>
                 <div>
                     <dt class="font-medium text-gray-500 dark:text-gray-400">Последний раз</dt>
@@ -418,8 +418,8 @@
                             sell: data.exchangeRateSell || '—',
                             official: data.exchangeRateOfficial || '—',
                             interval: data.exchangeRateInterval || '—',
-                            observedFrom: data.exchangeRateObservedFrom || '—',
-                            observedTo: data.exchangeRateObservedTo || '—',
+                            validFrom: data.exchangeRateValidFrom || '—',
+                            validTo: data.exchangeRateValidTo || '—',
                             lastSeen: data.exchangeRateLastSeen || '—',
                             bankValidFrom: data.exchangeRateBankValidFrom || '—',
                             firstSource: data.exchangeRateFirstSource || '—',

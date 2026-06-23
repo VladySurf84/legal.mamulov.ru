@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\Gateway\GatewayTelegramClient;
 use App\Services\Telegram\TelegramService;
 use Illuminate\Console\Command;
 
@@ -17,7 +18,7 @@ class SendTelegramMessage extends Command
 
     protected $description = 'Send a message through the configured Telegram bot.';
 
-    public function handle(TelegramService $telegram): int
+    public function handle(TelegramService $telegram, GatewayTelegramClient $gatewayTelegram): int
     {
         $message = (string) $this->argument('message');
         $parseMode = (string) $this->option('parse-mode');
@@ -35,11 +36,20 @@ class SendTelegramMessage extends Command
                 return self::FAILURE;
             }
 
-            $log = $telegram->sendToUser($user, $message, $parseMode, $disablePreview);
+            $result = $gatewayTelegram->sendToUser($user, $message, $parseMode, $disablePreview);
 
-            $this->info("Telegram message #{$log->getKey()} sent to user {$user->email}.");
+            if ($result->successful()) {
+                $messageId = $result->sentMessageId();
+                $suffix = $messageId ? " #{$messageId}" : '';
 
-            return $log->http_code && $log->http_code >= 400 ? self::FAILURE : self::SUCCESS;
+                $this->info("Gateway Telegram message{$suffix} sent to user {$user->email}.");
+
+                return self::SUCCESS;
+            }
+
+            $this->error($result->message());
+
+            return self::FAILURE;
         }
 
         if (! is_string($chatId) || trim($chatId) === '') {
