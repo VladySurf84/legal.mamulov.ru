@@ -4,13 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\ApiCredential;
 use App\Services\Signing\CryptoProCertificateImporter;
+use App\Services\Signing\RemoteSignatureSyncer;
+use App\Services\Signing\SignatureSyncApiClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Illuminate\View\View;
+use RuntimeException;
 
 class ElectronicSignatureController extends Controller
 {
+    private const SIGNATURE_TYPES = [
+        'cryptopro_thumbprint',
+        'certificate_thumbprint',
+        'remote_certificate_thumbprint',
+    ];
+
     public function index(): View
     {
         $credentials = ApiCredential::query()
@@ -20,7 +28,7 @@ class ElectronicSignatureController extends Controller
                     ->on('legal.legal_id', '=', 'c.owner_id')
                     ->where('c.owner_type', 'legal');
             })
-            ->whereIn('c.credential_type', ['cryptopro_thumbprint', 'certificate_thumbprint'])
+            ->whereIn('c.credential_type', self::SIGNATURE_TYPES)
             ->orderBy('legal.legal_name')
             ->orderBy('c.name')
             ->get([
@@ -69,25 +77,31 @@ class ElectronicSignatureController extends Controller
         return view('electronic-signatures.index', [
             'signatures' => $credentials,
             'signaturesCount' => DB::table('legal.api_credentials')
-                ->whereIn('credential_type', ['cryptopro_thumbprint', 'certificate_thumbprint'])
+                ->whereIn('credential_type', self::SIGNATURE_TYPES)
                 ->count(),
         ]);
     }
 
-    public function import(CryptoProCertificateImporter $importer): RedirectResponse
+    public function import(SignatureSyncApiClient $client, RemoteSignatureSyncer $syncer): RedirectResponse
     {
         try {
-            $summary = $importer->import();
+            $payload = $client->import();
+            $syncSummary = $syncer->sync(is_array($payload['data'] ?? null) ? $payload['data'] : []);
         } catch (RuntimeException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
+        $importSummary = is_array($payload['meta']['import'] ?? null) ? $payload['meta']['import'] : [];
+
         return back()->with('status', sprintf(
-            'Импорт CryptoPro завершен: найдено %d, добавлено %d, обновлено %d, пропущено %d.',
-            $summary['found'],
-            $summary['imported'],
-            $summary['updated'],
-            $summary['skipped'],
+            'Импорт CryptoPro через API завершен: на сервере найдено %d, добавлено %d, обновлено %d, пропущено %d. Локально синхронизировано %d, создано %d, обновлено %d.',
+            $importSummary['found'] ?? 0,
+            $importSummary['imported'] ?? 0,
+            $importSummary['updated'] ?? 0,
+            $importSummary['skipped'] ?? 0,
+            $syncSummary['synced'],
+            $syncSummary['created'],
+            $syncSummary['updated'],
         ));
     }
 }

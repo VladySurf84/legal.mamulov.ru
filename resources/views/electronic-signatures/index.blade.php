@@ -77,7 +77,7 @@
 
         @forelse ($signatures as $signature)
             <tr class="align-top hover:bg-gray-50">
-                <x-ui.sticky-table-td first :nowrap="false" class="min-w-72">
+                <x-ui.sticky-table-td first :nowrap="false">
                     <div class="font-medium text-gray-900">{{ $signature->legal_name ?: '—' }}</div>
                     <div class="mt-1 text-xs text-gray-500">{{ $signature->legal_inn ?: $signature->owner_id }}</div>
                 </x-ui.sticky-table-td>
@@ -122,7 +122,7 @@
                     {{ $signature->valid_to ?: '—' }}
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-64 font-mono text-xs">
+                <x-ui.sticky-table-td :nowrap="false" class="font-mono text-xs">
                     {{ $signature->container ?: '—' }}
                 </x-ui.sticky-table-td>
 
