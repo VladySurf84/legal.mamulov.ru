@@ -5,6 +5,7 @@ use App\Console\Commands\ImportBankStatement;
 use App\Console\Commands\ImportOzonBankStatement;
 use App\Console\Commands\AuthEdoLight;
 use App\Console\Commands\SetApiCredential;
+use App\Console\Commands\SyncEdoLightDocuments;
 use App\Console\Commands\SyncTinkoffBank;
 use App\Console\Commands\UpsertUser;
 use App\Http\Middleware\RequireAdminBasicAuth;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ImportBankStatement::class,
         ImportOzonBankStatement::class,
         SetApiCredential::class,
+        SyncEdoLightDocuments::class,
         SyncTinkoffBank::class,
         UpsertUser::class,
     ])

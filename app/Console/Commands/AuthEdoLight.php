@@ -44,7 +44,7 @@ class AuthEdoLight extends Command
         }
     }
 
-    private function createRun(int $legalId): int
+    private function createRun(string $legalId): int
     {
         $now = now();
 
