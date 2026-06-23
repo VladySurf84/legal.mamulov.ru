@@ -9,17 +9,46 @@
             Загрузить выписку
         </x-ui.button>
 
-        <form method="post" action="{{ route('bank-transactions.sync') }}">
-            @csrf
-            <input type="hidden" name="days" value="5">
-            <x-ui.button class="inline-flex items-center gap-2" type="submit" size="lg">
-                Обновить Тинек за 5 дней
-            </x-ui.button>
-        </form>
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="tinkoff-sync-dialog">
+            Обновить Тинек
+        </x-ui.button>
     </div>
 @endsection
 
 @section('content')
+    <x-ui.modal
+        id="tinkoff-sync-dialog"
+        title="Обновить Тинек"
+        description="Синхронизация загрузит из API Тинькофф список счетов и операции за последние 5 дней."
+        size="lg"
+    >
+        <div class="px-6 py-5">
+            <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
+                <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
+                <ul class="mt-2 list-disc space-y-1 pl-5">
+                    <li>Будут использованы активные API-ключи Тинькофф по банковским счетам.</li>
+                    <li>Каждый запрос и ответ API попадет в журнал синхронизации.</li>
+                    <li>Новые банковские операции будут добавлены в документы и банковскую детализацию.</li>
+                    <li>Существующие операции будут обновлены без дублей.</li>
+                </ul>
+            </div>
+
+            <div class="mt-5 flex justify-end gap-2">
+                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                    Отмена
+                </x-ui.button>
+
+                <form method="post" action="{{ route('bank-transactions.sync') }}">
+                    @csrf
+                    <input type="hidden" name="days" value="5">
+                    <x-ui.button type="submit" size="md" variant="soft">
+                        Запустить
+                    </x-ui.button>
+                </form>
+            </div>
+        </div>
+    </x-ui.modal>
+
     <x-ui.modal
         id="bank-statement-import-dialog"
         title="Загрузка банковской выписки"

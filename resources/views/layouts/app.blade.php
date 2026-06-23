@@ -20,6 +20,7 @@
         ['label' => 'Содержание книг', 'route' => 'vat-book-entries.index', 'active' => 'vat-book-entries.*', 'group' => 'Внешний бухгалтер'],
         ['label' => 'Валюты', 'route' => 'currencies.index', 'active' => 'currencies.*', 'group' => 'Справочники'],
         ['label' => 'Типы документов', 'route' => 'document-types.index', 'active' => 'document-types.*', 'group' => 'Справочники'],
+        ['label' => 'Электронные подписи', 'route' => 'electronic-signatures.index', 'active' => 'electronic-signatures.*', 'group' => 'Система'],
         ['label' => 'Пользователи', 'route' => 'users.index', 'active' => 'users.*', 'group' => 'Система'],
         ['label' => 'Права пользователей', 'route' => 'user-access.index', 'active' => 'user-access.*', 'group' => 'Система'],
         ['label' => 'Планировщик', 'route' => 'scheduler.index', 'active' => 'scheduler.*', 'group' => 'Система'],

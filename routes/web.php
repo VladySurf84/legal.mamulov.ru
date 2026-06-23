@@ -6,6 +6,7 @@ use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\CounterpartyController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\ElectronicSignatureController;
 use App\Http\Controllers\LegalEntityController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\BankStatementImportController;
@@ -35,6 +36,8 @@ Route::middleware('admin.session')->group(function (): void {
     Route::put('user-access/{user}', [UserAccessController::class, 'update'])->name('user-access.update');
     Route::post('legal-entity-context', [LegalEntityController::class, 'updateContext'])->name('legal-entity-context.update');
     Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+    Route::get('electronic-signatures', [ElectronicSignatureController::class, 'index'])->name('electronic-signatures.index');
+    Route::post('electronic-signatures/import', [ElectronicSignatureController::class, 'import'])->name('electronic-signatures.import');
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');
     Route::post('bank-accounts/import', [BankAccountController::class, 'import'])->name('bank-directories.import');
     Route::get('bank-transactions', [BankTransactionController::class, 'index'])->name('bank-transactions.index');
