@@ -4,12 +4,45 @@
 ])
 
 @section('page_actions')
-    <x-ui.button href="{{ route('vat-book-entries.index') }}" size="lg" wire:navigate>
-        Содержание книг
-    </x-ui.button>
+    <div class="flex flex-wrap items-center gap-2">
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="vat-book-import-dialog">
+            Загрузить книгу
+        </x-ui.button>
+
+        <x-ui.button href="{{ route('vat-book-entries.index') }}" size="md" variant="ghost" wire:navigate>
+            Содержание книг
+        </x-ui.button>
+    </div>
 @endsection
 
 @section('content')
+    <x-ui.modal
+        id="vat-book-import-dialog"
+        title="Загрузка книг НДС"
+        description="XML-файлы книг покупок и продаж будут сохранены в архив, импортированы в строки книг и пересчитаны в VAT layer."
+        size="xl"
+        :open="session('open_modal') === 'vat-book-import-dialog'"
+    >
+        <form id="vat-book-import-form" method="post" action="{{ route('vat-books.store') }}" enctype="multipart/form-data">
+            @csrf
+            <input type="hidden" name="redirect_to" value="{{ url()->full() }}">
+
+            <div class="space-y-5 px-6 py-5">
+                <x-ui.preline.file-upload
+                    id="vat-book-import-files"
+                    name="book_files[]"
+                    label="Файлы книг"
+                    accept=".xml,text/xml,application/xml"
+                    hint="Поддерживаются XML-файлы книг покупок и продаж. Максимум 20 MB на файл."
+                    required
+                    multiple
+                    auto-submit
+                    :max-size-mb="20"
+                />
+            </div>
+        </form>
+    </x-ui.modal>
+
     @if (session('status'))
         <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {{ session('status') }}
@@ -29,31 +62,6 @@
             @endforeach
         </div>
     @endif
-
-    <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-        <form class="p-4" method="post" action="{{ route('vat-books.store') }}" enctype="multipart/form-data">
-            @csrf
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">XML-файл книги покупок или продаж</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:file:bg-indigo-500/20 dark:file:text-indigo-300 dark:focus-visible:outline-indigo-500"
-                        name="book_file"
-                        type="file"
-                        accept=".xml,text/xml,application/xml"
-                        required
-                    >
-                    <span class="mt-2 block text-sm text-gray-500 dark:text-gray-400">
-                        Оригинал файла сохраняется в архив, строки импортируются в legal.vat_book_entries.
-                    </span>
-                </label>
-
-                <x-ui.button type="submit" size="lg" variant="soft">
-                    Загрузить книгу
-                </x-ui.button>
-            </div>
-        </form>
-    </div>
 
     <x-ui.sticky-table
         :contained="false"

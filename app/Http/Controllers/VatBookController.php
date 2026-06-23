@@ -181,36 +181,114 @@ class VatBookController extends Controller
         ]);
     }
 
-    public function store(Request $request, VatBookImportService $service): RedirectResponse
+    public function store(Request $request, VatBookImportService $service): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
-            'book_file' => ['required', 'file', 'max:20480'],
+            'book_files' => ['nullable', 'array', 'min:1'],
+            'book_files.*' => ['required', 'file', 'max:20480'],
+            'book_file' => ['nullable', 'file', 'max:20480'],
+            'redirect_to' => ['nullable', 'string', 'max:2048'],
         ]);
 
-        $file = $request->file('book_file');
+        $files = array_values(array_filter($request->file('book_files', [])));
+        $singleFile = $request->file('book_file');
 
-        if ($file === null || $file->getRealPath() === false) {
-            return back()
-                ->with('error', 'Не удалось прочитать загруженный XML-файл.');
+        if ($singleFile !== null) {
+            $files[] = $singleFile;
         }
 
-        try {
-            $summary = $service->importFile($file);
-        } catch (Throwable $exception) {
+        if ($files === []) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Не удалось прочитать загруженные XML-файлы.',
+                ], 422);
+            }
+
             return back()
-                ->with('error', $exception->getMessage());
+                ->withInput()
+                ->with('error', 'Не удалось прочитать загруженные XML-файлы.')
+                ->with('open_modal', 'vat-book-import-dialog');
+        }
+
+        $summaries = [];
+        $currentFileName = null;
+
+        try {
+            foreach ($files as $file) {
+                $currentFileName = $file->getClientOriginalName();
+
+                if ($file->getRealPath() === false) {
+                    $message = sprintf('Не удалось прочитать файл %s.', $currentFileName);
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'message' => $message,
+                        ], 422);
+                    }
+
+                    return back()
+                        ->withInput()
+                        ->with('error', $message)
+                        ->with('open_modal', 'vat-book-import-dialog');
+                }
+
+                $summaries[] = $service->importFile($file);
+            }
+        } catch (Throwable $exception) {
+            $message = trim(sprintf(
+                '%s%s',
+                $currentFileName !== null ? sprintf('Файл %s: ', $currentFileName) : '',
+                $exception->getMessage(),
+            ));
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                ], 422);
+            }
+
+            return back()
+                ->withInput()
+                ->with('error', $message)
+                ->with('open_modal', 'vat-book-import-dialog');
+        }
+
+        $message = sprintf(
+            'Книги НДС импортированы: файлов %d, строк %d. НДС-событий %d, связей %d.',
+            count($summaries),
+            array_sum(array_column($summaries, 'entries_count')),
+            array_sum(array_column($summaries, 'vat_events_count')),
+            array_sum(array_map(
+                fn (array $summary): int => (int) ($summary['accountant_report_link_stats']['inserted'] ?? 0),
+                $summaries,
+            )),
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'files' => count($summaries),
+                'entries' => array_sum(array_column($summaries, 'entries_count')),
+                'vat_events' => array_sum(array_column($summaries, 'vat_events_count')),
+            ]);
         }
 
         return redirect()
-            ->route('vat-books.index')
-            ->with('status', sprintf(
-                'Импортирована %s: %d Q%d, строк %d. НДС-событий %d, связей %d.',
-                $summary['book_type'] === 'purchase' ? 'книга покупок' : 'книга продаж',
-                $summary['year'],
-                $summary['quarter'],
-                $summary['entries_count'],
-                $summary['vat_events_count'],
-                $summary['accountant_report_link_stats']['inserted'],
-            ));
+            ->to($this->redirectTarget($validated['redirect_to'] ?? null))
+            ->with('status', $message)
+            ->with('open_modal', 'vat-book-import-dialog');
+    }
+
+    private function redirectTarget(?string $target): string
+    {
+        if ($target !== null && $target !== '') {
+            $appUrl = url('/');
+
+            if (str_starts_with($target, $appUrl) || str_starts_with($target, '/')) {
+                return $target;
+            }
+        }
+
+        return route('vat-books.index');
     }
 }
