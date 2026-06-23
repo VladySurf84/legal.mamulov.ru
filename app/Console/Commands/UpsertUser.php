@@ -13,6 +13,7 @@ class UpsertUser extends Command
         {--name= : User display name}
         {--password= : Optional password login}
         {--role=admin : User role}
+        {--telegram-chat-id= : Telegram chat id for bot notifications}
         {--inactive : Mark user inactive}';
 
     protected $description = 'Create or update an application user.';
@@ -34,6 +35,11 @@ class UpsertUser extends Command
         $user->name = (string) $name;
         $user->role = (string) $this->option('role');
         $user->is_active = ! (bool) $this->option('inactive');
+
+        $telegramChatId = $this->option('telegram-chat-id');
+        if (is_string($telegramChatId)) {
+            $user->telegram_chat_id = trim($telegramChatId) !== '' ? trim($telegramChatId) : null;
+        }
 
         if (is_string($password) && $password !== '') {
             $user->password = Hash::make($password);

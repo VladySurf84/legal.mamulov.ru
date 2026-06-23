@@ -16,13 +16,19 @@
 @endsection
 
 @section('content')
+    @if (session('status'))
+        <div class="mb-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-600/20">
+            {{ session('status') }}
+        </div>
+    @endif
+
     <x-ui.sticky-table
         :contained="false"
         :scrollable="true"
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1000px]"
+        table-class="!min-w-[1100px]"
     >
         <x-slot:head>
             <tr>
@@ -30,6 +36,7 @@
                 <x-ui.sticky-table-th>Роль</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статус</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Google</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Telegram</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Последний вход</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Призм</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last align="right">Действия</x-ui.sticky-table-th>
@@ -82,6 +89,14 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td>
+                    @if ($user->telegram_chat_id)
+                        <span class="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-600/20">Подключен</span>
+                    @else
+                        <span class="text-gray-400">Нет</span>
+                    @endif
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td>
                     {{ $user->last_login_at?->format('d.m.Y H:i') ?: '—' }}
                 </x-ui.sticky-table-td>
 
@@ -97,7 +112,7 @@
             </tr>
         @empty
             <tr>
-                <td class="py-8 text-center text-sm text-gray-500" colspan="7">
+                <td class="py-8 text-center text-sm text-gray-500" colspan="8">
                     Пользователей пока нет.
                 </td>
             </tr>

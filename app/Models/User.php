@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'role',
         'is_active',
         'last_login_at',
+        'telegram_chat_id',
     ];
 
     /**
@@ -50,6 +52,11 @@ class User extends Authenticatable
     public function accessScopes(): HasMany
     {
         return $this->hasMany(UserAccessScope::class, 'user_id', 'id');
+    }
+
+    public function telegramChat(): BelongsTo
+    {
+        return $this->belongsTo(TelegramChat::class, 'telegram_chat_id', 'telegram_chat_id');
     }
 
     public function isAdmin(): bool

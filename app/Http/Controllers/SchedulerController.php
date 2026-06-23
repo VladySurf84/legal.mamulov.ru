@@ -81,7 +81,7 @@ class SchedulerController extends Controller
             'next_run_at' => $nextRunAt,
             'next_run_label' => $this->formatDate($nextRunAt),
             'next_run_diff' => $nextRunAt->diffForHumans(),
-            'timezone' => $event->timezone ?: config('app.timezone'),
+            'timezone' => $event->timezone ?: config('app.display_timezone', config('app.timezone')),
             'without_overlapping' => $event->withoutOverlapping,
             'on_one_server' => $event->onOneServer,
             'output_path' => $outputPath,
@@ -196,7 +196,7 @@ class SchedulerController extends Controller
     private function formatDate(Carbon $date): string
     {
         return $date
-            ->timezone(config('app.timezone'))
+            ->timezone($this->displayTimezone())
             ->format('d.m.Y H:i');
     }
 
@@ -226,7 +226,7 @@ class SchedulerController extends Controller
         }
 
         return Carbon::createFromTimestamp(File::lastModified($path))
-            ->timezone(config('app.timezone'))
+            ->timezone($this->displayTimezone())
             ->format('d.m.Y H:i');
     }
 
@@ -236,8 +236,13 @@ class SchedulerController extends Controller
             return null;
         }
 
-        return Carbon::parse((string) $date)
-            ->timezone(config('app.timezone'))
+        return Carbon::parse((string) $date, 'UTC')
+            ->timezone($this->displayTimezone())
             ->format('d.m.Y H:i:s');
+    }
+
+    private function displayTimezone(): string
+    {
+        return (string) config('app.display_timezone', config('app.timezone'));
     }
 }

@@ -5,7 +5,9 @@ use App\Console\Commands\ImportBankStatement;
 use App\Console\Commands\ImportOzonBankStatement;
 use App\Console\Commands\AuthEdoLight;
 use App\Console\Commands\SetApiCredential;
+use App\Console\Commands\SendTelegramMessage;
 use App\Console\Commands\SyncEdoLightDocuments;
+use App\Console\Commands\SyncTelegramUpdates;
 use App\Console\Commands\SyncTinkoffBank;
 use App\Console\Commands\UpsertUser;
 use App\Http\Middleware\RequireInternalApiToken;
@@ -29,7 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ImportBankStatement::class,
         ImportOzonBankStatement::class,
         SetApiCredential::class,
+        SendTelegramMessage::class,
         SyncEdoLightDocuments::class,
+        SyncTelegramUpdates::class,
         SyncTinkoffBank::class,
         UpsertUser::class,
     ])
