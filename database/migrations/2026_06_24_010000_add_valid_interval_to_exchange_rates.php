@@ -13,11 +13,16 @@ return new class extends Migration
         DB::statement(<<<'SQL'
 UPDATE legal.exchange_rates
 SET
-    valid_from = observed_from,
+    valid_from = CASE
+        WHEN bank_valid_from IS NOT NULL AND bank_valid_from <= observed_from THEN bank_valid_from
+        ELSE observed_from
+    END,
     valid_to = observed_to,
     updated_at = CURRENT_TIMESTAMP
-WHERE valid_from IS NULL
-   OR valid_from IS DISTINCT FROM observed_from
+WHERE valid_from IS DISTINCT FROM CASE
+        WHEN bank_valid_from IS NOT NULL AND bank_valid_from <= observed_from THEN bank_valid_from
+        ELSE observed_from
+    END
    OR valid_to IS DISTINCT FROM observed_to
 SQL);
 

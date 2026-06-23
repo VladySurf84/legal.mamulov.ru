@@ -317,9 +317,12 @@ SQL, [
                 }
 
                 if ($current->quote_hash === $quoteHash) {
+                    $validFrom = $this->validFrom($quote);
+
                     DB::table('legal.exchange_rates')
                         ->where('exchange_rate_id', $current->exchange_rate_id)
                         ->update([
+                            'valid_from' => $validFrom < $current->valid_from ? $validFrom : $current->valid_from,
                             'last_seen_at' => $quote['observed_at'],
                             'last_source_record_id' => $sourceRecordId,
                             'bank_valid_from' => $quote['bank_valid_from'] ?? $current->bank_valid_from,
@@ -515,7 +518,7 @@ SQL, [
             'sell_rate' => $quote['sell_rate'],
             'official_rate' => $quote['official_rate'],
             'bank_valid_from' => $quote['bank_valid_from'],
-            'valid_from' => $quote['observed_at'],
+            'valid_from' => $this->validFrom($quote),
             'valid_to' => null,
             'observed_from' => $quote['observed_at'],
             'observed_to' => null,
@@ -540,6 +543,20 @@ SQL, [
             $quote['currency_code'],
             $quote['rate_currency_code'],
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $quote
+     */
+    private function validFrom(array $quote): string
+    {
+        $bankValidFrom = $quote['bank_valid_from'] ?? null;
+
+        if (is_string($bankValidFrom) && $bankValidFrom !== '' && $bankValidFrom <= $quote['observed_at']) {
+            return $bankValidFrom;
+        }
+
+        return $quote['observed_at'];
     }
 
     /**

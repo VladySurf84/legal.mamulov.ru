@@ -24,7 +24,7 @@
         $fromDate = \Illuminate\Support\Carbon::parse((string) $from, 'UTC');
         $toDate = $to
             ? \Illuminate\Support\Carbon::parse((string) $to, 'UTC')
-            : ($lastSeenAt ? \Illuminate\Support\Carbon::parse((string) $lastSeenAt, 'UTC') : now('UTC'));
+            : now('UTC');
 
         return $fromDate->diffForHumans($toDate, true, false, 3);
     };
