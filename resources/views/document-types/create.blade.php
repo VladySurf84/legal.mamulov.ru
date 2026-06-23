@@ -1,16 +1,17 @@
-@extends('layouts.app', ['title' => 'Создать тип документа'])
+@extends('layouts.app', [
+    'title' => 'Создать тип документа',
+    'titleDescription' => 'Добавление нового типа в справочник документов.',
+])
+
+@section('page_actions')
+    <x-ui.button :href="route('document-types.index')" variant="ghost" wire:navigate>
+        Назад
+    </x-ui.button>
+@endsection
 
 @section('content')
-    <div class="page-head">
-        <div>
-            <h1>Создать тип документа</h1>
-            <div class="subtle">Добавление нового типа в справочник.</div>
-        </div>
-        <a class="button secondary" href="{{ route('document-types.index') }}" wire:navigate>Назад</a>
-    </div>
-
-    <div class="panel">
-        <form class="form" method="post" action="{{ route('document-types.store') }}">
+    <div class="rounded-lg bg-white px-5 py-6 shadow-sm ring-1 ring-gray-900/5 sm:px-6">
+        <form method="post" action="{{ route('document-types.store') }}">
             @csrf
             @include('document-types.partials.form')
         </form>

@@ -36,8 +36,10 @@
 @source '../views/components/ui/*.blade.php';
 @source '../views/counterparties/**/*.blade.php';
 @source '../views/currencies/**/*.blade.php';
+@source '../views/documents/**/*.blade.php';
 @source '../views/document-types/**/*.blade.php';
 @source '../views/electronic-signatures/**/*.blade.php';
+@source '../views/exchange-rates/**/*.blade.php';
 @source '../views/layouts/**/*.blade.php';
 @source '../views/legal-entities/**/*.blade.php';
 @source '../views/money-layer/**/*.blade.php';

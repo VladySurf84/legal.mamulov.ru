@@ -10,6 +10,8 @@
 
 @php
     $hasPageActions = isset($pageActions) && trim($pageActions->toHtml()) !== '';
+    $hasTitleAfter = isset($titleAfter) && trim($titleAfter->toHtml()) !== '';
+    $hasTitleMeta = isset($titleMeta) && trim($titleMeta->toHtml()) !== '';
     $hasBeforeContent = isset($beforeContent) && trim($beforeContent->toHtml()) !== '';
     $allGraphValue = '__all__';
     $brandLabel = $currentLegalEntity?->legal_name ?: 'Глобальный';
@@ -230,7 +232,17 @@
     <header class="relative bg-white shadow-sm dark:bg-gray-800 dark:shadow-none dark:after:pointer-events-none dark:after:absolute dark:after:inset-x-0 dark:after:inset-y-0 dark:after:border-y dark:after:border-white/10">
         <div class="mx-auto flex flex-col gap-4 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white" @if ($titleAttribute) title="{{ $titleAttribute }}" @endif>{{ $title }}</h1>
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white" @if ($titleAttribute) title="{{ $titleAttribute }}" @endif>{{ $title }}</h1>
+                    @if ($hasTitleAfter)
+                        {{ $titleAfter }}
+                    @endif
+                </div>
+                @if ($hasTitleMeta)
+                    <div class="mt-2">
+                        {{ $titleMeta }}
+                    </div>
+                @endif
                 @if ($titleDescription)
                     <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">{{ $titleDescription }}</p>
                 @endif

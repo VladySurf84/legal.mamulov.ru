@@ -4,26 +4,31 @@
 ])
 
 @section('page_actions')
-    <x-ui.button type="button" variant="ghost" data-ui-modal-open="cryptopro-import-dialog">
-        Импортировать из CryptoPro
-    </x-ui.button>
+    <div class="flex gap-2">
+        <x-ui.button type="button" variant="ghost" data-ui-modal-open="cryptopro-import-dialog">
+            Импортировать
+        </x-ui.button>
+        <x-ui.button :href="route('internal-api-docs.index')" variant="ghost" wire:navigate>
+            Swagger API
+        </x-ui.button>
+    </div>
 @endsection
 
 @section('content')
     <x-ui.modal
         id="cryptopro-import-dialog"
         title="Импорт подписей из CryptoPro"
-        description="Система прочитает сертификаты из хранилища CryptoPro на сервере и подготовит их для привязки к нашим юрлицам."
+        description="Система вызовет серверный API, который прочитает сертификаты из хранилища CryptoPro на сервере и вернет их для синхронизации."
         size="lg"
     >
         <div class="px-6 py-5">
             <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
                 <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
                 <ul class="mt-2 list-disc space-y-1 pl-5">
-                    <li>Будет запущен поиск сертификатов в установленном CryptoPro.</li>
-                    <li>Найденные отпечатки будут сохранены как зашифрованные API-credentials.</li>
-                    <li>Существующие подписи будут обновлены без дублей.</li>
-                    <li>После импорта подписи можно будет привязать к нужным юрлицам и использовать для ЭДО/СУЗ.</li>
+                    <li>Будет вызвано внутреннее API сервера.</li>
+                    <li>Сервер запустит поиск сертификатов в установленном CryptoPro.</li>
+                    <li>Найденные отпечатки будут сохранены как API-credentials.</li>
+                    <li>Локальный проект синхронизирует карточки подписей без доступа к закрытым ключам.</li>
                 </ul>
             </div>
 

@@ -14,5 +14,12 @@ class ScheduleDefinitions
             ->withoutOverlapping()
             ->onOneServer()
             ->appendOutputTo(storage_path('logs/scheduler.log'));
+
+        $schedule->command('exchange-rates:sync-kgs-banks --started-by-type=system --started-from=scheduler')
+            ->description('Sync MBank and Obank exchange rates')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
     }
 }

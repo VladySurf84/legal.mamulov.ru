@@ -13,12 +13,14 @@
         ['label' => 'Наши юридические лица', 'route' => 'legal-entities.index', 'active' => 'legal-entities.*', 'group' => 'Деньги'],
         ['label' => 'Банковские счета', 'route' => 'bank-accounts.index', 'active' => 'bank-accounts.*', 'group' => 'Деньги'],
         ['label' => 'Транзакции', 'route' => 'bank-transactions.index', 'active' => 'bank-transactions.*', 'group' => 'Деньги'],
+        ['label' => 'Документы', 'route' => 'documents.index', 'active' => 'documents.*', 'group' => 'Деньги'],
         ['label' => 'Контрагенты', 'route' => 'counterparties.index', 'active' => 'counterparties.*', 'group' => 'Деньги'],
         ['label' => 'Money layer', 'route' => 'money-layer.index', 'active' => 'money-layer.*', 'group' => 'Слои'],
         ['label' => 'VAT layer', 'route' => 'vat-layer.index', 'active' => 'vat-layer.*', 'group' => 'Слои'],
         ['label' => 'Книги НДС', 'route' => 'vat-books.index', 'active' => 'vat-books.*', 'group' => 'Внешний бухгалтер'],
         ['label' => 'Содержание книг', 'route' => 'vat-book-entries.index', 'active' => 'vat-book-entries.*', 'group' => 'Внешний бухгалтер'],
         ['label' => 'Валюты', 'route' => 'currencies.index', 'active' => 'currencies.*', 'group' => 'Справочники'],
+        ['label' => 'Курсы валют', 'route' => 'exchange-rates.index', 'active' => 'exchange-rates.*', 'group' => 'Справочники'],
         ['label' => 'Типы документов', 'route' => 'document-types.index', 'active' => 'document-types.*', 'group' => 'Справочники'],
         ['label' => 'Электронные подписи', 'route' => 'electronic-signatures.index', 'active' => 'electronic-signatures.*', 'group' => 'Система'],
         ['label' => 'Пользователи', 'route' => 'users.index', 'active' => 'users.*', 'group' => 'Система'],
@@ -48,6 +50,18 @@
         <x-slot:pageActions>
             @yield('page_actions')
         </x-slot:pageActions>
+    @endif
+
+    @hasSection('title_after')
+        <x-slot:titleAfter>
+            @yield('title_after')
+        </x-slot:titleAfter>
+    @endif
+
+    @hasSection('title_meta')
+        <x-slot:titleMeta>
+            @yield('title_meta')
+        </x-slot:titleMeta>
     @endif
 
     @hasSection('before_content')

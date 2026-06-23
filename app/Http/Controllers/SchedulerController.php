@@ -3,15 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Console\ScheduleDefinitions;
+use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Http\RedirectResponse;
 
 class SchedulerController extends Controller
 {
@@ -33,16 +33,31 @@ class SchedulerController extends Controller
 
     public function run(string $task): RedirectResponse
     {
-        if ($task !== 'tinkoff-bank') {
+        $commands = [
+            'tinkoff-bank' => [
+                'command' => 'tinkoff:sync-bank',
+                'parameters' => [
+                    '--days' => config('bank.tinkoff.sync_days'),
+                    '--started-by-type' => 'user',
+                    '--started-by-user-id' => auth()->id(),
+                    '--started-from' => 'ui',
+                ],
+            ],
+            'kgs-exchange-rates' => [
+                'command' => 'exchange-rates:sync-kgs-banks',
+                'parameters' => [
+                    '--started-by-type' => 'user',
+                    '--started-by-user-id' => auth()->id(),
+                    '--started-from' => 'ui',
+                ],
+            ],
+        ];
+
+        if (! isset($commands[$task])) {
             abort(404);
         }
 
-        $exitCode = Artisan::call('tinkoff:sync-bank', [
-            '--days' => config('bank.tinkoff.sync_days'),
-            '--started-by-type' => 'user',
-            '--started-by-user-id' => auth()->id(),
-            '--started-from' => 'ui',
-        ]);
+        $exitCode = Artisan::call($commands[$task]['command'], $commands[$task]['parameters']);
 
         $output = trim(Artisan::output());
 
@@ -74,9 +89,7 @@ class SchedulerController extends Controller
             'output_size' => $this->formatBytes($outputPath),
             'output_updated_at' => $this->outputUpdatedAt($outputPath),
             'runs' => $this->runsForEvent($event),
-            'run_route' => str_contains((string) $event->command, 'tinkoff:sync-bank')
-                ? route('scheduler.run', ['task' => 'tinkoff-bank'])
-                : null,
+            'run_route' => $this->runRouteForEvent($event),
         ];
     }
 
@@ -85,14 +98,16 @@ class SchedulerController extends Controller
      */
     private function runsForEvent(Event $event): array
     {
-        if (! str_contains((string) $event->command, 'tinkoff:sync-bank')) {
+        $runFilter = $this->runFilterForEvent($event);
+
+        if ($runFilter === null) {
             return [];
         }
 
         $runs = DB::table('legal.api_sync_runs as runs')
             ->leftJoin('legal.laravel_users as users', 'users.id', '=', 'runs.started_by_user_id')
-            ->where('provider', 'tinkoff')
-            ->where('type', 'bank_sync')
+            ->where('provider', $runFilter['provider'])
+            ->where('type', $runFilter['type'])
             ->orderByDesc('runs.started_at')
             ->limit(10)
             ->get([
@@ -121,6 +136,39 @@ class SchedulerController extends Controller
                 return $run;
             })
             ->all();
+    }
+
+    private function runRouteForEvent(Event $event): ?string
+    {
+        $command = (string) $event->command;
+
+        if (str_contains($command, 'tinkoff:sync-bank')) {
+            return route('scheduler.run', ['task' => 'tinkoff-bank']);
+        }
+
+        if (str_contains($command, 'exchange-rates:sync-kgs-banks')) {
+            return route('scheduler.run', ['task' => 'kgs-exchange-rates']);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{provider: string, type: string}|null
+     */
+    private function runFilterForEvent(Event $event): ?array
+    {
+        $command = (string) $event->command;
+
+        if (str_contains($command, 'tinkoff:sync-bank')) {
+            return ['provider' => 'tinkoff', 'type' => 'bank_sync'];
+        }
+
+        if (str_contains($command, 'exchange-rates:sync-kgs-banks')) {
+            return ['provider' => 'kgs_exchange_rates', 'type' => 'exchange_rates_sync'];
+        }
+
+        return null;
     }
 
     private function startedByLabel(object $run): string

@@ -42,6 +42,8 @@
             window.__uiContextMenuReady = true;
 
             let activePanel = null;
+            let rightButtonDownAt = null;
+            const nativeMenuHoldMs = 1000;
 
             const closeActivePanel = () => {
                 if (!activePanel) {
@@ -95,12 +97,34 @@
                     return;
                 }
 
+                const pressedForMs = rightButtonDownAt === null ? 0 : Date.now() - rightButtonDownAt;
+                rightButtonDownAt = null;
+
+                if (pressedForMs >= nativeMenuHoldMs) {
+                    closeActivePanel();
+                    return;
+                }
+
                 event.preventDefault();
                 closeActivePanel();
                 activePanel = panel;
                 positionPanel(panel, event);
                 focusFirstItem(panel);
             });
+
+            document.addEventListener('mousedown', (event) => {
+                if (event.button === 2 && panelForEvent(event)) {
+                    rightButtonDownAt = Date.now();
+                }
+            }, { capture: true });
+
+            document.addEventListener('mouseup', (event) => {
+                if (event.button === 2) {
+                    window.setTimeout(() => {
+                        rightButtonDownAt = null;
+                    }, 0);
+                }
+            }, { capture: true });
 
             document.addEventListener('click', (event) => {
                 if (!activePanel) {
