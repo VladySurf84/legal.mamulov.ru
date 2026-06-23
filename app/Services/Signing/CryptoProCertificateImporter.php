@@ -94,6 +94,7 @@ class CryptoProCertificateImporter
 
             $subject = (string) ($certificate['Subject'] ?? '');
             $legalInn = $this->extractInn($subject);
+            $subjectType = self::classifySubject($subject);
             $legalId = $this->resolveLegalId($legalInn);
             $now = now();
 
@@ -128,6 +129,10 @@ class CryptoProCertificateImporter
                     'provider_info' => $certificate['Provider Info'] ?? null,
                     'identification_kind' => $certificate['Identification Kind'] ?? null,
                     'legal_inn' => $legalInn,
+                    'ogrnip' => $this->extractIdentifier($subject, 'ОГРНИП'),
+                    'ogrn' => $this->extractIdentifier($subject, 'ОГРН'),
+                    'snils' => $this->extractIdentifier($subject, 'СНИЛС'),
+                    'subject_type' => $subjectType,
                     'imported_at' => $now->toISOString(),
                 ],
                 'status' => 'active',
@@ -147,9 +152,54 @@ class CryptoProCertificateImporter
         return $summary;
     }
 
+    public static function classifySubject(?string $subject): string
+    {
+        $subject = (string) $subject;
+
+        if (preg_match('/(?:^|,\s*)ОГРНИП=[0-9]{15}/u', $subject) === 1) {
+            return 'individual_entrepreneur';
+        }
+
+        if (
+            preg_match('/(?:^|,\s*)ИНН\s+ЮЛ=[0-9]{10}/u', $subject) === 1
+            || preg_match('/(?:^|,\s*)ОГРН=[0-9]{13}/u', $subject) === 1
+            || preg_match('/(?:^|,\s*)O=/u', $subject) === 1
+        ) {
+            return 'legal_entity';
+        }
+
+        if (
+            preg_match('/(?:^|,\s*)ИНН=[0-9]{12}/u', $subject) === 1
+            && preg_match('/(?:^|,\s*)СНИЛС=[0-9]{11}/u', $subject) === 1
+        ) {
+            return 'person';
+        }
+
+        return 'unknown';
+    }
+
+    public static function subjectTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'individual_entrepreneur' => 'ИП',
+            'person' => 'Физлицо',
+            'legal_entity' => 'Юрлицо / представитель',
+            default => 'Не определено',
+        };
+    }
+
     private function extractInn(string $subject): ?string
     {
         if (preg_match('/(?:^|,\s*)ИНН(?:\s+ЮЛ)?=([0-9]{10,12})/u', $subject, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
+    }
+
+    private function extractIdentifier(string $subject, string $name): ?string
+    {
+        if (preg_match('/(?:^|,\s*)'.preg_quote($name, '/').'=([0-9]+)/u', $subject, $matches) !== 1) {
             return null;
         }
 

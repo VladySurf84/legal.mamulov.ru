@@ -65,6 +65,7 @@
             <tr>
                 <x-ui.sticky-table-th first>Юрлицо</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Подпись</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Тип</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Отпечаток</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Провайдер</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Действует до</x-ui.sticky-table-th>
@@ -84,6 +85,29 @@
                 <x-ui.sticky-table-td :nowrap="false" class="min-w-96">
                     <div class="font-medium text-gray-900">{{ $signature->name ?: 'CryptoPro' }}</div>
                     <div class="mt-1 text-xs text-gray-500">{{ $signature->subject ?: $signature->credential_type }}</div>
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td>
+                    @php
+                        $typeClasses = match ($signature->subject_type) {
+                            'individual_entrepreneur' => 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+                            'person' => 'bg-sky-50 text-sky-700 ring-sky-600/20',
+                            'legal_entity' => 'bg-amber-50 text-amber-700 ring-amber-600/20',
+                            default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
+                        };
+                        $typeDetails = match ($signature->subject_type) {
+                            'individual_entrepreneur' => $signature->ogrnip ? 'ОГРНИП '.$signature->ogrnip : null,
+                            'person' => $signature->snils ? 'СНИЛС '.$signature->snils : null,
+                            'legal_entity' => $signature->ogrn ? 'ОГРН '.$signature->ogrn : null,
+                            default => null,
+                        };
+                    @endphp
+                    <span class="inline-flex rounded-md px-2 py-1 text-xs font-medium ring-1 {{ $typeClasses }}">
+                        {{ $signature->subject_type_label }}
+                    </span>
+                    @if ($typeDetails)
+                        <div class="mt-1 text-xs text-gray-500">{{ $typeDetails }}</div>
+                    @endif
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td class="font-mono text-xs tracking-wide">
@@ -116,7 +140,7 @@
             </tr>
         @empty
             <tr>
-                <td class="py-12 text-center text-sm text-gray-500" colspan="8">
+                <td class="py-12 text-center text-sm text-gray-500" colspan="9">
                     Электронные подписи пока не импортированы.
                 </td>
             </tr>

@@ -40,6 +40,8 @@ class ElectronicSignatureController extends Controller
             ->map(function (ApiCredential $credential): object {
                 $secret = $credential->secretPayload();
                 $thumbprint = (string) ($secret['thumbprint'] ?? $secret['secret'] ?? '');
+                $subject = $credential->meta['subject'] ?? $credential->meta['dn'] ?? null;
+                $subjectType = (string) ($credential->meta['subject_type'] ?? CryptoProCertificateImporter::classifySubject($subject));
 
                 return (object) [
                     'api_credential_id' => $credential->api_credential_id,
@@ -53,7 +55,12 @@ class ElectronicSignatureController extends Controller
                     'legal_name' => $credential->legal_name,
                     'legal_inn' => $credential->legal_inn,
                     'thumbprint_tail' => $thumbprint !== '' ? mb_substr($thumbprint, -12) : null,
-                    'subject' => $credential->meta['subject'] ?? $credential->meta['dn'] ?? null,
+                    'subject' => $subject,
+                    'subject_type' => $subjectType,
+                    'subject_type_label' => CryptoProCertificateImporter::subjectTypeLabel($subjectType),
+                    'ogrnip' => $credential->meta['ogrnip'] ?? null,
+                    'ogrn' => $credential->meta['ogrn'] ?? null,
+                    'snils' => $credential->meta['snils'] ?? null,
                     'valid_to' => $credential->meta['valid_to'] ?? $credential->meta['not_after'] ?? null,
                     'container' => $credential->meta['container'] ?? null,
                 ];
