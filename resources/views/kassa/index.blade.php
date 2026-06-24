@@ -1,6 +1,6 @@
 @extends('layouts.app', [
     'title' => 'Касса',
-    'titleDescription' => 'Ручные денежные операции из legal.kassa. Эти записи автоматически отражаются как manual_cash_operation в документах и Money layer.',
+    'titleDescription' => 'Кассовый слой из ручных записей и банковских операций, попавших под правила интерпретации.',
 ])
 
 @php
@@ -211,11 +211,12 @@
         :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1450px]"
+        table-class="!min-w-[1550px]"
     >
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Источник</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Юрлицо</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статья</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
@@ -233,6 +234,20 @@
                     {{ $date($operation->time) }}
                     @if ($operation->created)
                         <div class="mt-1 text-xs text-gray-400">создано: {{ $date($operation->created) }}</div>
+                    @endif
+                </x-ui.sticky-table-td>
+
+                <x-ui.sticky-table-td :nowrap="false" class="min-w-44">
+                    <div @class([
+                        'inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1',
+                        'bg-gray-50 text-gray-700 ring-gray-200' => $operation->source_type === 'manual_kassa',
+                        'bg-indigo-50 text-indigo-700 ring-indigo-200' => $operation->source_type === 'bank_rule',
+                    ])>
+                        {{ $operation->source_label }}
+                    </div>
+
+                    @if ($operation->cash_operation_rule_id)
+                        <div class="mt-1 font-mono text-xs text-gray-400">rule #{{ $operation->cash_operation_rule_id }}</div>
                     @endif
                 </x-ui.sticky-table-td>
 
@@ -266,8 +281,10 @@
 
                 <x-ui.sticky-table-td :nowrap="false" class="min-w-96">
                     <div class="whitespace-normal break-words">{{ $operation->description }}</div>
-                    @if ($operation->reconciliation_id)
-                        <div class="mt-1 font-mono text-xs text-gray-400">reconciliation #{{ $operation->reconciliation_id }}</div>
+                    @if ($operation->source_document_bank_transaction_id)
+                        <div class="mt-1 font-mono text-xs text-gray-400">bank transaction #{{ $operation->source_document_bank_transaction_id }}</div>
+                    @elseif ($operation->kassa_id)
+                        <div class="mt-1 font-mono text-xs text-gray-400">kassa #{{ $operation->kassa_id }}</div>
                     @endif
                 </x-ui.sticky-table-td>
 
@@ -292,12 +309,12 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td last align="right" nowrap class="font-mono text-xs">
-                    #{{ $operation->kassa_id }}
+                    #{{ $operation->cash_entry_id }}
                 </x-ui.sticky-table-td>
             </tr>
         @empty
             <tr>
-                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="9">
+                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="10">
                     Кассовые операции пока не найдены.
                 </td>
             </tr>
@@ -305,7 +322,7 @@
 
         <x-slot:stickySummary>
             <tr>
-                <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
+                <th scope="row" colspan="4" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
                 </th>
                 <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-emerald-50/80 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-emerald-950/30">

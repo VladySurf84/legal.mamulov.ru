@@ -74,6 +74,8 @@ Interpretation Layers
 | Таблица | Краткое описание |
 | --- | --- |
 | `legal.money_edges` | Расчетный слой движения денег. |
+| `legal.cash_operation_rules` | Правила, по которым банковские операции интерпретируются как строки кассы. |
+| `legal.cash_entries` | Расчетный слой кассы: ручные записи плюс банковские операции, попавшие под правила. |
 | `legal.vat_events` | Расчетный слой НДС. |
 | `legal.accountant_report_links` | Связи строк бухотчетов с банковскими транзакциями. |
 | `legal.counterparty_opening_balances` | Акты сверки / начальные сальдо для контрагентов. |
@@ -598,6 +600,40 @@ Interpretation layers - это расчетные слои. Их должно б
 Это не сырая банковская транзакция, а наша интерпретация движения денег.
 
 Для банковских ребер `source_document_bank_transaction_id` указывает на строку `legal.document_bank_transaction`. Для ручных денежных операций это поле `NULL`, потому что у них нет банковской detail-строки; общая связь всегда идет через `source_document_id` на `legal.documents`.
+
+### `legal.cash_operation_rules` и `legal.cash_entries`
+
+Кассовый слой.
+
+`legal.kassa` остается источником ручного ввода, а страница `/kassa` показывает расчетный слой `legal.cash_entries`.
+
+Сейчас `App\Services\Layers\CashLayerBuilder` строит `legal.cash_entries` из двух источников:
+
+- ручные записи `legal.kassa`;
+- банковские операции `legal.document_bank_transaction`, если они попали под активное правило из `legal.cash_operation_rules`.
+
+`legal.cash_operation_rules` описывает правило вида:
+
+```text
+если на счет нашего юрлица пришли деньги от контрагента с указанным ИНН,
+то считать эту банковскую операцию кассовой строкой по указанной статье
+```
+
+Первичные правила заведены для поступлений от Вайлдберриз и Озон на ИП Иванушкин и ИП Шердуллаева.
+
+`legal.cash_entries` хранит результат интерпретации:
+
+- `source_type = manual_kassa` - строка пришла из ручного ввода;
+- `source_type = bank_rule` - строка создана из банковской операции по правилу;
+- `kassa_id` связывает строку с ручной записью;
+- `source_document_bank_transaction_id` связывает строку с банковской операцией;
+- `cash_operation_rule_id` показывает, какое правило сработало.
+
+Этот слой можно полностью очистить и пересчитать командой:
+
+```bash
+php artisan cash-layer:rebuild
+```
 
 ### `legal.vat_events`
 

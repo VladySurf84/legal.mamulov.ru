@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Layers\CashLayerBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -21,25 +22,25 @@ class KassaController extends Controller
             'q' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $query = DB::table('legal.kassa as k')
-            ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'k.article_id')
-            ->leftJoin('legal.legal_own as legal', 'legal.legal_id', '=', 'k.legal_id')
-            ->leftJoin('legal.documents as document', 'document.document_id', '=', 'k.document_id');
+        $query = DB::table('legal.cash_entries as entry')
+            ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'entry.article_id')
+            ->leftJoin('legal.legal_own as legal', 'legal.legal_id', '=', 'entry.legal_id')
+            ->leftJoin('legal.documents as document', 'document.document_id', '=', 'entry.source_document_id');
 
         if (! empty($filters['legal_id'])) {
-            $query->where('k.legal_id', (string) $filters['legal_id']);
+            $query->where('entry.legal_id', (string) $filters['legal_id']);
         }
 
         if (! empty($filters['article_id'])) {
-            $query->where('k.article_id', (int) $filters['article_id']);
+            $query->where('entry.article_id', (int) $filters['article_id']);
         }
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('k.time', '>=', $filters['date_from']);
+            $query->whereDate('entry.occurred_at', '>=', $filters['date_from']);
         }
 
         if (! empty($filters['date_to'])) {
-            $query->whereDate('k.time', '<=', $filters['date_to']);
+            $query->whereDate('entry.occurred_at', '<=', $filters['date_to']);
         }
 
         $search = trim((string) ($filters['q'] ?? ''));
@@ -49,7 +50,8 @@ class KassaController extends Controller
 
             $query->where(function ($query) use ($like): void {
                 $query
-                    ->whereRaw('k.description ILIKE ?', [$like])
+                    ->whereRaw('entry.description ILIKE ?', [$like])
+                    ->orWhereRaw('entry.source_label ILIKE ?', [$like])
                     ->orWhereRaw('article.article ILIKE ?', [$like])
                     ->orWhereRaw('legal.legal_name ILIKE ?', [$like])
                     ->orWhereRaw('legal.legal_inn ILIKE ?', [$like]);
@@ -58,31 +60,35 @@ class KassaController extends Controller
 
         $summary = (clone $query)
             ->selectRaw('COUNT(*) as operations_count')
-            ->selectRaw('COALESCE(SUM(CASE WHEN k.amount > 0 THEN k.amount ELSE 0 END), 0) as income_amount')
-            ->selectRaw('COALESCE(SUM(CASE WHEN k.amount < 0 THEN -k.amount ELSE 0 END), 0) as expense_amount')
-            ->selectRaw('COALESCE(SUM(k.amount), 0) as saldo_amount')
+            ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END), 0) as income_amount')
+            ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END), 0) as expense_amount')
+            ->selectRaw('COALESCE(SUM(entry.amount), 0) as saldo_amount')
             ->first();
 
         $operations = $query
             ->select([
-                'k.kassa_id',
-                'k.article_id',
-                'k.time',
-                'k.amount',
-                'k.description',
-                'k.created',
-                'k.reconciliation_id',
-                'k.legal_id',
-                'k.document_id',
+                'entry.cash_entry_id',
+                'entry.source_type',
+                'entry.source_label',
+                'entry.source_document_bank_transaction_id',
+                'entry.cash_operation_rule_id',
+                'entry.kassa_id',
+                'entry.article_id',
+                'entry.occurred_at as time',
+                'entry.amount',
+                'entry.description',
+                'entry.created_at as created',
+                'entry.legal_id',
+                'entry.source_document_id as document_id',
                 'article.article',
                 'legal.legal_name',
                 'legal.legal_inn',
                 'document.external_id as document_external_id',
                 'document.title as document_title',
             ])
-            ->selectRaw('SUM(k.amount) OVER (ORDER BY k.time, k.kassa_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
-            ->orderByDesc('k.time')
-            ->orderByDesc('k.kassa_id')
+            ->selectRaw('SUM(entry.amount) OVER (ORDER BY entry.occurred_at, entry.cash_entry_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
+            ->orderByDesc('entry.occurred_at')
+            ->orderByDesc('entry.cash_entry_id')
             ->limit(500)
             ->get();
 
@@ -95,7 +101,7 @@ class KassaController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
         $validated = $request->validate([
             'legal_id' => ['required', 'string', 'max:12', 'exists:legal.legal_own,legal_id'],
@@ -126,6 +132,8 @@ class KassaController extends Controller
                 'description' => $validated['description'],
                 'created' => now('UTC')->format('Y-m-d H:i:s'),
             ]);
+
+            $cashLayerBuilder->rebuild();
         } catch (Throwable $exception) {
             report($exception);
 

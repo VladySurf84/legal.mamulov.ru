@@ -63,6 +63,7 @@ class BankStatementImportController extends Controller
             }
 
             app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
+            app(\App\Services\Layers\CashLayerBuilder::class)->rebuild();
         } catch (Throwable $exception) {
             $message = trim(sprintf(
                 '%s%s',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
 use App\Services\Bank\TinkoffBankSyncService;
+use App\Services\Layers\CashLayerBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,7 +103,7 @@ class BankTransactionController extends Controller
         ]);
     }
 
-    public function sync(Request $request, TinkoffBankSyncService $service): RedirectResponse
+    public function sync(Request $request, TinkoffBankSyncService $service, CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
         $validated = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
@@ -122,6 +123,8 @@ class BankTransactionController extends Controller
             $summary = $full
                 ? $service->syncSinceActivationDates($accountNumber !== '' ? $accountNumber : null)
                 : $service->sync($days, $accountNumber !== '' ? $accountNumber : null);
+
+            $cashLayerBuilder->rebuild();
         } catch (Throwable $exception) {
             return back()
                 ->withInput()

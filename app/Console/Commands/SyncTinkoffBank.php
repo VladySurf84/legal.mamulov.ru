@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Bank\TinkoffBankSyncService;
+use App\Services\Layers\CashLayerBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -21,7 +22,7 @@ class SyncTinkoffBank extends Command
 
     protected $description = 'Sync Tinkoff bank accounts and recent bank statement operations.';
 
-    public function handle(TinkoffBankSyncService $service): int
+    public function handle(TinkoffBankSyncService $service, CashLayerBuilder $cashLayerBuilder): int
     {
         try {
             $summary = $this->hasPeriodOptions()
@@ -54,6 +55,9 @@ class SyncTinkoffBank extends Command
             $summary['from'],
             $summary['till'],
         ));
+
+        $cashEntries = $cashLayerBuilder->rebuild();
+        $this->info("Cash layer rebuilt: {$cashEntries} entry(s).");
 
         return self::SUCCESS;
     }

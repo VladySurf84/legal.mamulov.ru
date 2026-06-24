@@ -75,6 +75,7 @@ class BankStatementImportService
 
             if ($rebuildMoneyLayer) {
                 app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
+                app(\App\Services\Layers\CashLayerBuilder::class)->rebuild();
             }
 
             $this->finishImportRun($importRunId, 'success', count($rows), $count, [
