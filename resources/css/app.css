@@ -33,7 +33,8 @@
 @source '../views/bank-statement-imports/**/*.blade.php';
 @source '../views/bank-transactions/**/*.blade.php';
 @source '../views/components/*.blade.php';
-@source '../views/components/ui/*.blade.php';
+@source '../views/components/ui/**/*.blade.php';
+@source '../../vendor/mamulov/ui/resources/views/components/**/*.blade.php';
 @source '../views/counterparties/**/*.blade.php';
 @source '../views/currencies/**/*.blade.php';
 @source '../views/documents/**/*.blade.php';

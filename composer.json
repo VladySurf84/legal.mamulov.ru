@@ -10,7 +10,8 @@
         "laravel/framework": "^13.8",
         "laravel/socialite": "^5.28",
         "laravel/tinker": "^3.0",
-        "livewire/livewire": "^4.3"
+        "livewire/livewire": "^4.3",
+        "mamulov/ui": "dev-main"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -21,6 +22,13 @@
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^12.5.12"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/VladySurf84/mamulov-ui.git",
+            "no-api": true
+        }
+    ],
     "autoload": {
         "psr-4": {
             "App\\": "app/",
@@ -76,7 +84,10 @@
     },
     "config": {
         "optimize-autoloader": true,
-        "preferred-install": "dist",
+        "preferred-install": {
+            "mamulov/ui": "source",
+            "*": "dist"
+        },
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a7e4d747eaae40b4de2b3a95f2235bdd",
+    "content-hash": "f779a2edaecaf7ce98ba574ce67056a1",
     "packages": [
         {
             "name": "brick/math",
@@ -2319,6 +2319,44 @@
                 }
             ],
             "time": "2026-06-02T08:58:52+00:00"
+        },
+        {
+            "name": "mamulov/ui",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/VladySurf84/mamulov-ui.git",
+                "reference": "afd2a3dcb01b52db07e0855d16324dd42535e23e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/VladySurf84/mamulov-ui/zipball/afd2a3dcb01b52db07e0855d16324dd42535e23e",
+                "reference": "afd2a3dcb01b52db07e0855d16324dd42535e23e",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Mamulov\\Ui\\MamulovUiServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Mamulov\\Ui\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Shared Blade UI components for Mamulov Laravel applications.",
+            "time": "2026-06-24T10:37:59+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -8804,7 +8842,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "mamulov/ui": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
