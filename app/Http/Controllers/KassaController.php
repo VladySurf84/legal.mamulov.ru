@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class KassaController extends Controller
 {
@@ -61,10 +64,7 @@ class KassaController extends Controller
             ->first();
 
         $operations = $query
-            ->orderByDesc('k.time')
-            ->orderByDesc('k.kassa_id')
-            ->limit(500)
-            ->get([
+            ->select([
                 'k.kassa_id',
                 'k.article_id',
                 'k.time',
@@ -79,7 +79,12 @@ class KassaController extends Controller
                 'legal.legal_inn',
                 'document.external_id as document_external_id',
                 'document.title as document_title',
-            ]);
+            ])
+            ->selectRaw('SUM(k.amount) OVER (ORDER BY k.time, k.kassa_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
+            ->orderByDesc('k.time')
+            ->orderByDesc('k.kassa_id')
+            ->limit(500)
+            ->get();
 
         return view('kassa.index', [
             'operations' => $operations,
@@ -88,6 +93,51 @@ class KassaController extends Controller
             'legalEntities' => $this->legalEntities(),
             'articles' => $this->articles(),
         ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'legal_id' => ['required', 'string', 'max:12', 'exists:legal.legal_own,legal_id'],
+            'article_id' => ['required', 'integer', 'exists:legal.kassa_article,article_id'],
+            'time' => ['required', 'date'],
+            'direction' => ['required', 'in:income,expense'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'description' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
+        $amount = (int) $validated['amount'];
+
+        if ($validated['direction'] === 'expense') {
+            $amount = -$amount;
+        }
+
+        $time = Carbon::parse($validated['time'], $displayTimezone)
+            ->timezone('UTC')
+            ->format('Y-m-d H:i:s');
+
+        try {
+            DB::table('legal.kassa')->insert([
+                'legal_id' => $validated['legal_id'],
+                'article_id' => (int) $validated['article_id'],
+                'time' => $time,
+                'amount' => $amount,
+                'description' => $validated['description'],
+                'created' => now('UTC')->format('Y-m-d H:i:s'),
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->with('open_modal', 'kassa-create-dialog')
+                ->with('error', 'Не удалось добавить кассовую запись: ' . $exception->getMessage());
+        }
+
+        return redirect()
+            ->route('kassa.index')
+            ->with('status', 'Кассовая запись добавлена.');
     }
 
     private function legalEntities()
