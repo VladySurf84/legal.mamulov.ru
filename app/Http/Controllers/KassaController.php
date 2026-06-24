@@ -20,6 +20,7 @@ class KassaController extends Controller
         $filters = $request->validate([
             'legal_id' => ['nullable', 'string', 'max:12'],
             'article_id' => ['nullable', 'integer'],
+            'source_type' => ['nullable', 'in:manual_kassa,bank_rule'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
@@ -39,6 +40,10 @@ class KassaController extends Controller
 
         if (! empty($filters['article_id'])) {
             $query->where('entry.article_id', (int) $filters['article_id']);
+        }
+
+        if (! empty($filters['source_type'])) {
+            $query->where('entry.source_type', $filters['source_type']);
         }
 
         if (! empty($filters['date_from'])) {

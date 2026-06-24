@@ -141,7 +141,7 @@
 
     <div class="mb-4 border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
         <form method="get" action="{{ route('kassa.index') }}">
-            <div class="grid gap-4 lg:grid-cols-5">
+            <div class="grid gap-4 lg:grid-cols-6">
                 <x-ui.select-with-secondary-text
                     label="Юрлицо"
                     name="legal_id"
@@ -160,6 +160,17 @@
                     :value="$filters['article_id'] ?? ''"
                     :options="$articles->pluck('article', 'article_id')->all()"
                     placeholder="Все статьи"
+                />
+
+                <x-ui.select
+                    label="Источник"
+                    name="source_type"
+                    :value="$filters['source_type'] ?? ''"
+                    :options="[
+                        'manual_kassa' => 'Ручной ввод',
+                        'bank_rule' => 'Банк по правилу',
+                    ]"
+                    placeholder="Все источники"
                 />
 
                 <x-ui.airdatepicker.date-range
