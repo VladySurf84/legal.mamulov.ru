@@ -68,7 +68,7 @@ class KassaController extends Controller
             ->selectRaw('COUNT(*) as operations_count')
             ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END), 0) as income_amount')
             ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END), 0) as expense_amount')
-            ->selectRaw('COALESCE(SUM(entry.amount), 0) as saldo_amount')
+            ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END), 0) as saldo_amount')
             ->first();
 
         $operations = $query
@@ -92,7 +92,9 @@ class KassaController extends Controller
                 'document.external_id as document_external_id',
                 'document.title as document_title',
             ])
-            ->selectRaw('SUM(entry.amount) OVER (ORDER BY entry.occurred_at, entry.cash_entry_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
+            ->selectRaw('CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END AS entry_income_amount')
+            ->selectRaw('CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END AS entry_expense_amount')
+            ->selectRaw('SUM((CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END) - (CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END)) OVER (ORDER BY entry.occurred_at, entry.cash_entry_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
             ->orderByDesc('entry.occurred_at')
             ->orderByDesc('entry.cash_entry_id')
             ->offset(($page - 1) * self::PER_PAGE)
