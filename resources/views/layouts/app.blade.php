@@ -13,6 +13,7 @@
         ['label' => 'Наши юридические лица', 'route' => 'legal-entities.index', 'active' => 'legal-entities.*', 'group' => 'Деньги'],
         ['label' => 'Банковские счета', 'route' => 'bank-accounts.index', 'active' => 'bank-accounts.*', 'group' => 'Деньги'],
         ['label' => 'Транзакции', 'route' => 'bank-transactions.index', 'active' => 'bank-transactions.*', 'group' => 'Деньги'],
+        ['label' => 'Касса', 'route' => 'kassa.index', 'active' => 'kassa.*', 'group' => 'Деньги'],
         ['label' => 'Документы', 'route' => 'documents.index', 'active' => 'documents.*', 'group' => 'Деньги'],
         ['label' => 'Контрагенты', 'route' => 'counterparties.index', 'active' => 'counterparties.*', 'group' => 'Деньги'],
         ['label' => 'Money layer', 'route' => 'money-layer.index', 'active' => 'money-layer.*', 'group' => 'Слои'],

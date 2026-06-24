@@ -10,6 +10,7 @@ use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\ElectronicSignatureController;
 use App\Http\Controllers\ExchangeRateController;
 use App\Http\Controllers\InternalApiDocsController;
+use App\Http\Controllers\KassaController;
 use App\Http\Controllers\LegalEntityController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\BankStatementImportController;
@@ -42,6 +43,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
     Route::post('exchange-rates/sync', [ExchangeRateController::class, 'sync'])->name('exchange-rates.sync');
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::get('kassa', [KassaController::class, 'index'])->name('kassa.index');
     Route::get('electronic-signatures', [ElectronicSignatureController::class, 'index'])->name('electronic-signatures.index');
     Route::post('electronic-signatures/import', [ElectronicSignatureController::class, 'import'])->name('electronic-signatures.import');
     Route::get('internal-api-docs', [InternalApiDocsController::class, 'index'])->name('internal-api-docs.index');
