@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\Layers\CashLayerBuilder;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -12,7 +13,9 @@ use Throwable;
 
 class KassaController extends Controller
 {
-    public function index(Request $request): View
+    private const PER_PAGE = 100;
+
+    public function index(Request $request): View|JsonResponse
     {
         $filters = $request->validate([
             'legal_id' => ['nullable', 'string', 'max:12'],
@@ -20,7 +23,10 @@ class KassaController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $page = (int) ($filters['page'] ?? 1);
+        unset($filters['page']);
 
         $query = DB::table('legal.cash_entries as entry')
             ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'entry.article_id')
@@ -89,8 +95,26 @@ class KassaController extends Controller
             ->selectRaw('SUM(entry.amount) OVER (ORDER BY entry.occurred_at, entry.cash_entry_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
             ->orderByDesc('entry.occurred_at')
             ->orderByDesc('entry.cash_entry_id')
-            ->limit(500)
+            ->offset(($page - 1) * self::PER_PAGE)
+            ->limit(self::PER_PAGE)
             ->get();
+
+        $hasMore = $page * self::PER_PAGE < (int) $summary->operations_count;
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('kassa.partials.rows', [
+                    'operations' => $operations,
+                    'displayTimezone' => config('app.display_timezone', 'Europe/Moscow'),
+                ])->render(),
+                'loader_html' => view('kassa.partials.loader-row', [
+                    'nextPage' => $hasMore ? $page + 1 : null,
+                    'tableColspan' => 10,
+                ])->render(),
+                'has_more' => $hasMore,
+                'next_page' => $hasMore ? $page + 1 : null,
+            ]);
+        }
 
         return view('kassa.index', [
             'operations' => $operations,
@@ -98,6 +122,7 @@ class KassaController extends Controller
             'filters' => $filters,
             'legalEntities' => $this->legalEntities(),
             'articles' => $this->articles(),
+            'nextPage' => $hasMore ? $page + 1 : null,
         ]);
     }
 

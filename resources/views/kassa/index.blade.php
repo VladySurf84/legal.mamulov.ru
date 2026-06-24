@@ -217,97 +217,20 @@
             </tr>
         </x-slot:head>
 
-        @forelse ($operations as $operation)
-            <tr class="align-top hover:bg-gray-50 dark:hover:bg-white/5">
-                <x-ui.sticky-table-td first nowrap class="tabular-nums">
-                    {{ $date($operation->time) }}
-                    @if ($operation->created)
-                        <div class="mt-1 text-xs text-gray-400">создано: {{ $date($operation->created) }}</div>
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-44">
-                    <div @class([
-                        'inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1',
-                        'bg-gray-50 text-gray-700 ring-gray-200' => $operation->source_type === 'manual_kassa',
-                        'bg-indigo-50 text-indigo-700 ring-indigo-200' => $operation->source_type === 'bank_rule',
-                    ])>
-                        {{ $operation->source_label }}
-                    </div>
-
-                    @if ($operation->cash_operation_rule_id)
-                        <div class="mt-1 font-mono text-xs text-gray-400">rule #{{ $operation->cash_operation_rule_id }}</div>
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-72">
-                    <div class="font-medium text-gray-900 dark:text-white">{{ $operation->legal_name ?? 'Юрлицо #' . $operation->legal_id }}</div>
-                    <div class="mt-1 font-mono text-xs text-gray-400">ИНН {{ $operation->legal_inn ?? $operation->legal_id }}</div>
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-56">
-                    <div class="whitespace-normal break-words text-gray-900 dark:text-white">{{ $operation->article ?: 'Без статьи' }}</div>
-                    @if ($operation->article_id)
-                        <div class="mt-1 font-mono text-xs text-gray-400">#{{ $operation->article_id }}</div>
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td align="right" nowrap class="tabular-nums">
-                    @if ((float) $operation->amount > 0)
-                        <span class="font-semibold text-emerald-700">{{ $money($operation->amount) }}</span>
-                    @else
-                        —
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td align="right" nowrap class="tabular-nums">
-                    @if ((float) $operation->amount < 0)
-                        <span class="font-semibold text-rose-700">{{ $money(abs((float) $operation->amount)) }}</span>
-                    @else
-                        —
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-96">
-                    <div class="whitespace-normal break-words">{{ $operation->description }}</div>
-                    @if ($operation->source_document_bank_transaction_id)
-                        <div class="mt-1 font-mono text-xs text-gray-400">bank transaction #{{ $operation->source_document_bank_transaction_id }}</div>
-                    @elseif ($operation->kassa_id)
-                        <div class="mt-1 font-mono text-xs text-gray-400">kassa #{{ $operation->kassa_id }}</div>
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-72">
-                    @if ($operation->document_id)
-                        <div class="font-mono text-xs text-gray-500 dark:text-gray-400">document #{{ $operation->document_id }}</div>
-                        <div class="mt-1 whitespace-normal break-words text-xs text-gray-500 dark:text-gray-400">
-                            {{ $operation->document_external_id ?: $operation->document_title }}
-                        </div>
-                    @else
-                        —
-                    @endif
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td align="right" nowrap strong class="tabular-nums">
-                    <span @class([
-                        'text-emerald-700' => (float) $operation->running_total > 0,
-                        'text-rose-700' => (float) $operation->running_total < 0,
-                    ])>
-                        {{ $money($operation->running_total) }}
-                    </span>
-                </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td last align="right" nowrap class="font-mono text-xs">
-                    #{{ $operation->cash_entry_id }}
-                </x-ui.sticky-table-td>
-            </tr>
-        @empty
+        @if ($operations->isNotEmpty())
+            @include('kassa.partials.rows', ['operations' => $operations, 'displayTimezone' => $displayTimezone])
+        @else
             <tr>
                 <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="10">
                     Кассовые операции пока не найдены.
                 </td>
             </tr>
-        @endforelse
+        @endif
+
+        @include('kassa.partials.loader-row', [
+            'nextPage' => $nextPage,
+            'tableColspan' => 10,
+        ])
 
         <x-slot:stickySummary>
             <tr>
@@ -335,9 +258,74 @@
         </x-slot:stickySummary>
     </x-ui.sticky-table>
 
-    @if ($operations->count() === 500)
-        <p class="mt-3 px-4 text-xs text-gray-500 sm:px-6 lg:px-8">
-            Показаны первые 500 операций по текущему фильтру.
-        </p>
-    @endif
+    <script>
+        (() => {
+            const loader = document.getElementById('kassa-loader');
+            const loaderRow = document.getElementById('kassa-loader-row');
+
+            if (!loader || !loaderRow || loader.dataset.kassaLoaderReady === 'true') {
+                return;
+            }
+
+            loader.dataset.kassaLoaderReady = 'true';
+
+            let loading = false;
+
+            const setLoaderState = (state) => {
+                loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                loaderRow.classList.toggle('hidden', state === 'hidden');
+            };
+
+            const loadNextPage = async () => {
+                if (loading || !loader.dataset.nextPage) {
+                    return;
+                }
+
+                loading = true;
+                setLoaderState('loading');
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', loader.dataset.nextPage);
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Request failed');
+                    }
+
+                    const payload = await response.json();
+                    loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
+
+                    if (payload.has_more && payload.next_page) {
+                        loader.dataset.nextPage = payload.next_page;
+                        setLoaderState('loading');
+                    } else {
+                        delete loader.dataset.nextPage;
+                        setLoaderState('hidden');
+                    }
+
+                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                } catch (error) {
+                    setLoaderState('error');
+                } finally {
+                    loading = false;
+                }
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    loadNextPage();
+                }
+            }, { rootMargin: '600px 0px' });
+
+            observer.observe(loader);
+        })();
+    </script>
 @endsection
