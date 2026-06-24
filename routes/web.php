@@ -45,6 +45,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('kassa', [KassaController::class, 'index'])->name('kassa.index');
     Route::post('kassa', [KassaController::class, 'store'])->name('kassa.store');
+    Route::post('kassa/rebuild', [KassaController::class, 'rebuild'])->name('kassa.rebuild');
     Route::get('electronic-signatures', [ElectronicSignatureController::class, 'index'])->name('electronic-signatures.index');
     Route::post('electronic-signatures/import', [ElectronicSignatureController::class, 'import'])->name('electronic-signatures.import');
     Route::get('internal-api-docs', [InternalApiDocsController::class, 'index'])->name('internal-api-docs.index');

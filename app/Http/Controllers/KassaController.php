@@ -148,6 +148,19 @@ class KassaController extends Controller
             ->with('status', 'Кассовая запись добавлена.');
     }
 
+    public function rebuild(CashLayerBuilder $cashLayerBuilder): RedirectResponse
+    {
+        try {
+            $count = $cashLayerBuilder->rebuild();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Не удалось пересчитать слой кассы: ' . $exception->getMessage());
+        }
+
+        return back()->with('status', "Слой кассы пересчитан: {$count} записей.");
+    }
+
     private function legalEntities()
     {
         return DB::table('legal.legal_own')

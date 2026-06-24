@@ -5,16 +5,25 @@
 
 @php
     $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
-    $money = static fn ($value) => number_format((float) $value, 2, ',', ' ');
+    $money = static fn ($value) => number_format((float) $value, 0, ',', ' ');
     $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value, 'UTC')->timezone($displayTimezone)->format('d.m.Y H:i') : '—';
     $defaultKassaTime = now($displayTimezone)->format('Y-m-d\TH:i');
     $shouldOpenKassaCreateDialog = session('open_modal') === 'kassa-create-dialog' || (($errors ?? null)?->any() && old('_form') === 'kassa-create');
 @endphp
 
 @section('page_actions')
-    <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog">
-        Добавить запись
-    </x-ui.button>
+    <div class="flex flex-wrap items-center gap-2">
+        <form method="post" action="{{ route('kassa.rebuild') }}">
+            @csrf
+            <x-ui.button type="submit" size="md" variant="ghost">
+                Пересчитать слой
+            </x-ui.button>
+        </form>
+
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog">
+            Добавить запись
+        </x-ui.button>
+    </div>
 @endsection
 
 @section('content')
@@ -182,26 +191,6 @@
                 </x-ui.button>
             </div>
         </form>
-    </div>
-
-    <div class="mb-4 flex flex-wrap gap-2">
-        <span class="inline-flex rounded-full bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">
-            Операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
-        </span>
-        <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
-            Приход: {{ $money($summary->income_amount) }}
-        </span>
-        <span class="inline-flex rounded-full bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700 ring-1 ring-rose-200">
-            Расход: {{ $money($summary->expense_amount) }}
-        </span>
-        <span @class([
-            'inline-flex rounded-full px-3 py-1 text-sm font-medium ring-1',
-            'bg-emerald-50 text-emerald-700 ring-emerald-200' => (float) $summary->saldo_amount > 0,
-            'bg-rose-50 text-rose-700 ring-rose-200' => (float) $summary->saldo_amount < 0,
-            'bg-gray-50 text-gray-700 ring-gray-200' => (float) $summary->saldo_amount === 0.0,
-        ])>
-            Итого: {{ $money($summary->saldo_amount) }}
-        </span>
     </div>
 
     <x-ui.sticky-table
