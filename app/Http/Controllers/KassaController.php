@@ -136,7 +136,6 @@ class KassaController extends Controller
     public function store(Request $request, CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
         $validated = $request->validate([
-            'legal_id' => ['required', 'string', 'max:12', 'exists:legal.legal_own,legal_id'],
             'article_id' => ['required', 'integer', 'exists:legal.kassa_article,article_id'],
             'time' => ['required', 'date'],
             'direction' => ['required', 'in:income,expense'],
@@ -157,7 +156,6 @@ class KassaController extends Controller
 
         try {
             DB::table('legal.kassa')->insert([
-                'legal_id' => $validated['legal_id'],
                 'article_id' => (int) $validated['article_id'],
                 'time' => $time,
                 'amount' => $amount,

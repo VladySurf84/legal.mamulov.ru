@@ -48,19 +48,6 @@
                 @endif
 
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <x-ui.select-with-secondary-text
-                        label="Юрлицо"
-                        name="legal_id"
-                        :value="old('legal_id', $filters['legal_id'] ?? '')"
-                        :options="$legalEntities->map(fn ($legal) => [
-                            'value' => $legal->legal_id,
-                            'label' => $legal->legal_name,
-                            'secondary' => 'ИНН ' . $legal->legal_inn,
-                        ])->values()"
-                        placeholder="Выберите юрлицо"
-                        selected-layout="stacked"
-                    />
-
                     <x-ui.select
                         label="Статья"
                         name="article_id"

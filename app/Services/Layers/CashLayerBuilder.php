@@ -13,6 +13,7 @@ class CashLayerBuilder
 
             $this->insertManualKassaEntries();
             $this->insertBankRuleEntries();
+            $this->updateKassaCashEntryLinks();
 
             return DB::table('legal.cash_entries')->count();
         });
@@ -41,7 +42,7 @@ SELECT
     'Ручной ввод',
     k.document_id,
     k.kassa_id,
-    k.legal_id,
+    NULL::varchar(12),
     k.article_id,
     k."time",
     k.amount::numeric(18,2),
@@ -155,6 +156,26 @@ LEFT JOIN legal.currency_aliases currency_alias
     ON ranked.currency IS NOT NULL
     AND upper(btrim(ranked.currency::text)) = currency_alias.currency_alias
 WHERE ranked.match_rank = 1
+SQL);
+    }
+
+    private function updateKassaCashEntryLinks(): void
+    {
+        DB::statement(<<<'SQL'
+UPDATE legal.kassa k
+SET cash_entry_id = (
+    SELECT ce.cash_entry_id
+    FROM legal.cash_entries ce
+    WHERE ce.source_type = 'bank_rule'
+        AND ce.amount > 0
+        AND ce.metadata->>'contractor_inn' IN ('7704217370', '9714053621')
+        AND date_trunc('second', ce.occurred_at) = date_trunc('second', k."time")
+        AND ce.amount BETWEEN k.amount - 1 AND k.amount + 1
+    ORDER BY abs(ce.amount - k.amount), ce.cash_entry_id
+    LIMIT 1
+)
+WHERE k.reconciliation_id IS NOT NULL
+    AND k.description ILIKE 'Выплата%'
 SQL);
     }
 }
