@@ -12,6 +12,10 @@
         <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="tinkoff-sync-dialog">
             Обновить Тинек
         </x-ui.button>
+
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="bank-transaction-data-map-dialog">
+            Карта данных
+        </x-ui.button>
     </div>
 @endsection
 
@@ -61,6 +65,117 @@
             'redirectTo' => url()->full(),
             'submitLabel' => 'Загрузить',
         ])
+    </x-ui.modal>
+
+    <x-ui.modal
+        id="bank-transaction-data-map-dialog"
+        title="Карта данных банковской операции"
+        description="Откуда берется строка в таблице банковских транзакций и какие слои участвуют."
+        size="2xl"
+    >
+        <div class="space-y-6 px-6 py-5 text-sm text-gray-600 dark:text-gray-300">
+            <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-900/5 dark:bg-white/5 dark:ring-white/10">
+                <div class="font-medium text-gray-900 dark:text-white">Итоговая UI-таблица</div>
+                <p class="mt-1">
+                    Страница <span class="font-mono text-xs">/bank-transactions</span> не читает старые
+                    <span class="font-mono text-xs">legal_reconciliation</span> и
+                    <span class="font-mono text-xs">bank_transaction</span>. Основная строка берется из новой
+                    канонической таблицы <span class="font-mono text-xs">legal.document_bank_transaction</span>.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto pb-2">
+                <div class="grid min-w-[980px] grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-stretch gap-3">
+                    <div class="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/30 dark:bg-sky-500/10">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">Acquisition layer</div>
+                        <div class="mt-3 space-y-2">
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-sky-200 dark:bg-gray-900 dark:text-white dark:ring-sky-500/30">api_sync_runs</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-sky-200 dark:bg-gray-900 dark:text-white dark:ring-sky-500/30">api_sync_requests</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-sky-200 dark:bg-gray-900 dark:text-white dark:ring-sky-500/30">bank_statement_imports</div>
+                        </div>
+                        <p class="mt-3 text-xs text-sky-900 dark:text-sky-100">API Тинькофф или файл 1CClientBankExchange. Здесь хранится факт запуска, запрос, ответ или файл.</p>
+                    </div>
+
+                    <div class="flex items-center justify-center text-gray-400">-&gt;</div>
+
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Source layer</div>
+                        <div class="mt-3 space-y-2">
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:text-white dark:ring-amber-500/30">source_records</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:text-white dark:ring-amber-500/30">source_record_bank_details</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:text-white dark:ring-amber-500/30">source_record_parties</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:text-white dark:ring-amber-500/30">source_record_amounts</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:text-white dark:ring-amber-500/30">source_record_files</div>
+                        </div>
+                        <p class="mt-3 text-xs text-amber-900 dark:text-amber-100">Нормализованный первоисточник: одна операция банка как запись источника, ее стороны, суммы и файл/ответ.</p>
+                    </div>
+
+                    <div class="flex items-center justify-center text-gray-400">-&gt;</div>
+
+                    <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Canonical layer</div>
+                        <div class="mt-3 space-y-2">
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-emerald-200 dark:bg-gray-900 dark:text-white dark:ring-emerald-500/30">documents</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-emerald-200 dark:bg-gray-900 dark:text-white dark:ring-emerald-500/30">document_bank_transaction</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-emerald-200 dark:bg-gray-900 dark:text-white dark:ring-emerald-500/30">document_sources</div>
+                        </div>
+                        <p class="mt-3 text-xs text-emerald-900 dark:text-emerald-100">Канонический документ "банковская операция" и его банковская детализация. Это главный источник строки UI.</p>
+                    </div>
+
+                    <div class="flex items-center justify-center text-gray-400">-&gt;</div>
+
+                    <div class="rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-500/30 dark:bg-violet-500/10">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">UI query</div>
+                        <div class="mt-3 space-y-2">
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-violet-200 dark:bg-gray-900 dark:text-white dark:ring-violet-500/30">document_bank_transaction dbt</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-violet-200 dark:bg-gray-900 dark:text-white dark:ring-violet-500/30">bank_account ba</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-violet-200 dark:bg-gray-900 dark:text-white dark:ring-violet-500/30">legal_own l</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-violet-200 dark:bg-gray-900 dark:text-white dark:ring-violet-500/30">bank_operation_types bot</div>
+                            <div class="rounded-md bg-white px-3 py-2 font-mono text-xs text-gray-900 shadow-sm ring-1 ring-violet-200 dark:bg-gray-900 dark:text-white dark:ring-violet-500/30">vat_events exists</div>
+                        </div>
+                        <p class="mt-3 text-xs text-violet-900 dark:text-violet-100">Контроллер собирает контрагента, приход/расход, тип операции, флаг НДС и нарастающий итог.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-3">
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10">
+                    <div class="font-medium text-gray-900 dark:text-white">Строка таблицы</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
+                        <li><span class="font-mono">date</span> = <span class="font-mono">dbt.operation_date</span></li>
+                        <li><span class="font-mono">account_number</span> = <span class="font-mono">dbt.account_number</span></li>
+                        <li><span class="font-mono">income/expense</span> = знак <span class="font-mono">dbt.signed_amount</span></li>
+                        <li><span class="font-mono">total</span> = window sum по дате и <span class="font-mono">order_intraday</span></li>
+                    </ul>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10">
+                    <div class="font-medium text-gray-900 dark:text-white">Расшифровки</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
+                        <li>Юрлицо: <span class="font-mono">bank_account -> legal_own</span></li>
+                        <li>Тип операции: <span class="font-mono">bank_operation_types</span></li>
+                        <li>Контрагент: payer/recipient выбирается относительно нашего счета</li>
+                    </ul>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-white/10">
+                    <div class="font-medium text-gray-900 dark:text-white">Интерпретационные слои</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
+                        <li><span class="font-mono">vat_events</span> дает бейдж НДС</li>
+                        <li><span class="font-mono">money_edges</span> строится из этих же документов для Money layer</li>
+                        <li><span class="font-mono">cash_entries</span> строится отдельным правилом для страницы кассы</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <div class="flex justify-end">
+                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                    Закрыть
+                </x-ui.button>
+            </div>
+        </x-slot:footer>
     </x-ui.modal>
 
     @if (session('status'))
