@@ -331,8 +331,8 @@
 
     <x-ui.context-menu trigger-selector="[data-bank-transaction-context-row]">
         <x-slot:menu>
-            <x-ui.context-menu-item>
-                Открыть операцию
+            <x-ui.context-menu-item data-bank-transaction-show-operation>
+                Показать операцию
             </x-ui.context-menu-item>
 
             <x-ui.context-menu-item>
@@ -365,6 +365,177 @@
             </x-ui.context-menu-item>
         </x-slot:menu>
     </x-ui.context-menu>
+
+    <button type="button" class="hidden" data-ui-modal-open="bank-transaction-operation-dialog" data-bank-transaction-operation-open></button>
+
+    <x-ui.modal
+        id="bank-transaction-operation-dialog"
+        title="Свойства банковской операции"
+        description="Данные выбранной строки банковских транзакций."
+        size="2xl"
+    >
+        <div class="px-6 py-5">
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">ID операции</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="id">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Reconciliation ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="reconciliationId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Дата</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="date">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Тип</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="type">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Юрлицо</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="legal">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Legal ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="legalId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Счет</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="account">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Банк</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="bankId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Контрагент</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="contractor">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">ИНН контрагента</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="contractorInn">—</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Счет контрагента</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="contractorAccount">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Приход</dt>
+                    <dd class="mt-1 font-mono text-emerald-700 dark:text-emerald-400" data-bank-transaction-property="income">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Расход</dt>
+                    <dd class="mt-1 font-mono text-rose-700 dark:text-rose-400" data-bank-transaction-property="expense">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Сумма со знаком</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="amount">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Итог</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="total">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">НДС</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="vat">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Касса</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="kassa">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Порядок внутри дня</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="orderIntraday">—</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Назначение платежа</dt>
+                    <dd class="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white" data-bank-transaction-property="paymentPurpose">—</dd>
+                </div>
+            </dl>
+        </div>
+
+        <x-slot:footer>
+            <div class="flex justify-end">
+                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                    Закрыть
+                </x-ui.button>
+            </div>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    @once
+        <script>
+            (() => {
+                const initBankTransactionContextMenu = () => {
+                    const menu = document.querySelector('[data-ui-context-menu-trigger-selector="[data-bank-transaction-context-row]"]');
+
+                    if (!menu || menu.dataset.bankTransactionMenuReady === 'true') {
+                        return;
+                    }
+
+                    menu.dataset.bankTransactionMenuReady = 'true';
+
+                    document.addEventListener('contextmenu', (event) => {
+                        const row = event.target.closest('[data-bank-transaction-context-row]');
+
+                        if (!row) {
+                            return;
+                        }
+
+                        menu.dataset.row = JSON.stringify(row.dataset);
+                    });
+
+                    menu.querySelector('[data-bank-transaction-show-operation]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+                        const account = [data.bankTransactionAccountName, data.bankTransactionAccountNumber]
+                            .filter(Boolean)
+                            .join(' · ');
+
+                        const properties = {
+                            id: data.bankTransactionId || '—',
+                            reconciliationId: data.bankTransactionReconciliationId || '—',
+                            date: data.bankTransactionDate || '—',
+                            type: data.bankTransactionType || '—',
+                            legal: data.bankTransactionLegal || '—',
+                            legalId: data.bankTransactionLegalId || '—',
+                            account: account || '—',
+                            bankId: data.bankTransactionBankId || '—',
+                            contractor: data.bankTransactionContractor || '—',
+                            contractorInn: data.bankTransactionContractorInn || '—',
+                            contractorAccount: data.bankTransactionContractorAccount || '—',
+                            income: data.bankTransactionIncome || '—',
+                            expense: data.bankTransactionExpense || '—',
+                            amount: data.bankTransactionAmount || '—',
+                            total: data.bankTransactionTotal || '—',
+                            vat: data.bankTransactionVat || '—',
+                            kassa: data.bankTransactionKassa || '—',
+                            orderIntraday: data.bankTransactionOrderIntraday || '—',
+                            paymentPurpose: data.bankTransactionPaymentPurpose || '—',
+                        };
+
+                        for (const [key, value] of Object.entries(properties)) {
+                            const element = document.querySelector(`[data-bank-transaction-property="${key}"]`);
+
+                            if (element) {
+                                element.textContent = value || '—';
+                            }
+                        }
+
+                        document.querySelector('[data-bank-transaction-operation-open]')?.click();
+                    });
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initBankTransactionContextMenu);
+                } else {
+                    initBankTransactionContextMenu();
+                }
+
+                document.addEventListener('livewire:navigated', initBankTransactionContextMenu);
+            })();
+        </script>
+    @endonce
 
     <script>
         (() => {
