@@ -24,6 +24,7 @@ class BankStatementImportService
         bool $rebuildMoneyLayer = false,
         ?string $sourceFileName = null,
         ?int $uploadedByUserId = null,
+        bool $autoCreateBankAccount = false,
     ): array
     {
         if (! is_file($file)) {
@@ -37,7 +38,12 @@ class BankStatementImportService
 
         ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile($file);
 
-        $bankId ??= $this->bankIdByAccountNumber($accountNumber);
+        if ($bankId === null) {
+            $bankId = $this->bankIdByAccountNumber($accountNumber, $rows, $autoCreateBankAccount);
+        } elseif ($autoCreateBankAccount) {
+            $this->ensureBankAccountFromRows($accountNumber, $rows, $bankId);
+        }
+
         $provider = $this->providerForBankId($bankId);
         $sourceSystem = self::DOCUMENT_SOURCE_1C_CLIENT_BANK_EXCHANGE;
         $importRunId = $this->startImportRun($sourceFileName, $fileHash, $fileSize !== false ? $fileSize : null, $bankId, $provider);
@@ -319,7 +325,7 @@ class BankStatementImportService
         return $value === '' || $value === '0' ? null : $value;
     }
 
-    private function bankIdByAccountNumber(string $accountNumber): string
+    private function bankIdByAccountNumber(string $accountNumber, array $rows, bool $autoCreateBankAccount): string
     {
         $bankIds = DB::table('legal.bank_account')
             ->where('account_number', $accountNumber)
@@ -328,6 +334,10 @@ class BankStatementImportService
             ->all();
 
         if ($bankIds === []) {
+            if ($autoCreateBankAccount) {
+                return $this->ensureBankAccountFromRows($accountNumber, $rows);
+            }
+
             throw new RuntimeException("Bank account {$accountNumber} was not found in legal.bank_account.");
         }
 
@@ -340,6 +350,116 @@ class BankStatementImportService
         }
 
         return $bankIds[0];
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     */
+    private function ensureBankAccountFromRows(string $accountNumber, array $rows, ?string $bankId = null): string
+    {
+        $details = $this->accountDetailsFromRows($accountNumber, $rows);
+        $bankId = $this->normalizeBic($bankId ?? $details['bank_id'] ?? null);
+
+        if ($bankId === null) {
+            throw new RuntimeException("Bank account {$accountNumber} was not found in legal.bank_account and bank BIC could not be resolved from statement.");
+        }
+
+        $legalInn = $details['legal_inn'] ?? null;
+        $legalId = $this->legalIdByInn($legalInn);
+
+        if ($legalId === null) {
+            throw new RuntimeException("Bank account {$accountNumber} was not found in legal.bank_account and legal entity with INN {$legalInn} was not found.");
+        }
+
+        $bankName = trim((string) ($details['bank_name'] ?? ''));
+
+        DB::table('legal.bank')->upsert([[
+            'bank_id' => $bankId,
+            'bank_name' => $bankName !== '' ? $bankName : "Банк {$bankId}",
+        ]], ['bank_id'], ['bank_name']);
+
+        DB::table('legal.bank_account')->upsert([[
+            'account_number' => $accountNumber,
+            'bank_id' => $bankId,
+            'legal_id' => $legalId,
+            'name' => "Счет {$accountNumber}",
+            'currency' => '643',
+            'account_type' => 'Расчетный счет',
+            'activation_date' => $this->firstOperationDate($rows),
+        ]], ['account_number', 'bank_id'], [
+            'legal_id',
+            'name',
+            'currency',
+            'account_type',
+            'activation_date',
+        ]);
+
+        return $bankId;
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     * @return array{bank_id?: string|null, bank_name?: string|null, legal_inn?: string|null}
+     */
+    private function accountDetailsFromRows(string $accountNumber, array $rows): array
+    {
+        foreach ($rows as $row) {
+            if (trim((string) ($row['ПлательщикСчет'] ?? '')) === $accountNumber) {
+                return [
+                    'bank_id' => $row['ПлательщикБИК'] ?? null,
+                    'bank_name' => $row['ПлательщикБанк1'] ?? null,
+                    'legal_inn' => $row['ПлательщикИНН'] ?? null,
+                ];
+            }
+
+            if (trim((string) ($row['ПолучательСчет'] ?? '')) === $accountNumber) {
+                return [
+                    'bank_id' => $row['ПолучательБИК'] ?? null,
+                    'bank_name' => $row['ПолучательБанк1'] ?? null,
+                    'legal_inn' => $row['ПолучательИНН'] ?? null,
+                ];
+            }
+        }
+
+        return [];
+    }
+
+    private function normalizeBic(?string $bankId): ?string
+    {
+        $bankId = preg_replace('/\D+/', '', (string) $bankId);
+
+        return strlen($bankId) === 9 ? $bankId : null;
+    }
+
+    private function legalIdByInn(?string $inn): ?string
+    {
+        $inn = trim((string) $inn);
+
+        if ($inn === '') {
+            return null;
+        }
+
+        $legalId = DB::table('legal.legal_own')
+            ->where('legal_id', $inn)
+            ->orWhere('legal_inn', $inn)
+            ->value('legal_id');
+
+        return $legalId !== null ? (string) $legalId : null;
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     */
+    private function firstOperationDate(array $rows): ?string
+    {
+        $dates = array_filter(array_map(
+            fn (array $row): ?string => $this->parseBankReportDate($row['Дата'] ?? null),
+            $rows,
+        ));
+
+        sort($dates);
+
+        return $dates[0] ?? null;
     }
 
     private function providerForBankId(string $bankId): string

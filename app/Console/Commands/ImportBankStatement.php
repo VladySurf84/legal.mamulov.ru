@@ -10,7 +10,8 @@ class ImportBankStatement extends Command
     protected $signature = 'bank-statement:import-1c
         {file : Path to 1CClientBankExchange statement file}
         {--bank-id= : Bank BIC. By default it is resolved from legal.bank_account}
-        {--rebuild-money-layer : Rebuild money interpretation layer after import}';
+        {--rebuild-money-layer : Rebuild money interpretation layer after import}
+        {--auto-create-bank-account : Create missing bank and bank account from statement data}';
 
     protected $description = 'Import bank statement from a 1CClientBankExchange file.';
 
@@ -22,6 +23,8 @@ class ImportBankStatement extends Command
             $this->bankIdOption(),
             (bool) $this->option('rebuild-money-layer'),
             basename($file),
+            null,
+            (bool) $this->option('auto-create-bank-account'),
         );
 
         $this->info(sprintf(

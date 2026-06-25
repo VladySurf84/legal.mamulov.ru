@@ -16,9 +16,11 @@ class BankStatementImportController extends Controller
             'statement_files' => ['required', 'array', 'min:1'],
             'statement_files.*' => ['required', 'file', 'max:20480'],
             'redirect_to' => ['nullable', 'string', 'max:2048'],
+            'auto_create_bank_account' => ['nullable', 'boolean'],
         ]);
 
         $files = array_values(array_filter($request->file('statement_files', [])));
+        $autoCreateBankAccount = $request->boolean('auto_create_bank_account');
 
         if ($files === []) {
             if ($request->expectsJson()) {
@@ -59,6 +61,7 @@ class BankStatementImportController extends Controller
                     false,
                     $currentFileName,
                     $request->user()?->getAuthIdentifier(),
+                    $autoCreateBankAccount,
                 );
             }
 
