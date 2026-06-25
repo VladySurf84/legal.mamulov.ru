@@ -192,8 +192,12 @@ WITH pre AS (
         l.legal_color,
         NULL::numeric AS saldo,
         CASE
-            WHEN dbt.payment_purpose ~* '(без\s+ндс|без\s+налога\s*\(?\s*ндс\s*\)?|ндс\s+не\s+облагается|не\s+облагается\s+ндс)' THEN 0
-            WHEN dbt.payment_purpose ILIKE '%НДС%' OR dbt.payment_purpose ILIKE '%VAT%' THEN 1
+            WHEN EXISTS (
+                SELECT 1
+                FROM legal.vat_events ve
+                WHERE ve.source_system = 'bank_payment_vat'
+                    AND ve.source_document_bank_transaction_id = dbt.document_bank_transaction_id
+            ) THEN 1
             ELSE 0
         END AS has_vat,
         NULL::int AS inner_ip,
