@@ -66,12 +66,12 @@
                 @endif
             </div>
         </td>
-        <td class="whitespace-nowrap border-b border-gray-200 bg-[var(--bank-income-bg)] px-3 py-4 text-right text-sm font-medium tabular-nums text-emerald-700 dark:border-white/10">
+        <x-ui.sticky-table-td align="right" nowrap money-tone="income" class="font-medium tabular-nums">
             {{ $incomeAmount }}
-        </td>
-        <td class="whitespace-nowrap border-b border-gray-200 bg-[var(--bank-expense-bg)] px-3 py-4 text-right text-sm font-medium tabular-nums text-rose-700 dark:border-white/10">
+        </x-ui.sticky-table-td>
+        <x-ui.sticky-table-td align="right" nowrap money-tone="expense" class="font-medium tabular-nums">
             {{ $expenseAmount }}
-        </td>
+        </x-ui.sticky-table-td>
         <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
             <div class="text-gray-700 dark:text-gray-300">{{ $transaction->payment_purpose }}</div>
         </td>

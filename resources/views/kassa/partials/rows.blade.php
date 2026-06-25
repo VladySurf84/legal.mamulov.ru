@@ -34,17 +34,17 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td align="right" nowrap class="tabular-nums">
+        <x-ui.sticky-table-td align="right" nowrap money-tone="income" class="tabular-nums">
             @if ((float) $operation->amount > 0)
-                <span class="font-semibold text-emerald-700">{{ $money($operation->amount) }}</span>
+                <span class="font-semibold">{{ $money($operation->amount) }}</span>
             @else
                 —
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td align="right" nowrap class="tabular-nums">
+        <x-ui.sticky-table-td align="right" nowrap money-tone="expense" class="tabular-nums">
             @if ((float) $operation->amount < 0)
-                <span class="font-semibold text-rose-700">{{ $money(abs((float) $operation->amount)) }}</span>
+                <span class="font-semibold">{{ $money(abs((float) $operation->amount)) }}</span>
             @else
                 —
             @endif

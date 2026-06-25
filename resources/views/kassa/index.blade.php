@@ -233,12 +233,12 @@
                 <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
                 </th>
-                <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-emerald-50/80 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-emerald-950/30">
+                <x-ui.sticky-table-td summary align="right" nowrap money-tone="income" class="tabular-nums">
                     {{ $money($summary->income_amount) }}
-                </td>
-                <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-rose-50/80 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-rose-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-rose-950/30">
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary align="right" nowrap money-tone="expense" class="tabular-nums">
                     {{ $money($summary->expense_amount) }}
-                </td>
+                </x-ui.sticky-table-td>
                 <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
                 <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
                 <td @class([

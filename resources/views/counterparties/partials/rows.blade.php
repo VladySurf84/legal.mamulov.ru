@@ -35,10 +35,10 @@
                 {{ number_format((float) $counterparty->vat_diff, 2, ',', ' ') }}
             </span>
         </x-ui.sticky-table-td>
-        <x-ui.sticky-table-td align="right" nowrap>
+        <x-ui.sticky-table-td align="right" nowrap money-tone="income" class="tabular-nums">
             {{ number_format((float) $counterparty->income_amount, 2, ',', ' ') }}
         </x-ui.sticky-table-td>
-        <x-ui.sticky-table-td align="right" nowrap>
+        <x-ui.sticky-table-td align="right" nowrap money-tone="expense" class="tabular-nums">
             {{ number_format((float) $counterparty->expense_amount, 2, ',', ' ') }}
         </x-ui.sticky-table-td>
         <x-ui.sticky-table-td align="right" nowrap>

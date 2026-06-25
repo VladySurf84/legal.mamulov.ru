@@ -6,8 +6,8 @@
     <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-cyan-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">{{ number_format($summary['buh_saldo'], 2, ',', ' ') }}</td>
     <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-indigo-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">{{ number_format($summary['saldo_diff'], 2, ',', ' ') }}</td>
     <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-white/75 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-violet-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75">{{ number_format($summary['vat_diff'], 2, ',', ' ') }}</td>
-    <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
-    <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
+    <x-ui.sticky-table-td summary align="right" nowrap money-tone="income"></x-ui.sticky-table-td>
+    <x-ui.sticky-table-td summary align="right" nowrap money-tone="expense"></x-ui.sticky-table-td>
     <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
     @if ($showLegalEntitiesCount)
         <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
