@@ -12,7 +12,8 @@ class UpsertUser extends Command
         {email : User email}
         {--name= : User display name}
         {--password= : Optional password login}
-        {--role=admin : User role}
+        {--role=viewer : Legacy user role}
+        {--admin : Mark user as administrator}
         {--telegram-chat-id= : Telegram chat id for bot notifications}
         {--inactive : Mark user inactive}';
 
@@ -33,7 +34,9 @@ class UpsertUser extends Command
 
         $user = User::query()->firstOrNew(['email' => $email]);
         $user->name = (string) $name;
-        $user->role = (string) $this->option('role');
+        $role = (string) $this->option('role');
+        $user->role = $role;
+        $user->is_admin = (bool) $this->option('admin') || $role === 'admin';
         $user->is_active = ! (bool) $this->option('inactive');
 
         $telegramChatId = $this->option('telegram-chat-id');

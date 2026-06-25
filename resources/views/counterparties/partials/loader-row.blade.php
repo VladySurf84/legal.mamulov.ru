@@ -1,6 +1,6 @@
-<tr id="counterparties-loader-row" @class(['hidden' => ! $nextPage])>
+<tr id="counterparties-loader-row" data-ui-sticky-table-loader-row @class(['hidden' => ! $nextPage])>
     <td class="h-[20vh] py-3 text-center align-middle text-sm text-slate-500" colspan="{{ $emptyColspan }}">
-        <div id="counterparties-loader" data-next-page="{{ $nextPage }}">
+        <div id="counterparties-loader" data-ui-sticky-table-loader data-next-page="{{ $nextPage }}">
             <span data-loader-spinner @class(['hidden' => ! $nextPage])>
                 <x-ui.loading :overlay="false" label="Загрузка контрагентов" />
             </span>

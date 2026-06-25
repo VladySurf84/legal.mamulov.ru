@@ -29,6 +29,7 @@ class User extends Authenticatable
         'google_id',
         'avatar',
         'role',
+        'is_admin',
         'is_active',
         'last_login_at',
         'telegram_chat_id',
@@ -43,6 +44,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'is_admin' => 'boolean',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
@@ -59,8 +61,13 @@ class User extends Authenticatable
         return $this->belongsTo(TelegramChat::class, 'telegram_chat_id', 'telegram_chat_id');
     }
 
+    public function uiSettings(): HasMany
+    {
+        return $this->hasMany(UserUiSetting::class, 'user_id', 'id');
+    }
+
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return (bool) $this->is_admin;
     }
 }

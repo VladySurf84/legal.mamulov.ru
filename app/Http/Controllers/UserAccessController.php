@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class UserAccessController extends Controller
@@ -53,14 +52,17 @@ class UserAccessController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
-            'role' => ['required', 'string', Rule::in(['admin', 'viewer', 'accountant', 'manager'])],
+            'is_admin' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
             'scopes' => ['nullable', 'array'],
         ]);
 
         DB::transaction(function () use ($user, $validated): void {
+            $isAdmin = (bool) ($validated['is_admin'] ?? false);
+
             $user->forceFill([
-                'role' => $validated['role'],
+                'is_admin' => $isAdmin,
+                'role' => $isAdmin ? 'admin' : ($user->role === 'admin' ? 'viewer' : $user->role),
                 'is_active' => (bool) ($validated['is_active'] ?? false),
             ])->save();
 
@@ -68,7 +70,7 @@ class UserAccessController extends Controller
                 ->where('user_id', $user->getKey())
                 ->delete();
 
-            if ($validated['role'] === 'admin') {
+            if ($isAdmin) {
                 return;
             }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BankAccount;
 use App\Services\Bank\TinkoffBankSyncService;
 use App\Services\Layers\CashLayerBuilder;
+use App\Support\UserUiSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use Throwable;
 
 class BankTransactionController extends Controller
 {
-    private const PER_PAGE = 100;
+    private const PER_PAGE = 50;
     private const BANK_ID_TINKOFF = '044525974';
 
     public function index(Request $request): View|JsonResponse
@@ -28,6 +29,7 @@ class BankTransactionController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
         $filters['account_numbers'] = collect($filters['account_numbers'] ?? [])
             ->filter()
@@ -36,12 +38,15 @@ class BankTransactionController extends Controller
             ->all();
 
         $page = (int) ($filters['page'] ?? 1);
+        $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'bank-transactions-rows', self::PER_PAGE);
+        $perPage = $this->perPage($filters);
         unset($filters['page']);
+        unset($filters['per_page']);
 
         [$where, $bindings] = $this->whereClause($filters);
         $summary = $this->summary($where, $bindings);
-        $transactions = $this->transactions($where, $bindings, $page);
-        $hasMore = $page * self::PER_PAGE < $summary['count'];
+        $transactions = $this->transactions($where, $bindings, $page, $perPage);
+        $hasMore = $perPage > 0 && $page * $perPage < $summary['count'];
         $selectedAccountNumbers = ! empty($filters['account_numbers'])
             ? $filters['account_numbers']
             : array_filter([(string) ($filters['account_number'] ?? '')]);
@@ -145,13 +150,23 @@ class BankTransactionController extends Controller
      * @param array<string, mixed> $bindings
      * @return array<int, object>
      */
-    private function transactions(string $where, array $bindings, int $page): array
+    private function transactions(string $where, array $bindings, int $page, int $perPage): array
     {
-        $offset = ($page - 1) * self::PER_PAGE;
-        $queryBindings = $bindings + [
-            'limit' => self::PER_PAGE,
-            'offset' => $offset,
-        ];
+        if ($perPage === 0) {
+            return [];
+        }
+
+        $paginationSql = '';
+        $queryBindings = $bindings;
+
+        if ($perPage > 0) {
+            $offset = ($page - 1) * $perPage;
+            $queryBindings += [
+                'limit' => $perPage,
+                'offset' => $offset,
+            ];
+            $paginationSql = 'LIMIT :limit OFFSET :offset';
+        }
 
         return DB::select(<<<SQL
 WITH pre AS (
@@ -229,8 +244,22 @@ ORDER BY
     date DESC,
     order_intraday DESC,
     bank_transaction_id
-LIMIT :limit OFFSET :offset
+{$paginationSql}
 SQL, $queryBindings);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function perPage(array $filters): int
+    {
+        if (! array_key_exists('per_page', $filters) || $filters['per_page'] === null || $filters['per_page'] === '') {
+            return self::PER_PAGE;
+        }
+
+        $perPage = (int) $filters['per_page'];
+
+        return max(0, min(1000, $perPage));
     }
 
     /**

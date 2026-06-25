@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
 use App\Services\Layers\AccountantReportLinkBuilder;
+use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,14 +20,16 @@ class CounterpartyController extends Controller
             'contractor_inn' => ['nullable', 'string', 'max:12'],
             'only_negative_diff' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
         $page = (int) ($filters['page'] ?? 1);
-        $perPage = 30;
-        $offset = ($page - 1) * $perPage;
+        $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'counterparties-rows', 50);
+        $perPage = $this->perPage($filters, 50);
+        $offset = $perPage > 0 ? ($page - 1) * $perPage : 0;
 
         [$documentWhere, $buhWhere, $bindings] = $this->whereClauses($filters);
         $listBindings = $bindings + [
-            'limit' => $perPage + 1,
+            'limit' => $perPage > 0 ? $perPage + 1 : 0,
             'offset' => $offset,
         ];
         $openingWhere = $this->openingWhereClause($filters);
@@ -173,7 +176,7 @@ ORDER BY abs(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(b
 LIMIT :limit OFFSET :offset
 SQL, $listBindings);
 
-        $hasMoreCounterparties = count($counterparties) > $perPage;
+        $hasMoreCounterparties = $perPage > 0 && count($counterparties) > $perPage;
         if ($hasMoreCounterparties) {
             array_pop($counterparties);
         }
@@ -389,10 +392,12 @@ SQL, $bindings);
         $filters = $request->validate([
             'legal_id' => ['nullable', 'string', 'max:12'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
         $page = (int) ($filters['page'] ?? 1);
-        $perPage = 30;
-        $offset = ($page - 1) * $perPage;
+        $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'counterparty-ledger-rows', 50);
+        $perPage = $this->perPage($filters, 50);
+        $offset = $perPage > 0 ? ($page - 1) * $perPage : 0;
 
         $contractorInn = preg_replace('/\D+/', '', $contractorInn);
         abort_if($contractorInn === '', 404);
@@ -404,7 +409,7 @@ SQL, $bindings);
             'contractor_inn' => $contractorInn,
         ]);
         $ledgerBindings = $bindings + [
-            'limit' => $perPage + 1,
+            'limit' => $perPage > 0 ? $perPage + 1 : 0,
             'offset' => $offset,
         ];
 
@@ -581,7 +586,7 @@ ORDER BY event_date DESC NULLS LAST, sort_order DESC, source_id DESC
 LIMIT :limit OFFSET :offset
 SQL, $ledgerBindings);
 
-        $hasMoreLedgerEntries = count($ledgerEntries) > $perPage;
+        $hasMoreLedgerEntries = $perPage > 0 && count($ledgerEntries) > $perPage;
         if ($hasMoreLedgerEntries) {
             array_pop($ledgerEntries);
         }
@@ -890,5 +895,19 @@ SQL;
         return LegalEntity::query()
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function perPage(array $filters, int $default): int
+    {
+        if (! array_key_exists('per_page', $filters) || $filters['per_page'] === null || $filters['per_page'] === '') {
+            return $default;
+        }
+
+        $perPage = (int) $filters['per_page'];
+
+        return max(0, min(1000, $perPage));
     }
 }

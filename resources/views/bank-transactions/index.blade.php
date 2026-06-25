@@ -198,18 +198,62 @@
         </div>
     @endif
 
-    <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm">
-        <form class="p-4" method="get" action="{{ route('bank-transactions.index') }}" data-auto-filter-form>
-            <div class="grid gap-4 lg:grid-cols-4">
+    @php
+        $selectedAccountNumbersForFilter = collect($filters['account_numbers'] ?? array_filter([($filters['account_number'] ?? null)]))
+            ->filter()
+            ->map(fn ($accountNumber) => (string) $accountNumber)
+            ->all();
+
+        $formatAccountBalance = static function ($value, ?string $currency): string {
+            $currency = $currency ?: 'RUB';
+            $suffix = in_array($currency, ['RUB', '643'], true) ? ' ₽' : ' ' . $currency;
+
+            return number_format((float) ($value ?? 0), 2, '.', ' ') . $suffix;
+        };
+
+        $accountFilterOptions = $accounts
+            ->groupBy('legal_id')
+            ->flatMap(function ($legalAccounts) use ($selectedAccountNumbersForFilter, $formatAccountBalance) {
+                $firstAccount = $legalAccounts->first();
+                $legalLabel = $firstAccount->legalEntity?->legal_name ?? 'Юрлицо #' . $firstAccount->legal_id;
+                $items = collect([
+                    [
+                        'type' => 'group',
+                        'label' => $legalLabel,
+                        'indent' => 0,
+                        'selected' => $legalAccounts->contains(fn ($account) => in_array((string) $account->account_number, $selectedAccountNumbersForFilter, true)),
+                    ],
+                ]);
+
+                $legalAccounts
+                    ->each(function ($account) use ($items, $formatAccountBalance) {
+                        $items->push([
+                            'value' => $account->account_number,
+                            'label' => $account->name ?: ($account->account_type ?: 'Счет'),
+                            'secondary' => '',
+                            'amount' => $formatAccountBalance($account->balance_otb, $account->currency),
+                            'indent' => 1,
+                        ]);
+                    });
+
+                return $items;
+            })
+            ->values();
+    @endphp
+
+    <x-ui.table-filters
+        :action="route('bank-transactions.index')"
+        rows-id="bank-transactions-rows"
+        loader-id="bank-transactions-loader"
+        table-selector="[data-bank-transactions-table]"
+        head-selector="[data-bank-transactions-table] thead"
+        columns="lg:grid-cols-4"
+    >
                 <x-ui.multi-select-with-secondary-text
                     label="Счет"
                     name="account_numbers"
-                    :value="$filters['account_numbers'] ?? array_filter([($filters['account_number'] ?? null)])"
-                    :options="$accounts->map(fn ($account) => [
-                        'value' => $account->account_number,
-                        'label' => $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id,
-                        'secondary' => trim(($account->name ?: 'Счет') . ' · ' . $account->account_number),
-                    ])->values()"
+                    :value="$selectedAccountNumbersForFilter"
+                    :options="$accountFilterOptions"
                     placeholder="Все счета"
                 />
 
@@ -238,7 +282,7 @@
 
                 <label class="grid gap-1.5 text-sm font-medium text-slate-700">
                     <span>Контрагент / ИНН</span>
-                    <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="contractor" value="{{ $filters['contractor'] ?? '' }}" data-auto-filter-input>
+                    <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="contractor" value="{{ $filters['contractor'] ?? '' }}" data-ui-table-filter-input>
                 </label>
 
                 <x-ui.airdatepicker.date-range
@@ -248,168 +292,7 @@
                     :value-from="$filters['date_from'] ?? null"
                     :value-to="$filters['date_to'] ?? null"
                 />
-            </div>
-
-        </form>
-    </div>
-
-    @once
-        <script>
-            (() => {
-                const tableRows = () => document.getElementById('bank-transactions-rows');
-                const tableLoader = () => document.getElementById('bank-transactions-loader');
-                const stickySummaryBody = () => document.querySelector('[data-ui-sticky-table-summary-body]');
-                const tableHead = () => document.querySelector('[data-bank-transactions-table] thead');
-
-                const filteredUrl = (form) => {
-                    const url = new URL(form.action, window.location.origin);
-                    const formData = new FormData(form);
-
-                    for (const [key, value] of formData.entries()) {
-                        if (String(value) !== '') {
-                            url.searchParams.append(key, value);
-                        }
-                    }
-
-                    return url;
-                };
-
-                const setLoaderState = (loader, state) => {
-                    loader?.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                    loader?.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                    loader?.closest('tr')?.classList.toggle('hidden', state === 'hidden');
-                };
-
-                const replaceTable = (payload) => {
-                    const rows = tableRows();
-                    const summaryBody = stickySummaryBody();
-                    const head = tableHead();
-
-                    if (head) {
-                        head.innerHTML = payload.head_html || '';
-                    }
-
-                    if (rows) {
-                        rows.innerHTML = (payload.html || '') + (payload.loader_html || '');
-                    }
-
-                    if (summaryBody) {
-                        summaryBody.innerHTML = payload.sticky_summary_html || '';
-                    }
-
-                    const loader = tableLoader();
-
-                    if (!loader) {
-                        return;
-                    }
-
-                    if (payload.has_more && payload.next_page) {
-                        loader.dataset.nextPage = payload.next_page;
-                        setLoaderState(loader, 'loading');
-                    } else {
-                        delete loader.dataset.nextPage;
-                        setLoaderState(loader, 'hidden');
-                    }
-
-                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                    document.dispatchEvent(new Event('bank-transactions:loader-refresh'));
-                };
-
-                const fetchTable = async (form) => {
-                    if (!form || form.dataset.autoFilterLoading === 'true') {
-                        return;
-                    }
-
-                    const url = filteredUrl(form);
-                    const rows = tableRows();
-
-                    form.dataset.autoFilterLoading = 'true';
-                    rows?.classList.add('opacity-60');
-
-                    try {
-                        const response = await fetch(url.toString(), {
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
-
-                        if (!response.ok) {
-                            throw new Error('Request failed');
-                        }
-
-                        replaceTable(await response.json());
-                        window.history.replaceState({}, '', url.toString());
-                    } catch (error) {
-                        form.submit();
-                    } finally {
-                        form.dataset.autoFilterLoading = 'false';
-                        rows?.classList.remove('opacity-60');
-                    }
-                };
-
-                const submitForm = (form) => {
-                    if (!form || form.dataset.autoFilterSubmitting === 'true') {
-                        return;
-                    }
-
-                    form.dataset.autoFilterSubmitting = 'true';
-                    fetchTable(form).finally(() => {
-                        form.dataset.autoFilterSubmitting = 'false';
-                    });
-                };
-
-                const initAutoFilterForms = () => {
-                    document.querySelectorAll('[data-auto-filter-form]:not([data-auto-filter-ready])').forEach((form) => {
-                        let inputTimer = null;
-                        let dateRangeTimer = null;
-
-                        form.dataset.autoFilterReady = 'true';
-
-                        form.addEventListener('submit', (event) => {
-                            event.preventDefault();
-                            submitForm(form);
-                        });
-
-                        form.addEventListener('change', (event) => {
-                            if (event.target.matches('[data-auto-filter-input]')) {
-                                return;
-                            }
-
-                            submitForm(form);
-                        });
-
-                        form.addEventListener('airdatepicker-range-change', (event) => {
-                            window.clearTimeout(dateRangeTimer);
-
-                            if (event.detail?.selectedCount === 1) {
-                                dateRangeTimer = window.setTimeout(() => submitForm(form), 1200);
-                                return;
-                            }
-
-                            submitForm(form);
-                        });
-
-                        form.querySelectorAll('[data-auto-filter-input]').forEach((input) => {
-                            input.addEventListener('input', () => {
-                                window.clearTimeout(inputTimer);
-                                inputTimer = window.setTimeout(() => submitForm(form), 650);
-                            });
-                        });
-                    });
-                };
-
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initAutoFilterForms);
-                } else {
-                    initAutoFilterForms();
-                }
-
-                document.addEventListener('livewire:navigated', initAutoFilterForms);
-            })();
-        </script>
-    @endonce
-
+    </x-ui.table-filters>
 
     <x-ui.sticky-table
         :contained="false"
@@ -417,6 +300,7 @@
         :viewport-sticky="true"
         :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
+        font-size="4"
         scroll-class="overflow-x-auto overflow-y-visible"
         body-id="bank-transactions-rows"
         data-bank-transactions-table
@@ -662,85 +546,4 @@
         </script>
     @endonce
 
-    <script>
-        (() => {
-            const initBankTransactionsLoader = () => {
-                const rows = document.getElementById('bank-transactions-rows');
-                const loader = document.getElementById('bank-transactions-loader');
-                const loaderRow = document.getElementById('bank-transactions-loader-row');
-
-                if (!rows || !loader || !loaderRow || loader.dataset.bankTransactionsLoaderReady === 'true') {
-                    return;
-                }
-
-                let loading = false;
-                loader.dataset.bankTransactionsLoaderReady = 'true';
-
-                const setLoaderState = (state) => {
-                    loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                    loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                    loaderRow.classList.toggle('hidden', state === 'hidden');
-                };
-
-                const loadNextPage = async () => {
-                    if (loading || !loader.dataset.nextPage) {
-                        return;
-                    }
-
-                    loading = true;
-                    setLoaderState('loading');
-
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('page', loader.dataset.nextPage);
-
-                    try {
-                        const response = await fetch(url.toString(), {
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
-
-                        if (!response.ok) {
-                            throw new Error('Request failed');
-                        }
-
-                        const payload = await response.json();
-                        loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
-
-                        if (payload.has_more && payload.next_page) {
-                            loader.dataset.nextPage = payload.next_page;
-                            setLoaderState('loading');
-                        } else {
-                            delete loader.dataset.nextPage;
-                            setLoaderState('hidden');
-                        }
-
-                        document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                    } catch (error) {
-                        setLoaderState('error');
-                    } finally {
-                        loading = false;
-                    }
-                };
-
-                const observer = new IntersectionObserver((entries) => {
-                    if (entries.some((entry) => entry.isIntersecting)) {
-                        loadNextPage();
-                    }
-                }, { rootMargin: '600px 0px' });
-
-                observer.observe(loader);
-            };
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initBankTransactionsLoader);
-            } else {
-                initBankTransactionsLoader();
-            }
-
-            document.addEventListener('bank-transactions:loader-refresh', initBankTransactionsLoader);
-            document.addEventListener('livewire:navigated', initBankTransactionsLoader);
-        })();
-    </script>
 @endsection

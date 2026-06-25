@@ -4,6 +4,8 @@
     'titleDescription' => null,
     'navItems' => [],
     'currentUser' => null,
+    'authenticatedUser' => null,
+    'isImpersonating' => false,
     'legalEntities' => collect(),
     'currentLegalEntity' => null,
 ])
@@ -162,6 +164,23 @@
             </div>
         </div>
     </nav>
+
+    @if ($isImpersonating && $authenticatedUser && $currentUser)
+        <div class="bg-amber-50 px-4 py-2 text-sm text-amber-900 ring-1 ring-amber-600/20 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    Вы вошли как {{ $authenticatedUser->name ?: $authenticatedUser->email }}, но сейчас работаете под пользователем
+                    <span class="font-semibold">{{ $currentUser->name ?: $currentUser->email }}</span>.
+                </div>
+                <form method="post" action="{{ route('users.impersonation.stop') }}">
+                    @csrf
+                    <button type="submit" class="rounded-md bg-amber-100 px-2.5 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200">
+                        Вернуться к себе
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <x-ui.drawer id="app-navigation-drawer" side="left" size="auto">
         <x-slot:header>

@@ -12,6 +12,7 @@
             ? trim($transaction->type_alias . ' · ' . ($transaction->operation_type_name ?: 'Неизвестный тип'))
             : '—';
         $contractorTitle = $transaction->contractor_inn ? 'ИНН ' . $transaction->contractor_inn : null;
+        $hasBadges = (int) $transaction->has_vat === 1 || (int) $transaction->dohras === 1 || (bool) $transaction->k_id;
     @endphp
 
     <tr
@@ -41,26 +42,25 @@
         data-bank-transaction-vat="{{ (int) $transaction->has_vat === 1 ? 'Да' : 'Нет' }}"
         data-bank-transaction-kassa="{{ $transaction->k_id ?: '—' }}"
     >
-        <td class="whitespace-nowrap border-b border-gray-200 py-4 pr-3 pl-4 text-sm text-gray-500 sm:pl-6 lg:pl-8 dark:border-white/10 dark:text-gray-400">
+        <x-ui.sticky-table-td first nowrap>
             <div class="font-medium tabular-nums text-gray-900 dark:text-white">
                 {{ $transactionDate }}
             </div>
-        </td>
+        </x-ui.sticky-table-td>
         @if ($showAccountColumn)
-            <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+            <x-ui.sticky-table-td :nowrap="false">
                 <div class="font-semibold text-gray-900 dark:text-white">{{ $transaction->legal_name ?? 'Юрлицо #' . $transaction->legal_id }}</div>
                 <div class="mt-1 text-sm text-gray-500">{{ $transaction->bank_account_name }}</div>
                 <div class="mt-1 font-mono text-xs text-gray-400">{{ $transaction->account_number }} · {{ $transaction->bank_id }}</div>
-            </td>
+            </x-ui.sticky-table-td>
         @endif
         <x-ui.money-columns
             :amount="$operationAmount"
             :income="$incomeAmountValue"
             :expense="$expenseAmountValue"
-            cell-padding="px-3 py-4"
             cell-class="font-medium"
         />
-        <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+        <x-ui.sticky-table-td :nowrap="false">
             <div class="flex items-start gap-1.5 font-medium text-gray-900 dark:text-white">
                 @if ($transaction->k_id)
                     <span class="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-amber-600" title="Связано с кассой #{{ $transaction->k_id }}">
@@ -73,23 +73,25 @@
 
                 <span @if ($contractorTitle) title="{{ $contractorTitle }}" @endif>{{ $transaction->name ?: '—' }}</span>
             </div>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-                @if ((int) $transaction->has_vat === 1)
-                    <span class="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 ring-1 ring-cyan-200">НДС</span>
-                @endif
-                @if ((int) $transaction->dohras === 1)
-                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">дох/рас</span>
-                @endif
-                @if ($transaction->k_id)
-                    <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">касса</span>
-                @endif
-            </div>
-        </td>
-        <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+            @if ($hasBadges)
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                    @if ((int) $transaction->has_vat === 1)
+                        <span class="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 ring-1 ring-cyan-200">НДС</span>
+                    @endif
+                    @if ((int) $transaction->dohras === 1)
+                        <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">дох/рас</span>
+                    @endif
+                    @if ($transaction->k_id)
+                        <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">касса</span>
+                    @endif
+                </div>
+            @endif
+        </x-ui.sticky-table-td>
+        <x-ui.sticky-table-td :nowrap="false">
             <div class="text-gray-700 dark:text-gray-300">{{ $transaction->payment_purpose }}</div>
-        </td>
-        <td class="whitespace-nowrap border-b border-gray-200 py-4 pr-4 pl-3 text-right text-sm font-semibold tabular-nums text-gray-900 sm:pr-8 lg:pr-8 dark:border-white/10 dark:text-white">
+        </x-ui.sticky-table-td>
+        <x-ui.sticky-table-td last align="right" nowrap strong class="tabular-nums">
             {{ $totalAmount }}
-        </td>
+        </x-ui.sticky-table-td>
     </tr>
 @endforeach

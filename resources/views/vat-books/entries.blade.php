@@ -17,9 +17,14 @@
 @endsection
 
 @section('content')
-    <div class="mb-4 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-        <form class="p-4" method="get" action="{{ route('vat-book-entries.index') }}">
-            <div class="grid gap-4 lg:grid-cols-5">
+    <x-ui.table-filters
+        :action="route('vat-book-entries.index')"
+        rows-id="vat-book-entries-rows"
+        loader-id="vat-book-entries-loader"
+        table-selector="[data-vat-book-entries-table]"
+        summary-selector="#vat-book-entries-summary"
+        columns="lg:grid-cols-5"
+    >
                 <x-ui.select
                     label="Год"
                     name="year"
@@ -67,25 +72,24 @@
                     <input
                         class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
                         name="q"
+                        data-ui-table-filter-input
                         value="{{ $filters['q'] ?? '' }}"
                         placeholder="ИНН, контрагент, счет-фактура, код"
                         autocomplete="off"
                     >
                 </label>
-            </div>
 
-            <div class="mt-4 flex justify-end gap-2">
+            <x-slot:actions>
                 <x-ui.button href="{{ route('vat-book-entries.index') }}" size="lg" wire:navigate>
                     Сбросить
                 </x-ui.button>
                 <x-ui.button type="submit" size="lg" variant="soft">
                     Показать
                 </x-ui.button>
-            </div>
-        </form>
-    </div>
+            </x-slot:actions>
+    </x-ui.table-filters>
 
-    <div class="mb-4 flex flex-wrap gap-2">
+    <div class="mb-4 flex flex-wrap gap-2" id="vat-book-entries-summary">
         <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">Строк: {{ number_format((int) $summary->entries_count, 0, ',', ' ') }}</span>
         <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">Сумма: {{ number_format((float) $summary->amount_total, 2, ',', ' ') }}</span>
         <span class="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700 ring-1 ring-cyan-200">Без НДС: {{ number_format((float) $summary->amount_without_vat, 2, ',', ' ') }}</span>
@@ -99,6 +103,8 @@
         :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
+        body-id="vat-book-entries-rows"
+        data-vat-book-entries-table
     >
         <x-slot:head>
             <tr>
@@ -147,87 +153,4 @@
             </tr>
         </x-slot:stickySummary>
     </x-ui.sticky-table>
-
-    @once
-        <script>
-            (() => {
-                const initVatBookEntriesLoader = () => {
-                    const loader = document.getElementById('vat-book-entries-loader');
-                    const loaderRow = document.getElementById('vat-book-entries-loader-row');
-
-                    if (!loader || !loaderRow || loader.dataset.vatBookEntriesLoaderReady === 'true') {
-                        return;
-                    }
-
-                    let loading = false;
-                    loader.dataset.vatBookEntriesLoaderReady = 'true';
-
-                    const setLoaderState = (state) => {
-                        loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                        loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                        loaderRow.classList.toggle('hidden', state === 'hidden');
-                    };
-
-                    const loadNextPage = async () => {
-                        if (loading || !loader.dataset.nextPage) {
-                            return;
-                        }
-
-                        loading = true;
-                        setLoaderState('loading');
-
-                        const url = new URL(window.location.href);
-                        url.searchParams.set('page', loader.dataset.nextPage);
-
-                        try {
-                            const response = await fetch(url.toString(), {
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                            });
-
-                            if (!response.ok) {
-                                throw new Error('Request failed');
-                            }
-
-                            const payload = await response.json();
-                            loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
-
-                            if (payload.has_more && payload.next_page) {
-                                loader.dataset.nextPage = payload.next_page;
-                                setLoaderState('loading');
-                            } else {
-                                delete loader.dataset.nextPage;
-                                setLoaderState('hidden');
-                                observer.disconnect();
-                            }
-
-                            document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                        } catch (error) {
-                            setLoaderState('error');
-                        } finally {
-                            loading = false;
-                        }
-                    };
-
-                    const observer = new IntersectionObserver((entries) => {
-                        if (entries.some((entry) => entry.isIntersecting)) {
-                            loadNextPage();
-                        }
-                    }, { rootMargin: '600px 0px' });
-
-                    observer.observe(loader);
-                };
-
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initVatBookEntriesLoader);
-                } else {
-                    initVatBookEntriesLoader();
-                }
-
-                document.addEventListener('livewire:navigated', initVatBookEntriesLoader);
-            })();
-        </script>
-    @endonce
 @endsection

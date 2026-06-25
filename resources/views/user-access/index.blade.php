@@ -10,18 +10,11 @@
         'can_manage_reference_data' => 'Справочники',
     ];
 
-    $roleLabels = [
-        'admin' => 'Админ',
-        'manager' => 'Менеджер',
-        'accountant' => 'Внешний бухгалтер',
-        'viewer' => 'Наблюдатель',
-    ];
-
     $userOptions = $users->map(fn ($user) => [
         'value' => (string) $user->getKey(),
         'label' => $user->name ?: $user->email,
-        'secondary' => trim(($roleLabels[$user->role] ?? $user->role) . ' · ' . $user->email),
-        'swatch' => $user->role === 'admin' ? '#4f46e5' : ($user->is_active ? '#16a34a' : '#dc2626'),
+        'secondary' => trim(($user->isAdmin() ? 'Админ' : 'Пользователь') . ' · ' . $user->email),
+        'swatch' => $user->isAdmin() ? '#4f46e5' : ($user->is_active ? '#16a34a' : '#dc2626'),
     ]);
 
     $scopeRows = collect([
@@ -74,25 +67,25 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <h2 class="truncate text-base font-semibold text-gray-900">{{ $selectedUser->name }}</h2>
                                 @if ($isAdmin)
-                                    <span class="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20">admin</span>
+                                    <span class="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20">Админ</span>
                                 @elseif (! $selectedUser->is_active)
-                                    <span class="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-600/20">отключен</span>
+                                    <span class="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-600/20">Отключен</span>
                                 @endif
                             </div>
                             <div class="mt-1 truncate text-sm text-gray-500">{{ $selectedUser->email }}</div>
                         </div>
 
                         <div class="flex flex-wrap items-end gap-3">
-                            <label class="block">
-                                <span class="block text-xs font-medium text-gray-500">Роль</span>
-                                <select
-                                    name="role"
-                                    class="mt-1 rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600"
+                            <label class="inline-flex items-center gap-2 pb-2 text-sm font-medium text-gray-700">
+                                <input type="hidden" name="is_admin" value="0">
+                                <input
+                                    type="checkbox"
+                                    name="is_admin"
+                                    value="1"
+                                    @checked($isAdmin)
+                                    class="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
                                 >
-                                    @foreach ($roleLabels as $role => $label)
-                                        <option value="{{ $role }}" @selected($selectedUser->role === $role)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
+                                Администратор
                             </label>
 
                             <label class="inline-flex items-center gap-2 pb-2 text-sm font-medium text-gray-700">
@@ -113,7 +106,7 @@
 
                     @if ($isAdmin)
                         <div class="px-4 py-4 text-sm text-gray-500 sm:px-6">
-                            Админ видит весь граф и может выполнять все действия без отдельных строк доступа.
+                            Администратор видит весь граф и может выполнять все действия без отдельных строк доступа.
                         </div>
                     @endif
 

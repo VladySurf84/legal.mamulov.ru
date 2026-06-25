@@ -192,86 +192,16 @@
                 </td>
             </tr>
         @endif
+
+        <tr id="counterparty-ledger-loader-row" data-ui-sticky-table-loader-row @class(['hidden' => ! $nextPage])>
+            <td class="h-[20vh] py-3 text-center align-middle text-sm text-slate-500" colspan="{{ $emptyColspan }}">
+                <div id="counterparty-ledger-loader" data-ui-sticky-table-loader data-next-page="{{ $nextPage }}">
+                    <span data-loader-spinner @class(['hidden' => ! $nextPage])>
+                        <x-ui.loading :overlay="false" label="Загрузка детализации контрагента" />
+                    </span>
+                    <span data-loader-error class="hidden text-rose-600">Не удалось загрузить следующую страницу.</span>
+                </div>
+            </td>
+        </tr>
     </x-ui.sticky-table>
-
-    <div
-        id="counterparty-ledger-loader"
-        class="py-4 text-center text-sm text-slate-500"
-        data-next-page="{{ $nextPage }}"
-    >
-        <span data-loader-spinner @class(['hidden' => ! $nextPage])>
-            <x-ui.loading :overlay="false" label="Загрузка детализации контрагента" />
-        </span>
-        <span data-loader-error class="hidden text-rose-600">Не удалось загрузить следующую страницу.</span>
-    </div>
-
-    <script>
-        (() => {
-            const rows = document.getElementById('counterparty-ledger-rows');
-            const loader = document.getElementById('counterparty-ledger-loader');
-
-            if (!rows || !loader || !loader.dataset.nextPage) {
-                return;
-            }
-
-            let loading = false;
-
-            const setLoaderState = (state) => {
-                loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                loader.classList.toggle('hidden', state === 'hidden');
-            };
-
-            const loadNextPage = async () => {
-                if (loading || !loader.dataset.nextPage) {
-                    return;
-                }
-
-                loading = true;
-                setLoaderState('loading');
-
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', loader.dataset.nextPage);
-
-                try {
-                    const response = await fetch(url.toString(), {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Request failed');
-                    }
-
-                    const payload = await response.json();
-                    rows.insertAdjacentHTML('beforeend', payload.html);
-
-                    if (payload.has_more && payload.next_page) {
-                        loader.dataset.nextPage = payload.next_page;
-                        setLoaderState('loading');
-                    } else {
-                        delete loader.dataset.nextPage;
-                        setLoaderState('hidden');
-                        observer.disconnect();
-                    }
-
-                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                } catch (error) {
-                    setLoaderState('error');
-                } finally {
-                    loading = false;
-                }
-            };
-
-            const observer = new IntersectionObserver((entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    loadNextPage();
-                }
-            }, { rootMargin: '600px 0px' });
-
-            observer.observe(loader);
-        })();
-    </script>
 @endsection

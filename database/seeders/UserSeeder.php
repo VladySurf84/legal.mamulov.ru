@@ -25,7 +25,8 @@ class UserSeeder extends Seeder
                 [
                     'name' => $user['name'],
                     'password' => null,
-                    'role' => 'admin',
+                    'role' => $user['is_admin'] ? 'admin' : 'viewer',
+                    'is_admin' => $user['is_admin'],
                     'is_active' => true,
                 ],
             );
@@ -33,14 +34,14 @@ class UserSeeder extends Seeder
     }
 
     /**
-     * @return array<int, array{name: string, email: string}>
+     * @return array<int, array{name: string, email: string, is_admin: bool}>
      */
     private function users(): array
     {
         return [
-            ['name' => 'Vlady', 'email' => 'ecomicron@gmail.com'],
-            ['name' => 'Ivan', 'email' => 'vafgrt1996@gmail.com'],
-            ['name' => 'Abertos', 'email' => 'abertos16@gmail.com'],
+            ['name' => 'Vlady', 'email' => 'ecomicron@gmail.com', 'is_admin' => true],
+            ['name' => 'Ivan', 'email' => 'vafgrt1996@gmail.com', 'is_admin' => false],
+            ['name' => 'Abertos', 'email' => 'abertos16@gmail.com', 'is_admin' => false],
         ];
     }
 }

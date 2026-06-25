@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Layers\CashLayerBuilder;
+use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Throwable;
 
 class KassaController extends Controller
 {
-    private const PER_PAGE = 100;
+    private const PER_PAGE = 50;
 
     public function index(Request $request): View|JsonResponse
     {
@@ -25,9 +26,13 @@ class KassaController extends Controller
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
         $page = (int) ($filters['page'] ?? 1);
+        $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'kassa-rows', self::PER_PAGE);
+        $perPage = $this->perPage($filters);
         unset($filters['page']);
+        unset($filters['per_page']);
 
         $query = DB::table('legal.cash_entries as entry')
             ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'entry.article_id')
@@ -76,7 +81,7 @@ class KassaController extends Controller
             ->selectRaw('COALESCE(SUM(CASE WHEN entry.amount > 0 THEN entry.amount ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END), 0) as saldo_amount')
             ->first();
 
-        $operations = $query
+        $operationsQuery = $query
             ->select([
                 'entry.cash_entry_id',
                 'entry.source_type',
@@ -101,12 +106,17 @@ class KassaController extends Controller
             ->selectRaw('CASE WHEN entry.amount < 0 THEN -entry.amount ELSE 0 END AS entry_expense_amount')
             ->selectRaw('SUM(entry.amount) OVER (ORDER BY entry.occurred_at, entry.cash_entry_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total')
             ->orderByDesc('entry.occurred_at')
-            ->orderByDesc('entry.cash_entry_id')
-            ->offset(($page - 1) * self::PER_PAGE)
-            ->limit(self::PER_PAGE)
-            ->get();
+            ->orderByDesc('entry.cash_entry_id');
 
-        $hasMore = $page * self::PER_PAGE < (int) $summary->operations_count;
+        if ($perPage > 0) {
+            $operationsQuery
+                ->offset(($page - 1) * $perPage)
+                ->limit($perPage);
+        }
+
+        $operations = $operationsQuery->get();
+
+        $hasMore = $perPage > 0 && $page * $perPage < (int) $summary->operations_count;
 
         if ($request->ajax()) {
             return response()->json([
@@ -116,7 +126,10 @@ class KassaController extends Controller
                 ])->render(),
                 'loader_html' => view('kassa.partials.loader-row', [
                     'nextPage' => $hasMore ? $page + 1 : null,
-                    'tableColspan' => 9,
+                    'tableColspan' => 10,
+                ])->render(),
+                'sticky_summary_html' => view('kassa.partials.foot', [
+                    'summary' => $summary,
                 ])->render(),
                 'has_more' => $hasMore,
                 'next_page' => $hasMore ? $page + 1 : null,
@@ -203,5 +216,19 @@ class KassaController extends Controller
         return DB::table('legal.kassa_article')
             ->orderBy('article')
             ->get(['article_id', 'article']);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function perPage(array $filters): int
+    {
+        if (! array_key_exists('per_page', $filters) || $filters['per_page'] === null || $filters['per_page'] === '') {
+            return self::PER_PAGE;
+        }
+
+        $perPage = (int) $filters['per_page'];
+
+        return max(0, min(1000, $perPage));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Vat\VatBookImportService;
+use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,10 +53,12 @@ class VatBookController extends Controller
             'legal_id' => ['nullable', 'string', 'max:12'],
             'q' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
         $page = (int) ($filters['page'] ?? 1);
-        $perPage = 100;
-        $offset = ($page - 1) * $perPage;
+        $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'vat-book-entries-rows', 50);
+        $perPage = $this->perPage($filters, 50);
+        $offset = $perPage > 0 ? ($page - 1) * $perPage : 0;
 
         $baseQuery = DB::table('legal.vat_book_entries as e')
             ->join('legal.vat_book_imports as i', 'i.vat_book_import_id', '=', 'e.vat_book_import_id')
@@ -100,7 +103,7 @@ class VatBookController extends Controller
             ->selectRaw('COALESCE(SUM(e.vat_amount), 0) as vat_amount')
             ->first();
 
-        $entries = $baseQuery
+        $entriesQuery = $baseQuery
             ->orderByDesc('e.year')
             ->orderByDesc('e.quarter')
             ->orderBy('e.book_type')
@@ -129,12 +132,17 @@ class VatBookController extends Controller
                 'i.source_file_name',
                 'l.legal_name',
                 'l.legal_inn',
-            ])
-            ->limit($perPage + 1)
-            ->offset($offset)
-            ->get();
+            ]);
 
-        $hasMoreEntries = $entries->count() > $perPage;
+        if ($perPage > 0) {
+            $entriesQuery
+                ->limit($perPage + 1)
+                ->offset($offset);
+        }
+
+        $entries = $entriesQuery->get();
+
+        $hasMoreEntries = $perPage > 0 && $entries->count() > $perPage;
         if ($hasMoreEntries) {
             $entries = $entries->slice(0, $perPage)->values();
         }
@@ -164,6 +172,12 @@ class VatBookController extends Controller
                 ])->render(),
                 'loader_html' => view('vat-books.partials.entries-loader-row', [
                     'nextPage' => $nextPage,
+                ])->render(),
+                'summary_html' => view('vat-books.partials.entries-summary', [
+                    'summary' => $summary,
+                ])->render(),
+                'sticky_summary_html' => view('vat-books.partials.entries-foot', [
+                    'summary' => $summary,
                 ])->render(),
                 'next_page' => $nextPage,
                 'has_more' => $hasMoreEntries,
@@ -290,5 +304,19 @@ class VatBookController extends Controller
         }
 
         return route('vat-books.index');
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function perPage(array $filters, int $default): int
+    {
+        if (! array_key_exists('per_page', $filters) || $filters['per_page'] === null || $filters['per_page'] === '') {
+            return $default;
+        }
+
+        $perPage = (int) $filters['per_page'];
+
+        return max(0, min(1000, $perPage));
     }
 }

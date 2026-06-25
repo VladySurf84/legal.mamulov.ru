@@ -36,6 +36,8 @@
     $currentLegalEntity = $currentLegalId
         ? $legalEntities->firstWhere('legal_id', (string) $currentLegalId)
         : null;
+    $authenticatedUser = request()->attributes->get('authenticated_user') ?: auth()->user();
+    $isImpersonating = (bool) request()->attributes->get('is_impersonating');
 @endphp
 
 <x-ui.app-shell
@@ -44,6 +46,8 @@
     :title-description="$titleDescription ?? null"
     :nav-items="$navItems"
     :current-user="auth()->user()"
+    :authenticated-user="$authenticatedUser"
+    :is-impersonating="$isImpersonating"
     :legal-entities="$legalEntities"
     :current-legal-entity="$currentLegalEntity"
 >

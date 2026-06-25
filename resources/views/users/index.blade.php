@@ -1,12 +1,8 @@
 @extends('layouts.app', ['title' => 'Пользователи'])
 
 @php
-    $roleLabels = [
-        'admin' => 'Админ',
-        'manager' => 'Менеджер',
-        'accountant' => 'Бухгалтер',
-        'viewer' => 'Наблюдатель',
-    ];
+    $authenticatedUser = request()->attributes->get('authenticated_user') ?: auth()->user();
+    $effectiveUser = auth()->user();
 @endphp
 
 @section('page_actions')
@@ -32,7 +28,7 @@
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first>Пользователь</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Роль</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Доступ</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статус</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Google</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Telegram</x-ui.sticky-table-th>
@@ -64,10 +60,10 @@
                 <x-ui.sticky-table-td>
                     <span @class([
                         'rounded-md px-2 py-1 text-xs font-medium ring-1',
-                        'bg-indigo-50 text-indigo-700 ring-indigo-600/20' => $user->role === 'admin',
-                        'bg-gray-50 text-gray-700 ring-gray-600/20' => $user->role !== 'admin',
+                        'bg-indigo-50 text-indigo-700 ring-indigo-600/20' => $user->isAdmin(),
+                        'bg-gray-50 text-gray-700 ring-gray-600/20' => ! $user->isAdmin(),
                     ])>
-                        {{ $roleLabels[$user->role] ?? $user->role }}
+                        {{ $user->isAdmin() ? 'Админ' : 'Пользователь' }}
                     </span>
                 </x-ui.sticky-table-td>
 
@@ -100,13 +96,33 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td align="right" class="tabular-nums">
-                    {{ $user->role === 'admin' ? '∞' : $user->access_scopes_count }}
+                    {{ $user->isAdmin() ? '∞' : $user->access_scopes_count }}
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td last align="right">
-                    <x-ui.button href="{{ route('user-access.index', ['user_id' => $user->getKey()]) }}" size="md" variant="ghost">
-                        Права
-                    </x-ui.button>
+                    <div class="flex justify-end gap-2">
+                        @if ($authenticatedUser?->isAdmin() && ! $authenticatedUser->is($user) && $user->is_active)
+                            @if ($effectiveUser?->is($user))
+                                <form method="post" action="{{ route('users.impersonation.stop') }}">
+                                    @csrf
+                                    <x-ui.button type="submit" size="md" variant="ghost">
+                                        Вернуться
+                                    </x-ui.button>
+                                </form>
+                            @else
+                                <form method="post" action="{{ route('users.impersonate', $user) }}">
+                                    @csrf
+                                    <x-ui.button type="submit" size="md" variant="ghost">
+                                        Работать как
+                                    </x-ui.button>
+                                </form>
+                            @endif
+                        @endif
+
+                        <x-ui.button href="{{ route('user-access.index', ['user_id' => $user->getKey()]) }}" size="md" variant="ghost">
+                            Права
+                        </x-ui.button>
+                    </div>
                 </x-ui.sticky-table-td>
             </tr>
         @empty

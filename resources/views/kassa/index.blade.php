@@ -126,9 +126,13 @@
         </div>
     @endif
 
-    <div class="mb-4 border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-        <form method="get" action="{{ route('kassa.index') }}">
-            <div class="grid gap-4 lg:grid-cols-6">
+    <x-ui.table-filters
+        :action="route('kassa.index')"
+        rows-id="kassa-rows"
+        loader-id="kassa-loader"
+        table-selector="[data-kassa-table]"
+        columns="lg:grid-cols-6"
+    >
                 <x-ui.select-with-secondary-text
                     label="Юрлицо"
                     name="legal_id"
@@ -168,18 +172,17 @@
                     :value-to="$filters['date_to'] ?? null"
                 />
 
-                <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white lg:col-span-2">
+                <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
                     <span>Поиск</span>
                     <input
                         class="h-10 rounded-md bg-white px-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
                         name="q"
+                        data-ui-table-filter-input
                         value="{{ $filters['q'] ?? '' }}"
                         placeholder="Описание, статья, юрлицо или ИНН"
                     >
                 </label>
-            </div>
-
-            <div class="mt-4 flex flex-wrap justify-end gap-2">
+                <div class="flex flex-wrap items-end justify-end gap-2">
                 <x-ui.button :href="route('kassa.index')" variant="ghost" wire:navigate>
                     Сбросить
                 </x-ui.button>
@@ -187,9 +190,8 @@
                 <x-ui.button type="submit" variant="soft">
                     Показать
                 </x-ui.button>
-            </div>
-        </form>
-    </div>
+                </div>
+    </x-ui.table-filters>
 
     <x-ui.sticky-table
         :contained="false"
@@ -198,6 +200,8 @@
         :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
+        body-id="kassa-rows"
+        data-kassa-table
     >
         <x-slot:head>
             <tr>
@@ -229,9 +233,9 @@
 
         <x-slot:stickySummary>
             <tr>
-                <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
+                <x-ui.sticky-table-summary-label first :columns="3">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
-                </th>
+                </x-ui.sticky-table-summary-label>
                 <x-ui.money-columns
                     :amount="$summary->saldo_amount"
                     :income="$summary->income_amount"
@@ -253,75 +257,4 @@
             </tr>
         </x-slot:stickySummary>
     </x-ui.sticky-table>
-
-    <script>
-        (() => {
-            const loader = document.getElementById('kassa-loader');
-            const loaderRow = document.getElementById('kassa-loader-row');
-
-            if (!loader || !loaderRow || loader.dataset.kassaLoaderReady === 'true') {
-                return;
-            }
-
-            loader.dataset.kassaLoaderReady = 'true';
-
-            let loading = false;
-
-            const setLoaderState = (state) => {
-                loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                loaderRow.classList.toggle('hidden', state === 'hidden');
-            };
-
-            const loadNextPage = async () => {
-                if (loading || !loader.dataset.nextPage) {
-                    return;
-                }
-
-                loading = true;
-                setLoaderState('loading');
-
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', loader.dataset.nextPage);
-
-                try {
-                    const response = await fetch(url.toString(), {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Request failed');
-                    }
-
-                    const payload = await response.json();
-                    loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
-
-                    if (payload.has_more && payload.next_page) {
-                        loader.dataset.nextPage = payload.next_page;
-                        setLoaderState('loading');
-                    } else {
-                        delete loader.dataset.nextPage;
-                        setLoaderState('hidden');
-                    }
-
-                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                } catch (error) {
-                    setLoaderState('error');
-                } finally {
-                    loading = false;
-                }
-            };
-
-            const observer = new IntersectionObserver((entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    loadNextPage();
-                }
-            }, { rootMargin: '600px 0px' });
-
-            observer.observe(loader);
-        })();
-    </script>
 @endsection
