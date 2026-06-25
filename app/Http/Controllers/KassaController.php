@@ -116,7 +116,7 @@ class KassaController extends Controller
                 ])->render(),
                 'loader_html' => view('kassa.partials.loader-row', [
                     'nextPage' => $hasMore ? $page + 1 : null,
-                    'tableColspan' => 10,
+                    'tableColspan' => 9,
                 ])->render(),
                 'has_more' => $hasMore,
                 'next_page' => $hasMore ? $page + 1 : null,

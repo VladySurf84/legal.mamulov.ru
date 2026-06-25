@@ -47,7 +47,7 @@ SET cash_entry_id = (
     FROM legal.cash_entries ce
     WHERE ce.source_type = 'bank_rule'
         AND ce.amount > 0
-        AND ce.metadata->>'contractor_inn' IN ('7704217370', '9714053621')
+        AND ce.metadata->>'contractor_inn' IN ('7704217370', '9714053621', '7721546864')
         AND date_trunc('second', ce.occurred_at) = date_trunc('second', k."time")
         AND ce.amount BETWEEN k.amount - 1 AND k.amount + 1
     ORDER BY abs(ce.amount - k.amount), ce.cash_entry_id

@@ -27,11 +27,6 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-72">
-            <div class="font-medium text-gray-900 dark:text-white">{{ $operation->legal_name ?? 'Юрлицо #' . $operation->legal_id }}</div>
-            <div class="mt-1 font-mono text-xs text-gray-400">ИНН {{ $operation->legal_inn ?? $operation->legal_id }}</div>
-        </x-ui.sticky-table-td>
-
         <x-ui.sticky-table-td :nowrap="false" class="min-w-56">
             <div class="whitespace-normal break-words text-gray-900 dark:text-white">{{ $operation->article ?: 'Без статьи' }}</div>
             @if ($operation->article_id)

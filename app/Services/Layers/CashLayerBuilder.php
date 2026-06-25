@@ -11,9 +11,9 @@ class CashLayerBuilder
         return DB::transaction(function (): int {
             DB::table('legal.cash_entries')->delete();
 
-            $this->insertManualKassaEntries();
             $this->insertBankRuleEntries();
             $this->updateKassaCashEntryLinks();
+            $this->insertManualKassaEntries();
 
             return DB::table('legal.cash_entries')->count();
         });
@@ -59,6 +59,10 @@ SELECT
 FROM legal.kassa k
 LEFT JOIN legal.kassa_article article
     ON article.article_id = k.article_id
+WHERE NOT (
+    k.reconciliation_id IS NOT NULL
+    AND k.cash_entry_id IS NOT NULL
+)
 SQL);
     }
 
@@ -168,7 +172,7 @@ SET cash_entry_id = (
     FROM legal.cash_entries ce
     WHERE ce.source_type = 'bank_rule'
         AND ce.amount > 0
-        AND ce.metadata->>'contractor_inn' IN ('7704217370', '9714053621')
+        AND ce.metadata->>'contractor_inn' IN ('7704217370', '9714053621', '7721546864')
         AND date_trunc('second', ce.occurred_at) = date_trunc('second', k."time")
         AND ce.amount BETWEEN k.amount - 1 AND k.amount + 1
     ORDER BY abs(ce.amount - k.amount), ce.cash_entry_id

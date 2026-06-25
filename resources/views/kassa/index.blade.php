@@ -204,7 +204,6 @@
             <tr>
                 <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Источник</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Юрлицо</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статья</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Расход</x-ui.sticky-table-th>
@@ -219,7 +218,7 @@
             @include('kassa.partials.rows', ['operations' => $operations, 'displayTimezone' => $displayTimezone])
         @else
             <tr>
-                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="10">
+                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="9">
                     Кассовые операции пока не найдены.
                 </td>
             </tr>
@@ -227,12 +226,12 @@
 
         @include('kassa.partials.loader-row', [
             'nextPage' => $nextPage,
-            'tableColspan' => 10,
+            'tableColspan' => 9,
         ])
 
         <x-slot:stickySummary>
             <tr>
-                <th scope="row" colspan="4" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
+                <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
                 </th>
                 <td class="sticky bottom-0 z-10 whitespace-nowrap border-t border-gray-300 bg-emerald-50/80 px-3 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-700 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-emerald-950/30">
