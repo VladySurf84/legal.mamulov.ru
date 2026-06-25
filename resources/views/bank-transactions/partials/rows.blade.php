@@ -9,6 +9,7 @@
         $operationTypeLabel = $transaction->type_alias
             ? trim($transaction->type_alias . ' · ' . ($transaction->operation_type_name ?: 'Неизвестный тип'))
             : '—';
+        $contractorTitle = $transaction->contractor_inn ? 'ИНН ' . $transaction->contractor_inn : null;
     @endphp
 
     <tr
@@ -52,22 +53,13 @@
             </td>
         @endif
         <td class="min-w-64 border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
-            <div class="font-medium text-gray-900 dark:text-white">{{ $transaction->name ?: '—' }}</div>
-            @if ($transaction->contractor_inn)
-                <div class="mt-1 text-xs text-gray-500">ИНН {{ $transaction->contractor_inn }}</div>
-            @endif
-            @if ($transaction->contractor_bank_account)
-                <div class="mt-1 font-mono text-xs text-gray-400">{{ $transaction->contractor_bank_account }}</div>
-            @endif
+            <div class="font-medium text-gray-900 dark:text-white" @if ($contractorTitle) title="{{ $contractorTitle }}" @endif>{{ $transaction->name ?: '—' }}</div>
             <div class="mt-2 flex flex-wrap gap-1.5">
                 @if ((int) $transaction->has_vat === 1)
                     <span class="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 ring-1 ring-cyan-200">НДС</span>
                 @endif
                 @if ((int) $transaction->dohras === 1)
                     <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">дох/рас</span>
-                @endif
-                @if ($transaction->type_alias)
-                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200" title="{{ $operationTypeLabel }}">{{ $transaction->type_alias }}</span>
                 @endif
                 @if ($transaction->k_id)
                     <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">касса</span>
@@ -82,7 +74,6 @@
         </td>
         <td class="min-w-[28rem] border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
             <div class="text-gray-700 dark:text-gray-300">{{ $transaction->payment_purpose }}</div>
-            <div class="mt-1 font-mono text-xs text-gray-400">{{ $transaction->order_intraday }}</div>
         </td>
         <td class="whitespace-nowrap border-b border-gray-200 py-4 pr-4 pl-3 text-right text-sm font-semibold tabular-nums text-gray-900 sm:pr-8 lg:pr-8 dark:border-white/10 dark:text-white">
             {{ $totalAmount }}
