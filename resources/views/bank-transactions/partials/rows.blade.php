@@ -57,6 +57,7 @@
             :amount="$operationAmount"
             :income="$incomeAmountValue"
             :expense="$expenseAmountValue"
+            cell-padding="px-3 py-4"
             cell-class="font-medium"
         />
         <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
