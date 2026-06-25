@@ -196,7 +196,11 @@ filtered_money AS (
         ), '-infinity'::date)
 ),
 doc_agg AS (
-    SELECT contractor_inn, sum(signed_amount) AS saldo
+    SELECT
+        contractor_inn,
+        sum(signed_amount) AS saldo,
+        sum(income_amount) AS income_amount,
+        sum(expense_amount) AS expense_amount
     FROM filtered_money
     GROUP BY contractor_inn
 ),
@@ -289,7 +293,9 @@ SELECT
     COALESCE(sum(COALESCE(ba.buh_saldo, 0)), 0) AS buh_saldo,
     COALESCE(sum(COALESCE(oa.opening_amount, 0)), 0) AS opening_amount,
     COALESCE(sum(COALESCE(oa.opening_amount, 0) + COALESCE(da.saldo, 0) - COALESCE(ba.buh_saldo, 0)), 0) AS saldo_diff,
-    COALESCE(sum(COALESCE(va.bank_vat, 0) + COALESCE(va.accountant_vat, 0)), 0) AS vat_diff
+    COALESCE(sum(COALESCE(va.bank_vat, 0) + COALESCE(va.accountant_vat, 0)), 0) AS vat_diff,
+    COALESCE(sum(COALESCE(da.income_amount, 0)), 0) AS income_amount,
+    COALESCE(sum(COALESCE(da.expense_amount, 0)), 0) AS expense_amount
 FROM contractor_keys ck
 LEFT JOIN doc_agg da
     ON da.contractor_inn = ck.contractor_inn
