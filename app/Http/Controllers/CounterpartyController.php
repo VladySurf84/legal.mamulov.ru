@@ -318,7 +318,7 @@ SQL, $bindings);
             'vat_diff' => (float) $summary->vat_diff,
         ];
         $showLegalEntitiesCount = empty($filters['legal_id']);
-        $emptyColspan = $showLegalEntitiesCount ? 12 : 11;
+        $emptyColspan = $showLegalEntitiesCount ? 13 : 12;
         $nextPage = $hasMoreCounterparties ? $page + 1 : null;
 
         if ($request->ajax()) {

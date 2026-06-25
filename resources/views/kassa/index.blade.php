@@ -204,8 +204,7 @@
                 <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Источник</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статья</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Приход</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Расход</x-ui.sticky-table-th>
+                <x-ui.money-columns-head />
                 <x-ui.sticky-table-th>Описание</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Документ</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Итог</x-ui.sticky-table-th>
@@ -217,7 +216,7 @@
             @include('kassa.partials.rows', ['operations' => $operations, 'displayTimezone' => $displayTimezone])
         @else
             <tr>
-                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="9">
+                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="10">
                     Кассовые операции пока не найдены.
                 </td>
             </tr>
@@ -225,7 +224,7 @@
 
         @include('kassa.partials.loader-row', [
             'nextPage' => $nextPage,
-            'tableColspan' => 9,
+            'tableColspan' => 10,
         ])
 
         <x-slot:stickySummary>
@@ -233,12 +232,13 @@
                 <th scope="row" colspan="3" class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter sm:pl-6 lg:pl-8 dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
                 </th>
-                <x-ui.sticky-table-td summary align="right" nowrap money-tone="income" class="tabular-nums">
-                    {{ $money($summary->income_amount) }}
-                </x-ui.sticky-table-td>
-                <x-ui.sticky-table-td summary align="right" nowrap money-tone="expense" class="tabular-nums">
-                    {{ $money($summary->expense_amount) }}
-                </x-ui.sticky-table-td>
+                <x-ui.money-columns
+                    :amount="$summary->saldo_amount"
+                    :income="$summary->income_amount"
+                    :expense="$summary->expense_amount"
+                    summary
+                    :decimals="0"
+                />
                 <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
                 <td class="sticky bottom-0 z-10 border-t border-gray-300 bg-white/75 px-3 py-3.5 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75"></td>
                 <td @class([

@@ -2,10 +2,10 @@
     @php
         $transactionDate = optional(\Illuminate\Support\Carbon::parse($transaction->date))->format('d.m.Y');
         $operationAmount = (float) ($transaction->amount ?? 0);
-        $incomeAmount = $transaction->amount_m !== null ? number_format((float) $transaction->amount_m, 2, ',', ' ') : '';
-        $expenseAmount = $transaction->amount_p !== null ? number_format((float) $transaction->amount_p, 2, ',', ' ') : '';
-        $operationAmountTone = $operationAmount < 0 ? 'expense' : 'income';
-        $operationDisplayAmount = number_format(abs($operationAmount), 2, ',', ' ');
+        $incomeAmountValue = $transaction->amount_m !== null ? (float) $transaction->amount_m : null;
+        $expenseAmountValue = $transaction->amount_p !== null ? (float) $transaction->amount_p : null;
+        $incomeAmount = $incomeAmountValue !== null ? number_format($incomeAmountValue, 2, ',', ' ') : '';
+        $expenseAmount = $expenseAmountValue !== null ? number_format($expenseAmountValue, 2, ',', ' ') : '';
         $signedAmount = number_format($operationAmount, 2, ',', ' ');
         $totalAmount = number_format((float) $transaction->total, 2, ',', ' ');
         $operationTypeLabel = $transaction->type_alias
@@ -54,15 +54,12 @@
                 <div class="mt-1 font-mono text-xs text-gray-400">{{ $transaction->account_number }} · {{ $transaction->bank_id }}</div>
             </td>
         @endif
-        <x-ui.sticky-table-td align="right" nowrap :money-tone="$operationAmountTone" class="font-medium tabular-nums">
-            {{ $operationDisplayAmount }}
-        </x-ui.sticky-table-td>
-        <x-ui.sticky-table-td align="right" nowrap money-tone="income" class="font-medium tabular-nums">
-            {{ $incomeAmount }}
-        </x-ui.sticky-table-td>
-        <x-ui.sticky-table-td align="right" nowrap money-tone="expense" class="font-medium tabular-nums">
-            {{ $expenseAmount }}
-        </x-ui.sticky-table-td>
+        <x-ui.money-columns
+            :amount="$operationAmount"
+            :income="$incomeAmountValue"
+            :expense="$expenseAmountValue"
+            cell-class="font-medium"
+        />
         <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
             <div class="font-medium text-gray-900 dark:text-white" @if ($contractorTitle) title="{{ $contractorTitle }}" @endif>{{ $transaction->name ?: '—' }}</div>
             <div class="mt-2 flex flex-wrap gap-1.5">
