@@ -105,7 +105,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1200px]"
     >
         <x-slot:head>
             <tr>
@@ -124,12 +123,12 @@
                     {{ $edge->occurred_on }}
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-72" :nowrap="false">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="font-medium text-gray-900 dark:text-white">{{ $edge->payer_name_snapshot ?: '—' }}</div>
                     <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->payer_inn_snapshot ?: '' }}</div>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-72" :nowrap="false">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="font-medium text-gray-900 dark:text-white">{{ $edge->recipient_name_snapshot ?: '—' }}</div>
                     <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->recipient_inn_snapshot ?: '' }}</div>
                 </x-ui.sticky-table-td>
@@ -138,12 +137,12 @@
                     {{ number_format((float) $edge->amount, 2, ',', ' ') }} {{ $edge->currency }}
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-56">
+                <x-ui.sticky-table-td>
                     <div class="font-mono text-xs text-gray-900 dark:text-white">{{ $edge->account_number ?: $edge->algorithm }}</div>
                     <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $edge->external_operation_id ?: 'document #' . $edge->source_document_id }}</div>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td last class="min-w-[28rem]" :nowrap="false">
+                <x-ui.sticky-table-td last :nowrap="false">
                     {{ $edge->payment_purpose ?: '—' }}
                 </x-ui.sticky-table-td>
             </tr>

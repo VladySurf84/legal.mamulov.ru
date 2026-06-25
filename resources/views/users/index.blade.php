@@ -28,7 +28,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1100px]"
     >
         <x-slot:head>
             <tr>
@@ -45,7 +44,7 @@
 
         @forelse ($users as $user)
             <tr class="align-top hover:bg-gray-50">
-                <x-ui.sticky-table-td class="min-w-80" first :nowrap="false">
+                <x-ui.sticky-table-td first :nowrap="false">
                     <div class="flex items-center gap-3">
                         @if ($user->avatar)
                             <img src="{{ $user->avatar }}" alt="" class="size-10 shrink-0 rounded-full object-cover outline -outline-offset-1 outline-gray-200">

@@ -66,12 +66,12 @@
         </x-ui.sticky-table-td>
 
         @if ($showLegalEntityColumn)
-            <x-ui.sticky-table-td :nowrap="false" class="min-w-56">
+            <x-ui.sticky-table-td :nowrap="false">
                 <span class="block whitespace-normal break-words">{{ $entry->legal_name ?? '—' }}</span>
             </x-ui.sticky-table-td>
         @endif
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-56">
+        <x-ui.sticky-table-td :nowrap="false">
             <div class="whitespace-normal break-words font-medium text-gray-900 dark:text-white">{{ $entry->primary_ref ?: '—' }}</div>
             @if ($entry->secondary_ref)
                 <div class="mt-1 whitespace-normal break-words font-mono text-xs text-gray-400">{{ $entry->secondary_ref }}</div>
@@ -100,7 +100,7 @@
             {{ number_format((float) $entry->running_vat_saldo, 2, ',', ' ') }}
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td last :nowrap="false" class="min-w-[24rem]">
+        <x-ui.sticky-table-td last :nowrap="false">
             <div class="whitespace-normal break-words">{{ $entry->description ?: '—' }}</div>
 
             @if ($entry->source_type === 'opening_balance')

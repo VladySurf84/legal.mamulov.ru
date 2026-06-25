@@ -198,7 +198,6 @@
         :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1550px]"
     >
         <x-slot:head>
             <tr>

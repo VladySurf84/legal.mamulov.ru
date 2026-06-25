@@ -69,7 +69,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1300px]"
     >
         <x-slot:head>
             <tr>
@@ -100,12 +99,12 @@
                     </span>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-64">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="whitespace-normal break-words font-medium text-gray-900 dark:text-white">{{ $import->legal_name }}</div>
                     <div class="mt-1 font-mono text-xs text-gray-400">ИНН {{ $import->legal_inn }}</div>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-[24rem]">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="whitespace-normal break-words font-medium text-gray-900 dark:text-white">{{ $import->source_file_name }}</div>
                     <div class="mt-1 whitespace-normal break-words font-mono text-xs text-gray-400">{{ $import->stored_path }}</div>
                 </x-ui.sticky-table-td>

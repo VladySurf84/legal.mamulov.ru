@@ -33,7 +33,7 @@
                     {{ $currency->alpha_code }}
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-80" :nowrap="false">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="font-medium text-gray-900">{{ $currency->name_ru }}</div>
                     <div class="mt-1 text-xs text-gray-500">{{ $currency->name_en }}</div>
                 </x-ui.sticky-table-td>

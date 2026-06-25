@@ -78,7 +78,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1500px]"
     >
         <x-slot:head>
             <tr>
@@ -123,7 +122,7 @@
                     @endif
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-96" :nowrap="false">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="space-y-2">
                         @forelse ($document->parties as $party)
                             <div>
@@ -160,7 +159,7 @@
                     <span class="ml-1 text-xs font-medium text-gray-500">{{ $document->currency }}</span>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-80" last :nowrap="false">
+                <x-ui.sticky-table-td last :nowrap="false">
                     @if ($bankTransaction)
                         <div class="font-medium text-gray-900 dark:text-white">
                             {{ $bankTransaction->payment_purpose ?: 'Банковская операция' }}

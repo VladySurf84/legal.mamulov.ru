@@ -24,7 +24,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1200px]"
     >
         <x-slot:head>
             <tr>
@@ -40,19 +39,19 @@
 
         @forelse ($accounts as $account)
             <tr class="align-top hover:bg-gray-50">
-                <x-ui.sticky-table-td class="min-w-72" first :nowrap="false">
+                <x-ui.sticky-table-td first :nowrap="false">
                     <div class="font-medium text-gray-900">{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}</div>
                     @if ($account->legalEntity?->legal_inn)
                         <div class="mt-1 text-xs text-gray-500">ИНН {{ $account->legalEntity->legal_inn }}</div>
                     @endif
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-64">
+                <x-ui.sticky-table-td>
                     <div class="font-mono text-gray-900">{{ $account->account_number }}</div>
                     <div class="mt-1 text-gray-500">{{ $account->name }}</div>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td class="min-w-64" :nowrap="false">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="font-medium text-gray-900">{{ $account->bank?->bank_name ?? $account->bank_id }}</div>
                     <div class="mt-1 font-mono text-xs text-gray-400">{{ $account->bank_id }}</div>
                 </x-ui.sticky-table-td>

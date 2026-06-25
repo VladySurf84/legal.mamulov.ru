@@ -13,7 +13,7 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-44">
+        <x-ui.sticky-table-td :nowrap="false">
             <div @class([
                 'inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1',
                 'bg-gray-50 text-gray-700 ring-gray-200' => $operation->source_type === 'manual_kassa',
@@ -27,7 +27,7 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-56">
+        <x-ui.sticky-table-td :nowrap="false">
             <div class="whitespace-normal break-words text-gray-900 dark:text-white">{{ $operation->article ?: 'Без статьи' }}</div>
             @if ($operation->article_id)
                 <div class="mt-1 font-mono text-xs text-gray-400">#{{ $operation->article_id }}</div>
@@ -50,7 +50,7 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-96">
+        <x-ui.sticky-table-td :nowrap="false">
             <div class="whitespace-normal break-words">{{ $operation->description }}</div>
             @if ($operation->source_document_bank_transaction_id)
                 <div class="mt-1 font-mono text-xs text-gray-400">bank transaction #{{ $operation->source_document_bank_transaction_id }}</div>
@@ -59,7 +59,7 @@
             @endif
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-72">
+        <x-ui.sticky-table-td :nowrap="false">
             @if ($operation->document_id)
                 <div class="font-mono text-xs text-gray-500 dark:text-gray-400">document #{{ $operation->document_id }}</div>
                 <div class="mt-1 whitespace-normal break-words text-xs text-gray-500 dark:text-gray-400">

@@ -160,7 +160,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1400px]"
         body-id="counterparty-ledger-rows"
     >
         <x-slot:head>

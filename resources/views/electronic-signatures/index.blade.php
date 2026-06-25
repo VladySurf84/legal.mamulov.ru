@@ -87,7 +87,7 @@
                     <div class="mt-1 text-xs text-gray-500">{{ $signature->legal_inn ?: $signature->owner_id }}</div>
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td :nowrap="false" class="min-w-96">
+                <x-ui.sticky-table-td :nowrap="false">
                     <div class="font-medium text-gray-900">{{ $signature->name ?: 'CryptoPro' }}</div>
                     <div class="mt-1 text-xs text-gray-500">{{ $signature->subject ?: $signature->credential_type }}</div>
                 </x-ui.sticky-table-td>

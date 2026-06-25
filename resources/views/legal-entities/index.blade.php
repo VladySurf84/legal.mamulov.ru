@@ -7,7 +7,6 @@
         :viewport-sticky="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
-        table-class="!min-w-[1100px]"
     >
         <x-slot:head>
             <tr>
@@ -23,7 +22,7 @@
 
         @forelse ($legalEntities as $legalEntity)
             <tr class="align-top hover:bg-gray-50">
-                <x-ui.sticky-table-td class="min-w-80" first :nowrap="false">
+                <x-ui.sticky-table-td first :nowrap="false">
                     <div class="flex items-start gap-3">
                         <span
                             class="mt-1 inline-flex size-3 shrink-0 rounded-full ring-1 ring-black/10"
