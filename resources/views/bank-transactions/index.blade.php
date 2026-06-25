@@ -389,8 +389,12 @@
                     <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="date">—</dd>
                 </div>
                 <div>
-                    <dt class="font-medium text-gray-500 dark:text-gray-400">Тип</dt>
-                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="type">—</dd>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Тип операции</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="typeLabel">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Код типа операции</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="type">—</dd>
                 </div>
                 <div>
                     <dt class="font-medium text-gray-500 dark:text-gray-400">Юрлицо</dt>
@@ -449,6 +453,10 @@
                     <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-bank-transaction-property="orderIntraday">—</dd>
                 </div>
                 <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Описание типа операции</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-bank-transaction-property="typeDescription">—</dd>
+                </div>
+                <div class="sm:col-span-2">
                     <dt class="font-medium text-gray-500 dark:text-gray-400">Назначение платежа</dt>
                     <dd class="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white" data-bank-transaction-property="paymentPurpose">—</dd>
                 </div>
@@ -497,6 +505,8 @@
                             reconciliationId: data.bankTransactionReconciliationId || '—',
                             date: data.bankTransactionDate || '—',
                             type: data.bankTransactionType || '—',
+                            typeLabel: data.bankTransactionTypeLabel || '—',
+                            typeDescription: data.bankTransactionTypeDescription || '—',
                             legal: data.bankTransactionLegal || '—',
                             legalId: data.bankTransactionLegalId || '—',
                             account: account || '—',

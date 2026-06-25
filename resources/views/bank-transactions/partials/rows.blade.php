@@ -6,6 +6,9 @@
         $expenseAmount = $transaction->amount_p !== null ? number_format((float) $transaction->amount_p, 2, ',', ' ') : '';
         $signedAmount = number_format($operationAmount, 2, ',', ' ');
         $totalAmount = number_format((float) $transaction->total, 2, ',', ' ');
+        $operationTypeLabel = $transaction->type_alias
+            ? trim($transaction->type_alias . ' · ' . ($transaction->operation_type_name ?: 'Неизвестный тип'))
+            : '—';
     @endphp
 
     <tr
@@ -29,6 +32,9 @@
         data-bank-transaction-payment-purpose="{{ $transaction->payment_purpose ?: '—' }}"
         data-bank-transaction-order-intraday="{{ $transaction->order_intraday ?: '—' }}"
         data-bank-transaction-type="{{ $transaction->type_alias ?: '—' }}"
+        data-bank-transaction-type-label="{{ $operationTypeLabel }}"
+        data-bank-transaction-type-name="{{ $transaction->operation_type_name ?: '—' }}"
+        data-bank-transaction-type-description="{{ $transaction->operation_type_description ?: '—' }}"
         data-bank-transaction-vat="{{ (int) $transaction->has_vat === 1 ? 'Да' : 'Нет' }}"
         data-bank-transaction-kassa="{{ $transaction->k_id ?: '—' }}"
     >
@@ -61,7 +67,7 @@
                     <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">дох/рас</span>
                 @endif
                 @if ($transaction->type_alias)
-                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">{{ $transaction->type_alias }}</span>
+                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200" title="{{ $operationTypeLabel }}">{{ $transaction->type_alias }}</span>
                 @endif
                 @if ($transaction->k_id)
                     <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">касса</span>

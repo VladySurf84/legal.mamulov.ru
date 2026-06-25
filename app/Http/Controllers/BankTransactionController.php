@@ -187,6 +187,8 @@ WITH pre AS (
         dbt.operation_date AS date,
         dbt.signed_amount AS amount,
         dbt.operation_type AS type_alias,
+        bot.name_ru AS operation_type_name,
+        bot.description AS operation_type_description,
         ba.legal_id,
         l.legal_name,
         l.legal_color,
@@ -214,6 +216,9 @@ WITH pre AS (
         ON ba.bank_account_id = dbt.bank_account_id
     LEFT JOIN legal.legal_own l
         ON l.legal_id = ba.legal_id
+    LEFT JOIN legal.bank_operation_types bot
+        ON bot.operation_type_code = dbt.operation_type
+        AND bot.is_active
     WHERE {$where}
 ),
 main AS (
