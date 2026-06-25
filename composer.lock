@@ -2326,12 +2326,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/VladySurf84/mamulov-ui.git",
-                "reference": "4b76ccd70cbed72b7fc99f428364ee34ec944425"
+                "reference": "ae50b0def5c3c362442210baa529414a8ed92cc7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/VladySurf84/mamulov-ui/zipball/4b76ccd70cbed72b7fc99f428364ee34ec944425",
-                "reference": "4b76ccd70cbed72b7fc99f428364ee34ec944425",
+                "url": "https://api.github.com/repos/VladySurf84/mamulov-ui/zipball/ae50b0def5c3c362442210baa529414a8ed92cc7",
+                "reference": "ae50b0def5c3c362442210baa529414a8ed92cc7",
                 "shasum": ""
             },
             "require": {
@@ -2356,7 +2356,7 @@
                 "proprietary"
             ],
             "description": "Shared Blade UI components for Mamulov Laravel applications.",
-            "time": "2026-06-25T09:40:11+00:00"
+            "time": "2026-06-25T09:49:59+00:00"
         },
         {
             "name": "monolog/monolog",
