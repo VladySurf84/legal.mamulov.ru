@@ -45,7 +45,6 @@
             <div class="font-medium tabular-nums text-gray-900 dark:text-white">
                 {{ $transactionDate }}
             </div>
-            <div class="mt-1 font-mono text-xs text-gray-400">#{{ $transaction->bank_transaction_id }}</div>
         </td>
         @if ($showAccountColumn)
             <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
@@ -61,7 +60,18 @@
             cell-class="font-medium"
         />
         <td class="border-b border-gray-200 px-3 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
-            <div class="font-medium text-gray-900 dark:text-white" @if ($contractorTitle) title="{{ $contractorTitle }}" @endif>{{ $transaction->name ?: '—' }}</div>
+            <div class="flex items-start gap-1.5 font-medium text-gray-900 dark:text-white">
+                @if ($transaction->k_id)
+                    <span class="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-amber-600" title="Связано с кассой #{{ $transaction->k_id }}">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-4">
+                            <path d="M12.232 4.232a3.5 3.5 0 0 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-5.305-.43.75.75 0 0 1 1.245-.838 2 2 0 0 0 3 .207l2.5-2.5a2 2 0 1 0-2.829-2.828l-1.088 1.088a.75.75 0 0 1-1.06-1.06l1.087-1.089Z" />
+                            <path d="M10.623 8.748a.75.75 0 0 1-1.246.838 2 2 0 0 0-3-.207l-2.5 2.5a2 2 0 1 0 2.829 2.828l1.088-1.088a.75.75 0 0 1 1.06 1.06l-1.087 1.089a3.5 3.5 0 0 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 5.306.43Z" />
+                        </svg>
+                    </span>
+                @endif
+
+                <span @if ($contractorTitle) title="{{ $contractorTitle }}" @endif>{{ $transaction->name ?: '—' }}</span>
+            </div>
             <div class="mt-2 flex flex-wrap gap-1.5">
                 @if ((int) $transaction->has_vat === 1)
                     <span class="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 ring-1 ring-cyan-200">НДС</span>
