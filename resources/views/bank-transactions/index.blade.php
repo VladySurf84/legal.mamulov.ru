@@ -312,6 +312,7 @@
                     }
 
                     document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                    document.dispatchEvent(new Event('bank-transactions:loader-refresh'));
                 };
 
                 const fetchTable = async (form) => {
@@ -663,71 +664,83 @@
 
     <script>
         (() => {
-            const rows = document.getElementById('bank-transactions-rows');
-            const loader = document.getElementById('bank-transactions-loader');
-            const loaderRow = document.getElementById('bank-transactions-loader-row');
+            const initBankTransactionsLoader = () => {
+                const rows = document.getElementById('bank-transactions-rows');
+                const loader = document.getElementById('bank-transactions-loader');
+                const loaderRow = document.getElementById('bank-transactions-loader-row');
 
-            if (!rows || !loader || !loaderRow) {
-                return;
-            }
-
-            let loading = false;
-
-            const setLoaderState = (state) => {
-                loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
-                loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
-                loaderRow.classList.toggle('hidden', state === 'hidden');
-            };
-
-            const loadNextPage = async () => {
-                if (loading || !loader.dataset.nextPage) {
+                if (!rows || !loader || !loaderRow || loader.dataset.bankTransactionsLoaderReady === 'true') {
                     return;
                 }
 
-                loading = true;
-                setLoaderState('loading');
+                let loading = false;
+                loader.dataset.bankTransactionsLoaderReady = 'true';
 
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', loader.dataset.nextPage);
+                const setLoaderState = (state) => {
+                    loader.querySelector('[data-loader-spinner]')?.classList.toggle('hidden', state !== 'loading');
+                    loader.querySelector('[data-loader-error]')?.classList.toggle('hidden', state !== 'error');
+                    loaderRow.classList.toggle('hidden', state === 'hidden');
+                };
 
-                try {
-                    const response = await fetch(url.toString(), {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Request failed');
+                const loadNextPage = async () => {
+                    if (loading || !loader.dataset.nextPage) {
+                        return;
                     }
 
-                    const payload = await response.json();
-                    loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
+                    loading = true;
+                    setLoaderState('loading');
 
-                    if (payload.has_more && payload.next_page) {
-                        loader.dataset.nextPage = payload.next_page;
-                        setLoaderState('loading');
-                    } else {
-                        delete loader.dataset.nextPage;
-                        setLoaderState('hidden');
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', loader.dataset.nextPage);
+
+                    try {
+                        const response = await fetch(url.toString(), {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Request failed');
+                        }
+
+                        const payload = await response.json();
+                        loaderRow.insertAdjacentHTML('beforebegin', payload.html || '');
+
+                        if (payload.has_more && payload.next_page) {
+                            loader.dataset.nextPage = payload.next_page;
+                            setLoaderState('loading');
+                        } else {
+                            delete loader.dataset.nextPage;
+                            setLoaderState('hidden');
+                        }
+
+                        document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                    } catch (error) {
+                        setLoaderState('error');
+                    } finally {
+                        loading = false;
                     }
+                };
 
-                    document.dispatchEvent(new Event('ui:sticky-table-refresh'));
-                } catch (error) {
-                    setLoaderState('error');
-                } finally {
-                    loading = false;
-                }
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries.some((entry) => entry.isIntersecting)) {
+                        loadNextPage();
+                    }
+                }, { rootMargin: '600px 0px' });
+
+                observer.observe(loader);
             };
 
-            const observer = new IntersectionObserver((entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    loadNextPage();
-                }
-            }, { rootMargin: '600px 0px' });
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initBankTransactionsLoader);
+            } else {
+                initBankTransactionsLoader();
+            }
 
-            observer.observe(loader);
+            document.addEventListener('bank-transactions:loader-refresh', initBankTransactionsLoader);
+            document.addEventListener('livewire:navigated', initBankTransactionsLoader);
         })();
     </script>
 @endsection

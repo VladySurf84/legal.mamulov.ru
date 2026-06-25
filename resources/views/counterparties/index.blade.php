@@ -175,6 +175,7 @@
                     }
 
                     document.dispatchEvent(new Event('ui:sticky-table-refresh'));
+                    document.dispatchEvent(new Event('counterparties:loader-refresh'));
                 };
 
                 const syncRebuildForm = (filterForm) => {
@@ -337,6 +338,7 @@
                 }
 
                 document.addEventListener('livewire:navigated', initCounterpartiesLoader);
+                document.addEventListener('counterparties:loader-refresh', initCounterpartiesLoader);
             })();
         </script>
     @endonce

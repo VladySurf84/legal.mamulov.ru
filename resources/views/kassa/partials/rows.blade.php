@@ -39,7 +39,6 @@
             :income="(float) $operation->amount > 0 ? (float) $operation->amount : null"
             :expense="(float) $operation->amount < 0 ? (float) $operation->amount : null"
             :decimals="0"
-            empty="—"
             cell-class="font-semibold"
         />
 
