@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LegalEntity;
 use App\Services\Layers\AccountantReportLinkBuilder;
 use App\Support\UserUiSettings;
+use App\Support\UserAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -892,7 +893,7 @@ SQL;
 
     private function legalEntities()
     {
-        return LegalEntity::query()
+        return UserAccess::legalEntitiesQuery(request())
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
     }

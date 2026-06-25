@@ -8,6 +8,7 @@
     'isImpersonating' => false,
     'legalEntities' => collect(),
     'currentLegalEntity' => null,
+    'canViewAllGraph' => true,
 ])
 
 @php
@@ -16,7 +17,7 @@
     $hasTitleMeta = isset($titleMeta) && trim($titleMeta->toHtml()) !== '';
     $hasBeforeContent = isset($beforeContent) && trim($beforeContent->toHtml()) !== '';
     $allGraphValue = '__all__';
-    $brandLabel = $currentLegalEntity?->legal_name ?: 'Глобальный';
+    $brandLabel = $currentLegalEntity?->legal_name ?: ($canViewAllGraph ? 'Глобальный' : 'Нет доступа');
     $brandLetter = mb_strtoupper(mb_substr($currentLegalEntity?->legal_letter ?: $brandLabel, 0, 1));
     $brandColor = $currentLegalEntity?->legal_color ?: '#6b7280';
     $legalEntityOptions = collect($legalEntities)->map(fn ($legalEntity) => [
@@ -24,13 +25,16 @@
         'label' => $legalEntity->legal_name,
         'secondary' => 'ИНН ' . ($legalEntity->legal_inn ?: $legalEntity->legal_id),
         'swatch' => $legalEntity->legal_color ?: '#e5e7eb',
-    ])->values()->push([
-        'value' => $allGraphValue,
-        'label' => 'Глобальный',
-        'secondary' => 'Все юрлица и все контрагенты',
-        'icon' => 'globe',
-    ]);
-    $currentLegalContextValue = $currentLegalEntity?->legal_id ?: $allGraphValue;
+    ])->values();
+    if ($canViewAllGraph) {
+        $legalEntityOptions->push([
+            'value' => $allGraphValue,
+            'label' => 'Глобальный',
+            'secondary' => 'Все юрлица и все контрагенты',
+            'icon' => 'globe',
+        ]);
+    }
+    $currentLegalContextValue = $currentLegalEntity?->legal_id ?: ($canViewAllGraph ? $allGraphValue : '');
 @endphp
 
 <div>

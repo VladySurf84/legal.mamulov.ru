@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LegalEntity;
 use App\Services\Layers\BankVatLayerBuilder;
 use App\Services\Layers\VatLayerBuilder;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,9 @@ class VatLayerController extends Controller
             'source_system' => ['nullable', 'in:accountant_vat_book,bank_payment_vat'],
         ]);
 
-        [$where, $bindings] = $this->whereClause($filters);
+        [$where, $bindings] = $this->whereClause($filters, $request);
 
-        $legalEntities = LegalEntity::query()
+        $legalEntities = UserAccess::legalEntitiesQuery($request)
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
 
@@ -85,10 +86,28 @@ SQL, $bindings);
      * @param  array<string, mixed>  $filters
      * @return array{0: string, 1: array<string, mixed>}
      */
-    private function whereClause(array $filters): array
+    private function whereClause(array $filters, Request $request): array
     {
         $where = ['true'];
         $bindings = [];
+
+        if (! UserAccess::canViewAllGraph($request->user())) {
+            $legalIds = UserAccess::viewableLegalIds($request->user());
+
+            if ($legalIds === []) {
+                $where[] = 'false';
+            } else {
+                $placeholders = [];
+
+                foreach ($legalIds as $index => $legalId) {
+                    $binding = 'access_legal_id_'.$index;
+                    $placeholders[] = ':'.$binding;
+                    $bindings[$binding] = $legalId;
+                }
+
+                $where[] = 've.legal_id IN ('.implode(', ', $placeholders).')';
+            }
+        }
 
         if (! empty($filters['legal_id'])) {
             $where[] = 've.legal_id = :legal_id';

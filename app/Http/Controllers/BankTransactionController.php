@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BankAccount;
 use App\Services\Bank\TinkoffBankSyncService;
 use App\Services\Layers\CashLayerBuilder;
+use App\Support\UserAccess;
 use App\Support\UserUiSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,7 @@ class BankTransactionController extends Controller
         unset($filters['page']);
         unset($filters['per_page']);
 
-        [$where, $bindings] = $this->whereClause($filters);
+        [$where, $bindings] = $this->whereClause($filters, $request);
         $summary = $this->summary($where, $bindings);
         $transactions = $this->transactions($where, $bindings, $page, $perPage);
         $hasMore = $perPage > 0 && $page * $perPage < $summary['count'];
@@ -77,12 +78,20 @@ class BankTransactionController extends Controller
             ]);
         }
 
-        $accounts = BankAccount::query()
+        $accountsQuery = BankAccount::query()
             ->with(['bank', 'legalEntity'])
             ->orderBy('legal_id')
             ->orderBy('bank_id')
-            ->orderBy('account_number')
-            ->get();
+            ->orderBy('account_number');
+
+        if (! UserAccess::canViewAllGraph($request->user())) {
+            $legalIds = UserAccess::viewableLegalIds($request->user());
+            $legalIds === []
+                ? $accountsQuery->whereRaw('false')
+                : $accountsQuery->whereIn('legal_id', $legalIds);
+        }
+
+        $accounts = $accountsQuery->get();
         $apiBankAccountIds = DB::table('legal.api_credentials as c')
             ->join('legal.bank_account as ba', DB::raw('ba.bank_account_id::text'), '=', 'c.owner_id')
             ->where('c.provider', 'tinkoff')
@@ -290,10 +299,28 @@ SQL, $bindings);
      * @param array<string, mixed> $filters
      * @return array{0: string, 1: array<string, mixed>}
      */
-    private function whereClause(array $filters): array
+    private function whereClause(array $filters, Request $request): array
     {
         $where = ['true'];
         $bindings = [];
+
+        if (! UserAccess::canViewAllGraph($request->user())) {
+            $legalIds = UserAccess::viewableLegalIds($request->user());
+
+            if ($legalIds === []) {
+                $where[] = 'false';
+            } else {
+                $placeholders = [];
+
+                foreach ($legalIds as $index => $legalId) {
+                    $binding = 'access_legal_id_'.$index;
+                    $placeholders[] = ':'.$binding;
+                    $bindings[$binding] = $legalId;
+                }
+
+                $where[] = 'ba.legal_id IN ('.implode(', ', $placeholders).')';
+            }
+        }
 
         if (! empty($filters['account_numbers'])) {
             $placeholders = [];

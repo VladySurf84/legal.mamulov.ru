@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,7 +12,7 @@ class LegalEntityController extends Controller
 {
     public function index(): View
     {
-        $legalEntities = LegalEntity::query()
+        $legalEntities = UserAccess::legalEntitiesQuery(request())
             ->withCount('bankAccounts')
             ->orderBy('legal_name')
             ->get();
@@ -30,12 +31,14 @@ class LegalEntityController extends Controller
         $legalId = (string) $validated['legal_id'];
 
         if ($legalId === '__all__') {
+            abort_unless(UserAccess::canViewAllGraph($request->user()), 403);
+
             $request->session()->forget('current_legal_id');
 
             return back();
         }
 
-        $exists = LegalEntity::query()
+        $exists = UserAccess::legalEntitiesQuery($request)
             ->where('legal_id', $legalId)
             ->exists();
 

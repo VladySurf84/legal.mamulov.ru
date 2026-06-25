@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Layers\CashLayerBuilder;
+use App\Support\UserAccess;
 use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,6 +39,13 @@ class KassaController extends Controller
             ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'entry.article_id')
             ->leftJoin('legal.legal_own as legal', 'legal.legal_id', '=', 'entry.legal_id')
             ->leftJoin('legal.documents as document', 'document.document_id', '=', 'entry.source_document_id');
+
+        if (! UserAccess::canViewAllGraph($request->user())) {
+            $legalIds = UserAccess::viewableLegalIds($request->user());
+            $legalIds === []
+                ? $query->whereRaw('false')
+                : $query->whereIn('entry.legal_id', $legalIds);
+        }
 
         if (! empty($filters['legal_id'])) {
             $query->where('entry.legal_id', (string) $filters['legal_id']);
@@ -206,7 +214,7 @@ class KassaController extends Controller
 
     private function legalEntities()
     {
-        return DB::table('legal.legal_own')
+        return UserAccess::legalEntitiesQuery(request())
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn']);
     }

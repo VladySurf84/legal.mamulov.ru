@@ -29,15 +29,20 @@
         ['label' => 'Планировщик', 'route' => 'scheduler.index', 'active' => 'scheduler.*', 'group' => 'Система'],
     ];
 
-    $legalEntities = \App\Models\LegalEntity::query()
+    $legalEntities = \App\Support\UserAccess::legalEntitiesQuery(request())
         ->orderBy('legal_name')
         ->get(['legal_id', 'legal_name', 'legal_inn', 'legal_color']);
     $currentLegalId = session('current_legal_id');
     $currentLegalEntity = $currentLegalId
         ? $legalEntities->firstWhere('legal_id', (string) $currentLegalId)
         : null;
+    if ($currentLegalId && ! $currentLegalEntity) {
+        session()->forget('current_legal_id');
+        $currentLegalId = null;
+    }
     $authenticatedUser = request()->attributes->get('authenticated_user') ?: auth()->user();
     $isImpersonating = (bool) request()->attributes->get('is_impersonating');
+    $canViewAllGraph = \App\Support\UserAccess::canViewAllGraph(auth()->user());
 @endphp
 
 <x-ui.app-shell
@@ -50,6 +55,7 @@
     :is-impersonating="$isImpersonating"
     :legal-entities="$legalEntities"
     :current-legal-entity="$currentLegalEntity"
+    :can-view-all-graph="$canViewAllGraph"
 >
     @hasSection('page_actions')
         <x-slot:pageActions>
