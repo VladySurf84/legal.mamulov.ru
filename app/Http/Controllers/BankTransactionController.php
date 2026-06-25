@@ -192,6 +192,7 @@ WITH pre AS (
         l.legal_color,
         NULL::numeric AS saldo,
         CASE
+            WHEN dbt.payment_purpose ~* '(без\s+ндс|без\s+налога\s*\(?\s*ндс\s*\)?|ндс\s+не\s+облагается|не\s+облагается\s+ндс)' THEN 0
             WHEN dbt.payment_purpose ILIKE '%НДС%' OR dbt.payment_purpose ILIKE '%VAT%' THEN 1
             ELSE 0
         END AS has_vat,
