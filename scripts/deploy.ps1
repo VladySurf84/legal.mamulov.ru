@@ -14,7 +14,7 @@ $Php = "C:\tools\php85\php.exe"
 $Remote = "eugene@legal.mamulov.ru"
 $RemotePath = "/var/www/eugene/data/www/legal.mamulov.ru"
 $RemotePhp = "/opt/php85/bin/php"
-$RemoteComposer = "/usr/bin/composer"
+$RemoteComposer = "composer.phar"
 $UiPath = "vendor/mamulov/ui"
 $UiPackage = "mamulov/ui"
 

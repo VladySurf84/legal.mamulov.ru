@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
@@ -22,7 +23,7 @@ class KassaController extends Controller
         abort_unless(UserAccess::canViewCashPage($request->user()), 403);
 
         $filters = $request->validate([
-            'article_id' => ['nullable', 'integer', 'exists:legal.kassa_article,article_id'],
+            'article_id' => ['nullable', 'integer'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
@@ -144,12 +145,18 @@ class KassaController extends Controller
         abort_unless(UserAccess::canEditManualOperations($request->user()), 403);
 
         $validated = $request->validate([
-            'article_id' => ['required', 'integer', 'exists:legal.kassa_article,article_id'],
+            'article_id' => ['required', 'integer'],
             'time' => ['required', 'date'],
             'direction' => ['required', 'in:income,expense'],
             'amount' => ['required', 'integer', 'min:1'],
             'description' => ['required', 'string', 'max:2000'],
         ]);
+
+        if (! $this->articleExists((int) $validated['article_id'])) {
+            throw ValidationException::withMessages([
+                'article_id' => 'Выбранное описание не найдено.',
+            ]);
+        }
 
         $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
         $amount = (int) $validated['amount'];
@@ -206,6 +213,13 @@ class KassaController extends Controller
         return DB::table('legal.kassa_article')
             ->orderBy('article')
             ->get(['article_id', 'article']);
+    }
+
+    private function articleExists(int $articleId): bool
+    {
+        return DB::table('legal.kassa_article')
+            ->where('article_id', $articleId)
+            ->exists();
     }
 
     /**
