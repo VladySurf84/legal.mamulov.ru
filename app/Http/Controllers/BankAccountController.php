@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BankAccount;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
 
 class BankAccountController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $accounts = BankAccount::query()
+        $accounts = UserAccess::bankAccountsQuery($request)
             ->with(['bank', 'legalEntity'])
             ->orderBy('legal_id')
             ->orderBy('bank_id')

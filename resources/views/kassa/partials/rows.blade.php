@@ -5,11 +5,48 @@
 @endphp
 
 @foreach ($operations as $operation)
-    <tr class="align-top hover:bg-gray-50 dark:hover:bg-white/5">
+    @php
+        $operationDate = $date($operation->time);
+        $createdDate = $date($operation->created);
+        $incomeAmount = (float) $operation->amount > 0 ? $money($operation->amount) : '';
+        $expenseAmount = (float) $operation->amount < 0 ? $money(abs((float) $operation->amount)) : '';
+        $sourceRecord = $operation->source_document_bank_transaction_id
+            ? 'bank transaction #' . $operation->source_document_bank_transaction_id
+            : ($operation->kassa_id ? 'kassa #' . $operation->kassa_id : '—');
+        $documentLabel = $operation->document_id
+            ? trim('document #' . $operation->document_id . ' ' . ($operation->document_external_id ?: $operation->document_title ?: ''))
+            : '—';
+    @endphp
+
+    <tr
+        class="align-top hover:bg-gray-50 dark:hover:bg-white/5"
+        data-kassa-context-row
+        data-kassa-cash-entry-id="{{ $operation->cash_entry_id }}"
+        data-kassa-source-type="{{ $operation->source_type }}"
+        data-kassa-source-label="{{ $operation->source_label }}"
+        data-kassa-operation-date="{{ $operationDate }}"
+        data-kassa-created-date="{{ $operation->created ? $createdDate : '—' }}"
+        data-kassa-article="{{ $operation->article ?: 'Без статьи' }}"
+        data-kassa-article-id="{{ $operation->article_id ?: '—' }}"
+        data-kassa-income="{{ $incomeAmount ?: '—' }}"
+        data-kassa-expense="{{ $expenseAmount ?: '—' }}"
+        data-kassa-amount="{{ $money($operation->amount) }}"
+        data-kassa-running-total="{{ $money($operation->running_total) }}"
+        data-kassa-description="{{ $operation->description ?: '—' }}"
+        data-kassa-document="{{ $documentLabel }}"
+        data-kassa-document-id="{{ $operation->document_id ?: '—' }}"
+        data-kassa-document-external-id="{{ $operation->document_external_id ?: '—' }}"
+        data-kassa-source-record="{{ $sourceRecord }}"
+        data-kassa-bank-transaction-id="{{ $operation->source_document_bank_transaction_id ?: '—' }}"
+        data-kassa-kassa-id="{{ $operation->kassa_id ?: '—' }}"
+        data-kassa-rule-id="{{ $operation->cash_operation_rule_id ?: '—' }}"
+        data-kassa-legal="{{ $operation->legal_name ?: '—' }}"
+        data-kassa-legal-id="{{ $operation->legal_id ?: '—' }}"
+    >
         <x-ui.sticky-table-td first nowrap class="tabular-nums">
-            {{ $date($operation->time) }}
+            {{ $operationDate }}
             @if ($operation->created)
-                <div class="mt-1 text-xs text-gray-400">создано: {{ $date($operation->created) }}</div>
+                <div class="mt-1 text-xs text-gray-400">создано: {{ $createdDate }}</div>
             @endif
         </x-ui.sticky-table-td>
 

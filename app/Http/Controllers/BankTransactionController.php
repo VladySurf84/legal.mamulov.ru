@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BankAccount;
 use App\Services\Bank\TinkoffBankSyncService;
 use App\Services\Layers\CashLayerBuilder;
 use App\Support\UserAccess;
@@ -78,18 +77,11 @@ class BankTransactionController extends Controller
             ]);
         }
 
-        $accountsQuery = BankAccount::query()
+        $accountsQuery = UserAccess::bankAccountsQuery($request)
             ->with(['bank', 'legalEntity'])
             ->orderBy('legal_id')
             ->orderBy('bank_id')
             ->orderBy('account_number');
-
-        if (! UserAccess::canViewAllGraph($request->user())) {
-            $legalIds = UserAccess::viewableLegalIds($request->user());
-            $legalIds === []
-                ? $accountsQuery->whereRaw('false')
-                : $accountsQuery->whereIn('legal_id', $legalIds);
-        }
 
         $accounts = $accountsQuery->get();
         $apiBankAccountIds = DB::table('legal.api_credentials as c')
@@ -305,20 +297,20 @@ SQL, $bindings);
         $bindings = [];
 
         if (! UserAccess::canViewAllGraph($request->user())) {
-            $legalIds = UserAccess::viewableLegalIds($request->user());
+            $bankAccountIds = UserAccess::viewableBankAccountIds($request->user());
 
-            if ($legalIds === []) {
+            if ($bankAccountIds === []) {
                 $where[] = 'false';
             } else {
                 $placeholders = [];
 
-                foreach ($legalIds as $index => $legalId) {
-                    $binding = 'access_legal_id_'.$index;
+                foreach ($bankAccountIds as $index => $bankAccountId) {
+                    $binding = 'access_bank_account_id_'.$index;
                     $placeholders[] = ':'.$binding;
-                    $bindings[$binding] = $legalId;
+                    $bindings[$binding] = $bankAccountId;
                 }
 
-                $where[] = 'ba.legal_id IN ('.implode(', ', $placeholders).')';
+                $where[] = 'dbt.bank_account_id IN ('.implode(', ', $placeholders).')';
             }
         }
 

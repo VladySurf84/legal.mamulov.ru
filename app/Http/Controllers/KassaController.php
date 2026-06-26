@@ -19,10 +19,10 @@ class KassaController extends Controller
 
     public function index(Request $request): View|JsonResponse
     {
+        abort_unless(UserAccess::canViewCashPage($request->user()), 403);
+
         $filters = $request->validate([
-            'legal_id' => ['nullable', 'string', 'max:12'],
-            'article_id' => ['nullable', 'integer'],
-            'source_type' => ['nullable', 'in:manual_kassa,bank_rule'],
+            'article_id' => ['nullable', 'integer', 'exists:legal.kassa_article,article_id'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
@@ -40,23 +40,8 @@ class KassaController extends Controller
             ->leftJoin('legal.legal_own as legal', 'legal.legal_id', '=', 'entry.legal_id')
             ->leftJoin('legal.documents as document', 'document.document_id', '=', 'entry.source_document_id');
 
-        if (! UserAccess::canViewAllGraph($request->user())) {
-            $legalIds = UserAccess::viewableLegalIds($request->user());
-            $legalIds === []
-                ? $query->whereRaw('false')
-                : $query->whereIn('entry.legal_id', $legalIds);
-        }
-
-        if (! empty($filters['legal_id'])) {
-            $query->where('entry.legal_id', (string) $filters['legal_id']);
-        }
-
         if (! empty($filters['article_id'])) {
             $query->where('entry.article_id', (int) $filters['article_id']);
-        }
-
-        if (! empty($filters['source_type'])) {
-            $query->where('entry.source_type', $filters['source_type']);
         }
 
         if (! empty($filters['date_from'])) {
@@ -148,14 +133,16 @@ class KassaController extends Controller
             'operations' => $operations,
             'summary' => $summary,
             'filters' => $filters,
-            'legalEntities' => $this->legalEntities(),
             'articles' => $this->articles(),
             'nextPage' => $hasMore ? $page + 1 : null,
+            'canEditManualOperations' => UserAccess::canEditManualOperations($request->user()),
         ]);
     }
 
     public function store(Request $request, CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
+        abort_unless(UserAccess::canEditManualOperations($request->user()), 403);
+
         $validated = $request->validate([
             'article_id' => ['required', 'integer', 'exists:legal.kassa_article,article_id'],
             'time' => ['required', 'date'],
@@ -201,6 +188,8 @@ class KassaController extends Controller
 
     public function rebuild(CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
+        abort_unless(UserAccess::canEditManualOperations(request()->user()), 403);
+
         try {
             $count = $cashLayerBuilder->rebuild();
         } catch (Throwable $exception) {
@@ -210,13 +199,6 @@ class KassaController extends Controller
         }
 
         return back()->with('status', "Слой кассы пересчитан: {$count} записей.");
-    }
-
-    private function legalEntities()
-    {
-        return UserAccess::legalEntitiesQuery(request())
-            ->orderBy('legal_name')
-            ->get(['legal_id', 'legal_name', 'legal_inn']);
     }
 
     private function articles()

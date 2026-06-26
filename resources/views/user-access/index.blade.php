@@ -29,10 +29,15 @@
         'label' => $legalEntity->legal_name,
         'secondary' => 'ИНН ' . ($legalEntity->legal_inn ?: $legalEntity->legal_id),
         'swatch' => $legalEntity->legal_color ?: '#e5e7eb',
+    ]))->merge($bankAccounts->map(fn ($account) => [
+        'key' => 'bank_account:' . $account->bank_account_id,
+        'label' => trim(($account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id) . ' · ' . ($account->name ?: $account->account_number)),
+        'secondary' => trim(($account->bank?->bank_name ?? $account->bank_id) . ' · ' . $account->account_number),
+        'swatch' => '#0ea5e9',
     ]));
 
     $scopePermissions = $selectedUser
-        ? $selectedUser->accessScopes->keyBy(fn ($scope) => $scope->scope_type === 'all_graph' ? 'all_graph' : 'legal:' . $scope->scope_id)
+        ? $selectedUser->accessScopes->keyBy(fn ($scope) => $scope->scope_type === 'all_graph' ? 'all_graph' : $scope->scope_type . ':' . $scope->scope_id)
         : collect();
     $isAdmin = $selectedUser?->isAdmin() ?? false;
 @endphp
@@ -114,19 +119,9 @@
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="py-3.5 pr-3 pl-4 text-left font-semibold text-gray-900 sm:pl-6">Призма</th>
-                                    @foreach ($permissions as $permission)
-                                        <th class="px-3 py-3.5 text-center font-semibold text-gray-900">
-                                            {{ $permissionLabels[$permission] }}
-                                        </th>
-                                    @endforeach
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 bg-white">
-                                @foreach ($scopeRows as $scopeRow)
-                                    @php($scope = $scopePermissions->get($scopeRow['key']))
-                                    <tr>
-                                        <td class="py-3 pr-3 pl-4 sm:pl-6">
+                                    <th class="sticky left-0 z-20 bg-gray-50 py-3.5 pr-3 pl-4 text-left font-semibold text-gray-900 sm:pl-6">Право</th>
+                                    @foreach ($scopeRows as $scopeRow)
+                                        <th class="min-w-48 px-3 py-3.5 text-left font-semibold text-gray-900">
                                             <div class="flex items-start gap-3">
                                                 <span
                                                     class="mt-1 inline-flex size-3 shrink-0 rounded-full ring-1 ring-black/10"
@@ -134,12 +129,22 @@
                                                 ></span>
                                                 <div class="min-w-0">
                                                     <div class="font-medium text-gray-900">{{ $scopeRow['label'] }}</div>
-                                                    <div class="mt-0.5 text-xs text-gray-500">{{ $scopeRow['secondary'] }}</div>
+                                                    <div class="mt-0.5 text-xs font-normal text-gray-500">{{ $scopeRow['secondary'] }}</div>
                                                 </div>
                                             </div>
+                                        </th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                @foreach ($permissions as $permission)
+                                    <tr>
+                                        <td class="sticky left-0 z-10 bg-white py-3 pr-3 pl-4 font-medium text-gray-900 sm:pl-6">
+                                            {{ $permissionLabels[$permission] }}
                                         </td>
 
-                                        @foreach ($permissions as $permission)
+                                        @foreach ($scopeRows as $scopeRow)
+                                            @php($scope = $scopePermissions->get($scopeRow['key']))
                                             <td class="px-3 py-3 text-center">
                                                 <input
                                                     type="checkbox"

@@ -29,6 +29,11 @@
         ['label' => 'Планировщик', 'route' => 'scheduler.index', 'active' => 'scheduler.*', 'group' => 'Система'],
     ];
 
+    $navItems = array_values(array_filter(
+        $navItems,
+        fn (array $item): bool => $item['route'] !== 'kassa.index' || \App\Support\UserAccess::canViewCashPage(auth()->user()),
+    ));
+
     $legalEntities = \App\Support\UserAccess::legalEntitiesQuery(request())
         ->orderBy('legal_name')
         ->get(['legal_id', 'legal_name', 'legal_inn', 'legal_color']);

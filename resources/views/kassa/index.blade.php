@@ -12,21 +12,24 @@
 @endphp
 
 @section('page_actions')
+    @if ($canEditManualOperations)
     <div class="flex flex-wrap items-center gap-2">
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog">
+            Добавить запись
+        </x-ui.button>
+
         <form method="post" action="{{ route('kassa.rebuild') }}">
             @csrf
             <x-ui.button type="submit" size="md" variant="ghost">
                 Пересчитать слой
             </x-ui.button>
         </form>
-
-        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog">
-            Добавить запись
-        </x-ui.button>
     </div>
+    @endif
 @endsection
 
 @section('content')
+    @if ($canEditManualOperations)
     <x-ui.modal
         id="kassa-create-dialog"
         title="Добавить запись кассы"
@@ -51,7 +54,7 @@
                     <x-ui.select
                         label="Статья"
                         name="article_id"
-                        :value="old('article_id', $filters['article_id'] ?? '')"
+                        :value="old('article_id')"
                         :options="$articles->pluck('article', 'article_id')->all()"
                         placeholder="Выберите статью"
                     />
@@ -113,6 +116,7 @@
             </div>
         </form>
     </x-ui.modal>
+    @endif
 
     @if (session('status'))
         <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -131,39 +135,19 @@
         rows-id="kassa-rows"
         loader-id="kassa-loader"
         table-selector="[data-kassa-table]"
-        columns="lg:grid-cols-6"
+        columns="grid-cols-1 sm:grid-cols-2 xl:grid-cols-12"
     >
-                <x-ui.select-with-secondary-text
-                    label="Юрлицо"
-                    name="legal_id"
-                    :value="$filters['legal_id'] ?? ''"
-                    :options="$legalEntities->map(fn ($legal) => [
-                        'value' => $legal->legal_id,
-                        'label' => $legal->legal_name,
-                        'secondary' => 'ИНН ' . $legal->legal_inn,
-                    ])->values()"
-                    placeholder="Все юрлица"
-                />
-
+            <div class="xl:col-span-3">
                 <x-ui.select
-                    label="Статья"
+                    label="Описание"
                     name="article_id"
                     :value="$filters['article_id'] ?? ''"
                     :options="$articles->pluck('article', 'article_id')->all()"
-                    placeholder="Все статьи"
+                    placeholder="Все описания"
                 />
+            </div>
 
-                <x-ui.select
-                    label="Источник"
-                    name="source_type"
-                    :value="$filters['source_type'] ?? ''"
-                    :options="[
-                        'manual_kassa' => 'Ручной ввод',
-                        'bank_rule' => 'Банк по правилу',
-                    ]"
-                    placeholder="Все источники"
-                />
-
+            <div class="sm:col-span-2 xl:col-span-9">
                 <x-ui.airdatepicker.date-range
                     label="Период"
                     name-from="date_from"
@@ -171,8 +155,9 @@
                     :value-from="$filters['date_from'] ?? null"
                     :value-to="$filters['date_to'] ?? null"
                 />
+            </div>
 
-                <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
+                <label class="grid gap-1.5 text-sm font-medium text-gray-900 sm:col-span-2 xl:col-span-12 dark:text-white">
                     <span>Поиск</span>
                     <input
                         class="h-10 rounded-md bg-white px-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
@@ -182,15 +167,6 @@
                         placeholder="Описание, статья, юрлицо или ИНН"
                     >
                 </label>
-                <div class="flex flex-wrap items-end justify-end gap-2">
-                <x-ui.button :href="route('kassa.index')" variant="ghost" wire:navigate>
-                    Сбросить
-                </x-ui.button>
-
-                <x-ui.button type="submit" variant="soft">
-                    Показать
-                </x-ui.button>
-                </div>
     </x-ui.table-filters>
 
     <x-ui.sticky-table
@@ -257,4 +233,189 @@
             </tr>
         </x-slot:stickySummary>
     </x-ui.sticky-table>
+
+    <x-ui.context-menu trigger-selector="[data-kassa-context-row]">
+        <x-slot:menu>
+            <x-ui.context-menu-item data-kassa-show-properties>
+                Свойства
+            </x-ui.context-menu-item>
+        </x-slot:menu>
+    </x-ui.context-menu>
+
+    <button type="button" class="hidden" data-ui-modal-open="kassa-properties-dialog" data-kassa-properties-open></button>
+
+    <x-ui.modal
+        id="kassa-properties-dialog"
+        title="Свойства кассовой операции"
+        description="Свойства объекта строки кассового слоя."
+        size="2xl"
+    >
+        <div class="px-6 py-5">
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">ID строки кассы</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="cashEntryId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Источник</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-kassa-property="sourceLabel">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Код источника</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="sourceType">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Дата операции</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="operationDate">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Создано</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="createdDate">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Статья</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-kassa-property="article">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">ID статьи</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="articleId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Юрлицо</dt>
+                    <dd class="mt-1 text-gray-900 dark:text-white" data-kassa-property="legal">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Legal ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="legalId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Приход</dt>
+                    <dd class="mt-1 font-mono text-emerald-700 dark:text-emerald-400" data-kassa-property="income">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Расход</dt>
+                    <dd class="mt-1 font-mono text-rose-700 dark:text-rose-400" data-kassa-property="expense">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Сумма со знаком</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="amount">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Итог</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="runningTotal">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Исходная запись</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="sourceRecord">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Rule ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="ruleId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Kassa ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="kassaId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Bank transaction ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="bankTransactionId">—</dd>
+                </div>
+                <div>
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Document ID</dt>
+                    <dd class="mt-1 font-mono text-gray-900 dark:text-white" data-kassa-property="documentId">—</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Документ</dt>
+                    <dd class="mt-1 whitespace-normal break-words text-gray-900 dark:text-white" data-kassa-property="document">—</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">External ID документа</dt>
+                    <dd class="mt-1 break-all font-mono text-xs text-gray-900 dark:text-white" data-kassa-property="documentExternalId">—</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="font-medium text-gray-500 dark:text-gray-400">Описание</dt>
+                    <dd class="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white" data-kassa-property="description">—</dd>
+                </div>
+            </dl>
+        </div>
+
+        <x-slot:footer>
+            <div class="flex justify-end">
+                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                    Закрыть
+                </x-ui.button>
+            </div>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    @once
+        <script>
+            (() => {
+                const initKassaContextMenu = () => {
+                    const menu = document.querySelector('[data-ui-context-menu-trigger-selector="[data-kassa-context-row]"]');
+
+                    if (!menu || menu.dataset.kassaMenuReady === 'true') {
+                        return;
+                    }
+
+                    menu.dataset.kassaMenuReady = 'true';
+
+                    document.addEventListener('contextmenu', (event) => {
+                        const row = event.target.closest('[data-kassa-context-row]');
+
+                        if (!row) {
+                            return;
+                        }
+
+                        menu.dataset.row = JSON.stringify(row.dataset);
+                    });
+
+                    menu.querySelector('[data-kassa-show-properties]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+                        const properties = {
+                            cashEntryId: data.kassaCashEntryId || '—',
+                            sourceType: data.kassaSourceType || '—',
+                            sourceLabel: data.kassaSourceLabel || '—',
+                            operationDate: data.kassaOperationDate || '—',
+                            createdDate: data.kassaCreatedDate || '—',
+                            article: data.kassaArticle || '—',
+                            articleId: data.kassaArticleId || '—',
+                            legal: data.kassaLegal || '—',
+                            legalId: data.kassaLegalId || '—',
+                            income: data.kassaIncome || '—',
+                            expense: data.kassaExpense || '—',
+                            amount: data.kassaAmount || '—',
+                            runningTotal: data.kassaRunningTotal || '—',
+                            sourceRecord: data.kassaSourceRecord || '—',
+                            ruleId: data.kassaRuleId || '—',
+                            kassaId: data.kassaKassaId || '—',
+                            bankTransactionId: data.kassaBankTransactionId || '—',
+                            document: data.kassaDocument || '—',
+                            documentId: data.kassaDocumentId || '—',
+                            documentExternalId: data.kassaDocumentExternalId || '—',
+                            description: data.kassaDescription || '—',
+                        };
+
+                        for (const [key, value] of Object.entries(properties)) {
+                            const element = document.querySelector(`[data-kassa-property="${key}"]`);
+
+                            if (element) {
+                                element.textContent = value || '—';
+                            }
+                        }
+
+                        document.querySelector('[data-kassa-properties-open]')?.click();
+                    });
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initKassaContextMenu);
+                } else {
+                    initKassaContextMenu();
+                }
+
+                document.addEventListener('livewire:navigated', initKassaContextMenu);
+            })();
+        </script>
+    @endonce
 @endsection
