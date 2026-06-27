@@ -138,24 +138,12 @@
         'swatch' => $user->isAdmin() ? '#4f46e5' : ($user->is_active ? '#16a34a' : '#dc2626'),
     ]);
 
-    $accountsByLegalId = $bankAccounts->groupBy(fn ($account) => (string) $account->legal_id);
-    $scopeGroups = $legalEntities->map(function ($legalEntity) use ($accountsByLegalId) {
-        $accountRows = $accountsByLegalId
-            ->get((string) $legalEntity->legal_id, collect())
-            ->map(fn ($account) => [
-                'key' => 'bank_account:' . $account->bank_account_id,
-                'label' => $account->name ?: $account->account_number,
-                'secondary' => trim(($account->bank?->bank_name ?? $account->bank_id) . ' · ' . $account->account_number),
-                'swatch' => '#0ea5e9',
-                'level' => 1,
-            ]);
-
+    $scopeGroups = $legalEntities->map(function ($legalEntity) {
         return [
             'key' => 'legal:' . $legalEntity->legal_id,
             'label' => $legalEntity->legal_name,
             'secondary' => 'ИНН ' . ($legalEntity->legal_inn ?: $legalEntity->legal_id),
             'swatch' => $legalEntity->legal_color ?: '#e5e7eb',
-            'rows' => $accountRows->values(),
         ];
     })->values();
 
@@ -361,7 +349,7 @@
                         <section data-ui-tabs-panel="data-scopes" class="mt-5" hidden>
                             <div>
                                 <h3 class="text-sm font-semibold text-gray-900">Данные</h3>
-                                <p class="mt-1 text-sm text-gray-500">Ограничивает, какие юрлица и счета доступны внутри разрешенных разделов.</p>
+                                <p class="mt-1 text-sm text-gray-500">Ограничивает, какие ИП и юрлица доступны внутри разрешенных разделов. Счета выбранного ИП доступны целиком.</p>
                             </div>
 
                             <div class="mt-4 overflow-x-auto rounded-lg ring-1 ring-gray-200">
@@ -403,38 +391,6 @@
                                                     </td>
                                                 @endforeach
                                             </tr>
-
-                                            @foreach ($scopeGroup['rows'] as $scopeRow)
-                                                @php($scope = $scopePermissions->get($scopeRow['key']))
-                                                <tr class="cursor-pointer hover:bg-gray-50" data-user-access-checkbox-row>
-                                                    <td class="sticky left-0 z-10 bg-white py-3 pr-3 pl-4 sm:pl-6">
-                                                        <div class="flex items-start gap-2 @if (($scopeRow['level'] ?? 0) > 0) pl-5 @endif">
-                                                            @if (($scopeRow['level'] ?? 0) > 0)
-                                                                <span class="mt-0.5 text-gray-400">↳</span>
-                                                            @else
-                                                                <span
-                                                                    class="mt-1 inline-flex size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
-                                                                    style="background-color: {{ $scopeRow['swatch'] }}"
-                                                                ></span>
-                                                            @endif
-                                                            <div class="min-w-0">
-                                                                <div class="font-medium text-gray-900">{{ $scopeRow['label'] }}</div>
-                                                                <div class="mt-0.5 text-xs text-gray-500">{{ $scopeRow['secondary'] }}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-
-                                                    @foreach ($dataPermissions as $permission)
-                                                        <td class="cursor-pointer px-3 py-3 text-center hover:bg-gray-50" data-user-access-checkbox-cell>
-                                                            <x-ui.native-checkbox
-                                                                name="scopes[{{ $scopeRow['key'] }}][{{ $permission }}]"
-                                                                value="1"
-                                                                :checked="(bool) ($scope?->{$permission} ?? false)"
-                                                            />
-                                                        </td>
-                                                    @endforeach
-                                                </tr>
-                                            @endforeach
                                         @endforeach
                                     </tbody>
                                 </table>

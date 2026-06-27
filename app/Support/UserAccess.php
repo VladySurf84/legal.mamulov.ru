@@ -115,13 +115,13 @@ class UserAccess
             return $query;
         }
 
-        $bankAccountIds = self::viewableBankAccountIds($user);
+        $legalIds = self::viewableLegalIds($user);
 
-        if ($bankAccountIds === []) {
+        if ($legalIds === []) {
             return $query->whereRaw('false');
         }
 
-        return $query->whereIn('bank_account_id', $bankAccountIds);
+        return $query->whereIn('legal_id', $legalIds);
     }
 
     /**
@@ -133,11 +133,26 @@ class UserAccess
             return [];
         }
 
-        return $user->accessScopes()
-            ->where('scope_type', 'bank_account')
-            ->where('can_view', true)
-            ->pluck('scope_id')
-            ->filter()
+        if ($user->isAdmin()) {
+            return BankAccount::query()
+                ->orderBy('bank_account_id')
+                ->pluck('bank_account_id')
+                ->map(fn ($bankAccountId) => (int) $bankAccountId)
+                ->filter(fn (int $bankAccountId) => $bankAccountId > 0)
+                ->values()
+                ->all();
+        }
+
+        $legalIds = self::viewableLegalIds($user);
+
+        if ($legalIds === []) {
+            return [];
+        }
+
+        return BankAccount::query()
+            ->whereIn('legal_id', $legalIds)
+            ->orderBy('bank_account_id')
+            ->pluck('bank_account_id')
             ->map(fn ($bankAccountId) => (int) $bankAccountId)
             ->filter(fn (int $bankAccountId) => $bankAccountId > 0)
             ->values()
@@ -154,7 +169,11 @@ class UserAccess
             return true;
         }
 
-        return in_array($bankAccountId, self::viewableBankAccountIds($user), true);
+        $legalId = BankAccount::query()
+            ->where('bank_account_id', $bankAccountId)
+            ->value('legal_id');
+
+        return $legalId !== null && self::canViewLegal($user, (string) $legalId);
     }
 
     public static function canViewModule(?User $user, string $module): bool

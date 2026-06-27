@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BankAccount;
 use App\Models\LegalEntity;
 use App\Models\User;
 use App\Support\UserAccess;
@@ -77,18 +76,10 @@ class UserAccessController extends Controller
             ->orderBy('legal_name')
             ->get(['legal_id', 'legal_name', 'legal_inn', 'legal_color']);
 
-        $bankAccounts = BankAccount::query()
-            ->with(['bank', 'legalEntity'])
-            ->orderBy('legal_id')
-            ->orderBy('bank_id')
-            ->orderBy('account_number')
-            ->get();
-
         return view('user-access.index', [
             'users' => $users,
             'selectedUser' => $selectedUser,
             'legalEntities' => $legalEntities,
-            'bankAccounts' => $bankAccounts,
             'globalModules' => self::GLOBAL_MODULES,
             'scopedModules' => self::SCOPED_MODULES,
             'dataPermissions' => self::DATA_PERMISSIONS,
@@ -235,14 +226,6 @@ class UserAccessController extends Controller
             abort_unless((bool) preg_match('/^[0-9]{10,12}$/', $legalId), 422);
 
             return ['legal', $legalId];
-        }
-
-        if (str_starts_with($scopeKey, 'bank_account:')) {
-            $bankAccountId = substr($scopeKey, strlen('bank_account:'));
-
-            abort_unless((bool) preg_match('/^[0-9]+$/', $bankAccountId), 422);
-
-            return ['bank_account', $bankAccountId];
         }
 
         abort(422);
