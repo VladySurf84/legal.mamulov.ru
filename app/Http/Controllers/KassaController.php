@@ -12,24 +12,40 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class KassaController extends Controller
 {
     private const PER_PAGE = 50;
+    private const FRESH_ENTRY_DAYS = 7;
 
     public function index(Request $request): View|JsonResponse
     {
         abort_unless(UserAccess::canViewCashPage($request->user()), 403);
 
+        $articleFilter = $request->input('article_id', []);
+        $articleFilter = is_array($articleFilter) ? $articleFilter : [$articleFilter];
+        $request->merge([
+            'article_id' => array_values(array_filter($articleFilter, static fn ($value) => $value !== null && $value !== '')),
+        ]);
+
         $filters = $request->validate([
-            'article_id' => ['nullable', 'integer'],
+            'article_id' => ['nullable', 'array'],
+            'article_id.*' => ['integer'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
+        $filters['article_id'] = collect($filters['article_id'] ?? [])
+            ->map(static fn ($articleId) => (int) $articleId)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         $page = (int) ($filters['page'] ?? 1);
         $filters['per_page'] ??= UserUiSettings::paginationRows($request, 'kassa-rows', self::PER_PAGE);
         $perPage = $this->perPage($filters);
@@ -37,12 +53,13 @@ class KassaController extends Controller
         unset($filters['per_page']);
 
         $query = DB::table('legal.cash_entries as entry')
+            ->leftJoin('legal.kassa as kassa', 'kassa.kassa_id', '=', 'entry.kassa_id')
             ->leftJoin('legal.kassa_article as article', 'article.article_id', '=', 'entry.article_id')
             ->leftJoin('legal.legal_own as legal', 'legal.legal_id', '=', 'entry.legal_id')
             ->leftJoin('legal.documents as document', 'document.document_id', '=', 'entry.source_document_id');
 
         if (! empty($filters['article_id'])) {
-            $query->where('entry.article_id', (int) $filters['article_id']);
+            $query->whereIn('entry.article_id', $filters['article_id']);
         }
 
         if (! empty($filters['date_from'])) {
@@ -88,6 +105,7 @@ class KassaController extends Controller
                 'entry.amount',
                 'entry.description',
                 'entry.created_at as created',
+                'kassa.created as kassa_created',
                 'entry.legal_id',
                 'entry.source_document_id as document_id',
                 'article.article',
@@ -117,10 +135,15 @@ class KassaController extends Controller
                 'html' => view('kassa.partials.rows', [
                     'operations' => $operations,
                     'displayTimezone' => config('app.display_timezone', 'Europe/Moscow'),
+                    'canCreateCashEntry' => UserAccess::canCreateCashEntry($request->user()),
+                    'canEditAnyCashEntry' => UserAccess::canEditAnyCashEntry($request->user()),
+                    'canDeleteFreshCashEntry' => UserAccess::canDeleteFreshCashEntry($request->user()),
+                    'canDeleteAnyCashEntry' => UserAccess::canDeleteAnyCashEntry($request->user()),
+                    'freshEntryDays' => self::FRESH_ENTRY_DAYS,
                 ])->render(),
                 'loader_html' => view('kassa.partials.loader-row', [
                     'nextPage' => $hasMore ? $page + 1 : null,
-                    'tableColspan' => 10,
+                    'tableColspan' => 8,
                 ])->render(),
                 'sticky_summary_html' => view('kassa.partials.foot', [
                     'summary' => $summary,
@@ -137,44 +160,32 @@ class KassaController extends Controller
             'articles' => $this->articles(),
             'nextPage' => $hasMore ? $page + 1 : null,
             'canEditManualOperations' => UserAccess::canEditManualOperations($request->user()),
+            'canCreateCashEntry' => UserAccess::canCreateCashEntry($request->user()),
+            'canEditAnyCashEntry' => UserAccess::canEditAnyCashEntry($request->user()),
+            'canDeleteCashEntry' => UserAccess::canDeleteCashEntry($request->user()),
+            'canDeleteFreshCashEntry' => UserAccess::canDeleteFreshCashEntry($request->user()),
+            'canDeleteAnyCashEntry' => UserAccess::canDeleteAnyCashEntry($request->user()),
+            'freshEntryDays' => self::FRESH_ENTRY_DAYS,
+            'canRebuildCashLayer' => UserAccess::canRebuildCashLayer($request->user()),
         ]);
     }
 
-    public function store(Request $request, CashLayerBuilder $cashLayerBuilder): RedirectResponse
+    public function store(Request $request, CashLayerBuilder $cashLayerBuilder): RedirectResponse|JsonResponse
     {
-        abort_unless(UserAccess::canEditManualOperations($request->user()), 403);
+        abort_unless(UserAccess::canCreateCashEntry($request->user()), 403);
 
-        $validated = $request->validate([
-            'article_id' => ['required', 'integer'],
-            'time' => ['required', 'date'],
-            'direction' => ['required', 'in:income,expense'],
-            'amount' => ['required', 'integer', 'min:1'],
-            'description' => ['required', 'string', 'max:2000'],
-        ]);
-
-        if (! $this->articleExists((int) $validated['article_id'])) {
-            throw ValidationException::withMessages([
-                'article_id' => 'Выбранное описание не найдено.',
-            ]);
-        }
-
+        $entryData = $this->validatedEntryData($request);
         $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
-        $amount = (int) $validated['amount'];
-
-        if ($validated['direction'] === 'expense') {
-            $amount = -$amount;
-        }
-
-        $time = Carbon::parse($validated['time'], $displayTimezone)
+        $time = now($displayTimezone)
             ->timezone('UTC')
             ->format('Y-m-d H:i:s');
 
         try {
             DB::table('legal.kassa')->insert([
-                'article_id' => (int) $validated['article_id'],
+                'article_id' => $entryData['article_id'],
                 'time' => $time,
-                'amount' => $amount,
-                'description' => $validated['description'],
+                'amount' => $entryData['amount'],
+                'description' => $entryData['description'],
                 'created' => now('UTC')->format('Y-m-d H:i:s'),
             ]);
 
@@ -182,10 +193,22 @@ class KassaController extends Controller
         } catch (Throwable $exception) {
             report($exception);
 
+            if ($request->ajax()) {
+                return response()->json([
+                    'message' => 'Не удалось добавить кассовую запись: ' . $exception->getMessage(),
+                ], 500);
+            }
+
             return back()
                 ->withInput()
                 ->with('open_modal', 'kassa-create-dialog')
                 ->with('error', 'Не удалось добавить кассовую запись: ' . $exception->getMessage());
+        }
+
+        if ($request->ajax()) {
+            return response()->json([
+                'message' => 'Кассовая запись добавлена.',
+            ]);
         }
 
         return redirect()
@@ -193,9 +216,130 @@ class KassaController extends Controller
             ->with('status', 'Кассовая запись добавлена.');
     }
 
+    public function update(Request $request, CashLayerBuilder $cashLayerBuilder, int $kassaId): RedirectResponse|JsonResponse
+    {
+        abort_unless(
+            UserAccess::canCreateCashEntry($request->user()) || UserAccess::canEditAnyCashEntry($request->user()),
+            403
+        );
+
+        $entryData = $this->validatedEntryData($request);
+
+        try {
+            $entry = DB::table('legal.kassa')
+                ->where('kassa_id', $kassaId)
+                ->first(['kassa_id', 'created']);
+
+            if (! $entry) {
+                throw ValidationException::withMessages([
+                    'kassa_id' => 'Кассовая запись не найдена.',
+                ]);
+            }
+
+            if (! UserAccess::canEditAnyCashEntry($request->user())) {
+                $this->abortUnlessFreshManualEntry($entry->created);
+            }
+
+            DB::table('legal.kassa')
+                ->where('kassa_id', $kassaId)
+                ->update([
+                    'article_id' => $entryData['article_id'],
+                    'amount' => $entryData['amount'],
+                    'description' => $entryData['description'],
+                ]);
+
+            $cashLayerBuilder->rebuild();
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'message' => 'Не удалось обновить кассовую запись: ' . $exception->getMessage(),
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->with('open_modal', 'kassa-create-dialog')
+                ->with('error', 'Не удалось обновить кассовую запись: ' . $exception->getMessage());
+        }
+
+        if ($request->ajax()) {
+            return response()->json([
+                'message' => 'Кассовая запись обновлена.',
+            ]);
+        }
+
+        return redirect()
+            ->route('kassa.index')
+            ->with('status', 'Кассовая запись обновлена.');
+    }
+
+    public function destroy(Request $request, CashLayerBuilder $cashLayerBuilder, int $kassaId): RedirectResponse|JsonResponse
+    {
+        abort_unless(UserAccess::canDeleteCashEntry($request->user()), 403);
+
+        try {
+            $entry = DB::table('legal.kassa')
+                ->where('kassa_id', $kassaId)
+                ->first(['kassa_id', 'created']);
+
+            if (! $entry) {
+                throw ValidationException::withMessages([
+                    'kassa_id' => 'Кассовая запись не найдена.',
+                ]);
+            }
+
+            if (! UserAccess::canDeleteAnyCashEntry($request->user())) {
+                $this->abortUnlessFreshManualEntry($entry->created);
+            }
+
+            $deleted = DB::table('legal.kassa')
+                ->where('kassa_id', $kassaId)
+                ->delete();
+
+            if ($deleted === 0) {
+                throw ValidationException::withMessages([
+                    'kassa_id' => 'Кассовая запись не найдена.',
+                ]);
+            }
+
+            $cashLayerBuilder->rebuild();
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'message' => 'Не удалось удалить кассовую запись: ' . $exception->getMessage(),
+                ], 500);
+            }
+
+            return back()
+                ->with('error', 'Не удалось удалить кассовую запись: ' . $exception->getMessage());
+        }
+
+        if ($request->ajax()) {
+            return response()->json([
+                'message' => 'Кассовая запись удалена.',
+            ]);
+        }
+
+        return redirect()
+            ->route('kassa.index')
+            ->with('status', 'Кассовая запись удалена.');
+    }
+
     public function rebuild(CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
-        abort_unless(UserAccess::canEditManualOperations(request()->user()), 403);
+        abort_unless(UserAccess::canRebuildCashLayer(request()->user()), 403);
 
         try {
             $count = $cashLayerBuilder->rebuild();
@@ -220,6 +364,51 @@ class KassaController extends Controller
         return DB::table('legal.kassa_article')
             ->where('article_id', $articleId)
             ->exists();
+    }
+
+    private function abortUnlessFreshManualEntry(mixed $created): void
+    {
+        $createdAt = $created
+            ? Carbon::parse((string) $created, 'UTC')
+            : null;
+
+        abort_unless(
+            $createdAt !== null && $createdAt->greaterThanOrEqualTo(now('UTC')->subDays(self::FRESH_ENTRY_DAYS)),
+            403
+        );
+    }
+
+    /**
+     * @return array{article_id: int|null, amount: int, description: string}
+     */
+    private function validatedEntryData(Request $request): array
+    {
+        $validated = $request->validate([
+            'article_id' => ['nullable', 'integer'],
+            'direction' => ['required', 'in:income,expense'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'description' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $articleId = filled($validated['article_id'] ?? null) ? (int) $validated['article_id'] : null;
+
+        if ($articleId !== null && ! $this->articleExists($articleId)) {
+            throw ValidationException::withMessages([
+                'article_id' => 'Выбранное описание не найдено.',
+            ]);
+        }
+
+        $amount = (int) $validated['amount'];
+
+        if ($validated['direction'] === 'expense') {
+            $amount = -$amount;
+        }
+
+        return [
+            'article_id' => $articleId,
+            'amount' => $amount,
+            'description' => $validated['description'],
+        ];
     }
 
     /**

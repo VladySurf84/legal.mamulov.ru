@@ -66,6 +66,8 @@ SQL, $bindings);
 
     public function rebuild(VatLayerBuilder $builder): RedirectResponse
     {
+        abort_unless(UserAccess::canRebuildVatLayer(request()->user()), 403);
+
         $count = $builder->rebuild();
 
         return redirect()
@@ -75,6 +77,8 @@ SQL, $bindings);
 
     public function rebuildBank(BankVatLayerBuilder $builder): RedirectResponse
     {
+        abort_unless(UserAccess::canRebuildBankVatLayer(request()->user()), 403);
+
         $count = $builder->rebuild();
 
         return redirect()

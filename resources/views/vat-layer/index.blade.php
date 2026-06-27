@@ -7,14 +7,18 @@
             <div class="subtle">Интерпретационный слой НДС из книг бухгалтера и банковских назначений платежа.</div>
         </div>
         <div class="actions">
+            @if (\App\Support\UserAccess::canRebuildVatLayer(auth()->user()))
             <form method="post" action="{{ route('vat-layer.rebuild') }}">
                 @csrf
                 <button type="submit">Пересчитать книги</button>
             </form>
+            @endif
+            @if (\App\Support\UserAccess::canRebuildBankVatLayer(auth()->user()))
             <form method="post" action="{{ route('vat-layer.rebuild-bank') }}">
                 @csrf
                 <button type="submit">Пересчитать банк</button>
             </form>
+            @endif
         </div>
     </div>
 
@@ -45,13 +49,23 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label for="contractor_inn">ИНН контрагента</label>
-                    <input id="contractor_inn" name="contractor_inn" value="{{ $filters['contractor_inn'] ?? '' }}" inputmode="numeric">
+                    <x-ui.input
+                        id="contractor_inn"
+                        name="contractor_inn"
+                        label="ИНН контрагента"
+                        :value="$filters['contractor_inn'] ?? ''"
+                        inputmode="numeric"
+                    />
                 </div>
                 <div class="field">
                     <label>Период</label>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <input name="year" value="{{ $filters['year'] ?? '' }}" placeholder="2026" inputmode="numeric">
+                        <x-ui.input
+                            name="year"
+                            :value="$filters['year'] ?? ''"
+                            placeholder="2026"
+                            inputmode="numeric"
+                        />
                         <select name="quarter">
                             <option value="">Все кварталы</option>
                             @foreach ([1, 2, 3, 4] as $quarter)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Bank\BankStatementImportService;
+use App\Support\UserAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ class BankStatementImportController extends Controller
 {
     public function store(Request $request, BankStatementImportService $service): RedirectResponse|JsonResponse
     {
+        abort_unless(UserAccess::canImportBankStatements($request->user()), 403);
+
         $validated = $request->validate([
             'statement_files' => ['required', 'array', 'min:1'],
             'statement_files.*' => ['required', 'file', 'max:20480'],

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ExchangeRates\KyrgyzBankExchangeRateSyncService;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,8 @@ class ExchangeRateController extends Controller
 
     public function sync(KyrgyzBankExchangeRateSyncService $service): RedirectResponse
     {
+        abort_unless(UserAccess::canSyncExchangeRates(request()->user()), 403);
+
         $summary = $service->sync(['mbank', 'obank'], [
             'started_by_type' => 'user',
             'started_by_user_id' => auth()->id(),

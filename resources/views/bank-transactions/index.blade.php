@@ -5,13 +5,17 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
-        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="bank-statement-import-dialog">
-            Загрузить выписку
-        </x-ui.button>
+        @if ($canImportBankStatements)
+            <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="bank-statement-import-dialog">
+                Загрузить выписку
+            </x-ui.button>
+        @endif
 
-        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="tinkoff-sync-dialog">
-            Обновить Тинек
-        </x-ui.button>
+        @if ($canSyncBankApi)
+            <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="tinkoff-sync-dialog">
+                Обновить Тинек
+            </x-ui.button>
+        @endif
 
         <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="bank-transaction-data-map-dialog">
             Карта данных
@@ -20,52 +24,56 @@
 @endsection
 
 @section('content')
-    <x-ui.modal
-        id="tinkoff-sync-dialog"
-        title="Обновить Тинек"
-        description="Синхронизация загрузит из API Тинькофф список счетов и операции за последние 5 дней."
-        size="lg"
-    >
-        <div class="px-6 py-5">
-            <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
-                <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
-                <ul class="mt-2 list-disc space-y-1 pl-5">
-                    <li>Будут использованы активные API-ключи Тинькофф по банковским счетам.</li>
-                    <li>Каждый запрос и ответ API попадет в журнал синхронизации.</li>
-                    <li>Новые банковские операции будут добавлены в документы и банковскую детализацию.</li>
-                    <li>Существующие операции будут обновлены без дублей.</li>
-                </ul>
-            </div>
+    @if ($canSyncBankApi)
+        <x-ui.modal
+            id="tinkoff-sync-dialog"
+            title="Обновить Тинек"
+            description="Синхронизация загрузит из API Тинькофф список счетов и операции за последние 5 дней."
+            size="lg"
+        >
+            <div class="px-6 py-5">
+                <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
+                    <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">
+                        <li>Будут использованы активные API-ключи Тинькофф по банковским счетам.</li>
+                        <li>Каждый запрос и ответ API попадет в журнал синхронизации.</li>
+                        <li>Новые банковские операции будут добавлены в документы и банковскую детализацию.</li>
+                        <li>Существующие операции будут обновлены без дублей.</li>
+                    </ul>
+                </div>
 
-            <div class="mt-5 flex justify-end gap-2">
-                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
-                    Отмена
-                </x-ui.button>
-
-                <form method="post" action="{{ route('bank-transactions.sync') }}">
-                    @csrf
-                    <input type="hidden" name="days" value="5">
-                    <x-ui.button type="submit" size="md" variant="soft">
-                        Запустить
+                <div class="mt-5 flex justify-end gap-2">
+                    <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                        Отмена
                     </x-ui.button>
-                </form>
-            </div>
-        </div>
-    </x-ui.modal>
 
-    <x-ui.modal
-        id="bank-statement-import-dialog"
-        title="Загрузка банковской выписки"
-        description="Файлы должны быть формата 1CClientBankExchange. Они будут добавлены в документы и Money layer."
-        size="xl"
-        :open="session('open_modal') === 'bank-statement-import-dialog'"
-    >
-        @include('bank-statement-imports._form', [
-            'formId' => 'bank-transactions-statement-import',
-            'redirectTo' => url()->full(),
-            'submitLabel' => 'Загрузить',
-        ])
-    </x-ui.modal>
+                    <form method="post" action="{{ route('bank-transactions.sync') }}">
+                        @csrf
+                        <input type="hidden" name="days" value="5">
+                        <x-ui.button type="submit" size="md" variant="soft">
+                            Запустить
+                        </x-ui.button>
+                    </form>
+                </div>
+            </div>
+        </x-ui.modal>
+    @endif
+
+    @if ($canImportBankStatements)
+        <x-ui.modal
+            id="bank-statement-import-dialog"
+            title="Загрузка банковской выписки"
+            description="Файлы должны быть формата 1CClientBankExchange. Они будут добавлены в документы и Money layer."
+            size="xl"
+            :open="session('open_modal') === 'bank-statement-import-dialog'"
+        >
+            @include('bank-statement-imports._form', [
+                'formId' => 'bank-transactions-statement-import',
+                'redirectTo' => url()->full(),
+                'submitLabel' => 'Загрузить',
+            ])
+        </x-ui.modal>
+    @endif
 
     <x-ui.modal
         id="bank-transaction-data-map-dialog"
@@ -280,10 +288,12 @@
                     ]"
                 />
 
-                <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-                    <span>Контрагент / ИНН</span>
-                    <input class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-700/15" name="contractor" value="{{ $filters['contractor'] ?? '' }}" data-ui-table-filter-input>
-                </label>
+                <x-ui.input
+                    label="Контрагент / ИНН"
+                    name="contractor"
+                    :value="$filters['contractor'] ?? ''"
+                    data-ui-table-filter-input
+                />
 
                 <x-ui.airdatepicker.date-range
                     label="Период"

@@ -30,26 +30,31 @@
 @endphp
 
 <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
-    <div>
-        <label for="name" class="block text-sm/6 font-medium text-gray-900">Название</label>
-        <div class="mt-2">
-            <input id="name" class="{{ $inputClass }}" name="name" value="{{ old('name', $documentType->name) }}" required>
-        </div>
-    </div>
+    <x-ui.input
+        id="name"
+        name="name"
+        label="Название"
+        :value="old('name', $documentType->name)"
+        required
+    />
 
-    <div>
-        <label for="code" class="block text-sm/6 font-medium text-gray-900">Код</label>
-        <div class="mt-2">
-            <input id="code" class="{{ $inputClass }} font-mono" name="code" value="{{ old('code', $documentType->code) }}" required pattern="[a-z0-9_]+">
-        </div>
-    </div>
+    <x-ui.input
+        id="code"
+        name="code"
+        label="Код"
+        :value="old('code', $documentType->code)"
+        class="font-mono"
+        required
+        pattern="[a-z0-9_]+"
+    />
 
-    <div>
-        <label for="document_group" class="block text-sm/6 font-medium text-gray-900">Группа</label>
-        <div class="mt-2">
-            <input id="document_group" class="{{ $inputClass }}" name="document_group" value="{{ old('document_group', $documentType->document_group) }}" required>
-        </div>
-    </div>
+    <x-ui.input
+        id="document_group"
+        name="document_group"
+        label="Группа"
+        :value="old('document_group', $documentType->document_group)"
+        required
+    />
 
     <div>
         <label for="default_direction" class="block text-sm/6 font-medium text-gray-900">Направление</label>

@@ -1,6 +1,7 @@
 @extends('layouts.app', ['title' => 'Контрагенты'])
 
 @section('page_actions')
+    @if (\App\Support\UserAccess::canRebuildCounterpartyLinks(auth()->user()))
     <form method="post" action="{{ route('counterparties.rebuild-links') }}" data-counterparties-rebuild-form>
         @csrf
         <input type="hidden" name="legal_id" value="{{ $filters['legal_id'] ?? '' }}" data-rebuild-legal-id>
@@ -10,6 +11,7 @@
             Пересчитать связи
         </x-ui.button>
     </form>
+    @endif
 @endsection
 
 @section('content')
@@ -43,17 +45,14 @@
                     ])->values()"
                 />
 
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">ИНН контрагента</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
-                        name="contractor_inn"
-                        value="{{ $filters['contractor_inn'] ?? '' }}"
-                        inputmode="numeric"
-                        autocomplete="off"
-                        data-ui-table-filter-input
-                    >
-                </label>
+                <x-ui.input
+                    label="ИНН контрагента"
+                    name="contractor_inn"
+                    :value="$filters['contractor_inn'] ?? ''"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    data-ui-table-filter-input
+                />
 
                 <label class="flex items-end gap-3 pb-1 text-sm font-medium text-gray-900 dark:text-white">
                     <span class="grid size-5 shrink-0 place-items-center">

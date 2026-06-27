@@ -56,6 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(UserAccessScope::class, 'user_id', 'id');
     }
 
+    public function modulePermissions(): HasMany
+    {
+        return $this->hasMany(UserModulePermission::class, 'user_id', 'id');
+    }
+
     public function telegramChat(): BelongsTo
     {
         return $this->belongsTo(TelegramChat::class, 'telegram_chat_id', 'telegram_chat_id');

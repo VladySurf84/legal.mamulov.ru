@@ -5,9 +5,11 @@
 
 @section('page_actions')
     <div class="flex gap-2">
-        <x-ui.button type="button" variant="ghost" data-ui-modal-open="cryptopro-import-dialog">
-            Импортировать
-        </x-ui.button>
+        @if ($canManageElectronicSignatures)
+            <x-ui.button type="button" variant="ghost" data-ui-modal-open="cryptopro-import-dialog">
+                Импортировать
+            </x-ui.button>
+        @endif
         <x-ui.button :href="route('internal-api-docs.index')" variant="ghost" wire:navigate>
             Swagger API
         </x-ui.button>
@@ -15,37 +17,39 @@
 @endsection
 
 @section('content')
-    <x-ui.modal
-        id="cryptopro-import-dialog"
-        title="Импорт подписей из CryptoPro"
-        description="Система вызовет серверный API, который прочитает сертификаты из хранилища CryptoPro на сервере и вернет их для синхронизации."
-        size="lg"
-    >
-        <div class="px-6 py-5">
-            <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
-                <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
-                <ul class="mt-2 list-disc space-y-1 pl-5">
-                    <li>Будет вызвано внутреннее API сервера.</li>
-                    <li>Сервер запустит поиск сертификатов в установленном CryptoPro.</li>
-                    <li>Найденные отпечатки будут сохранены как API-credentials.</li>
-                    <li>Локальный проект синхронизирует карточки подписей без доступа к закрытым ключам.</li>
-                </ul>
-            </div>
+    @if ($canManageElectronicSignatures)
+        <x-ui.modal
+            id="cryptopro-import-dialog"
+            title="Импорт подписей из CryptoPro"
+            description="Система вызовет серверный API, который прочитает сертификаты из хранилища CryptoPro на сервере и вернет их для синхронизации."
+            size="lg"
+        >
+            <div class="px-6 py-5">
+                <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600 ring-1 ring-gray-900/5 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
+                    <div class="font-medium text-gray-900 dark:text-white">Что произойдет</div>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">
+                        <li>Будет вызвано внутреннее API сервера.</li>
+                        <li>Сервер запустит поиск сертификатов в установленном CryptoPro.</li>
+                        <li>Найденные отпечатки будут сохранены как API-credentials.</li>
+                        <li>Локальный проект синхронизирует карточки подписей без доступа к закрытым ключам.</li>
+                    </ul>
+                </div>
 
-            <div class="mt-5 flex justify-end gap-2">
-                <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
-                    Отмена
-                </x-ui.button>
-
-                <form method="POST" action="{{ route('electronic-signatures.import') }}">
-                    @csrf
-                    <x-ui.button type="submit" size="md" variant="soft">
-                        Запустить импорт
+                <div class="mt-5 flex justify-end gap-2">
+                    <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-close>
+                        Отмена
                     </x-ui.button>
-                </form>
+
+                    <form method="POST" action="{{ route('electronic-signatures.import') }}">
+                        @csrf
+                        <x-ui.button type="submit" size="md" variant="soft">
+                            Запустить импорт
+                        </x-ui.button>
+                    </form>
+                </div>
             </div>
-        </div>
-    </x-ui.modal>
+        </x-ui.modal>
+    @endif
 
     @if (session('status'))
         <div class="mb-4 rounded-md bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700 ring-1 ring-indigo-600/20">

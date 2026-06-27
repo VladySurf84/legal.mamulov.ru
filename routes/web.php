@@ -21,6 +21,7 @@ use App\Http\Controllers\UserImpersonationController;
 use App\Http\Controllers\UserUiSettingController;
 use App\Http\Controllers\VatBookController;
 use App\Http\Controllers\VatLayerController;
+use App\Support\UserAccess;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [AdminAuthController::class, 'create'])->name('login');
@@ -32,7 +33,11 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('logout', [AdminAuthController::class, 'destroy'])->name('logout');
 
     Route::get('/', function () {
-        return redirect()->route('bank-accounts.index');
+        $route = UserAccess::firstViewableRoute(auth()->user());
+
+        abort_unless($route !== null, 403);
+
+        return redirect()->route($route);
     });
 
     Route::resource('document-types', DocumentTypeController::class)->except('show');
@@ -51,6 +56,8 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('kassa', [KassaController::class, 'index'])->name('kassa.index');
     Route::post('kassa', [KassaController::class, 'store'])->name('kassa.store');
+    Route::put('kassa/{kassaId}', [KassaController::class, 'update'])->name('kassa.update');
+    Route::delete('kassa/{kassaId}', [KassaController::class, 'destroy'])->name('kassa.destroy');
     Route::post('kassa/rebuild', [KassaController::class, 'rebuild'])->name('kassa.rebuild');
     Route::get('electronic-signatures', [ElectronicSignatureController::class, 'index'])->name('electronic-signatures.index');
     Route::post('electronic-signatures/import', [ElectronicSignatureController::class, 'import'])->name('electronic-signatures.import');

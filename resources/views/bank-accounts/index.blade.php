@@ -1,12 +1,14 @@
 @extends('layouts.app', ['title' => 'Банковские счета'])
 
 @section('page_actions')
-    <form method="post" action="{{ route('bank-directories.import') }}">
-        @csrf
-        <x-ui.button type="submit" size="lg">
-            Обновить из mamulov.ru
-        </x-ui.button>
-    </form>
+    @if ($canManageBankAccounts)
+        <form method="post" action="{{ route('bank-directories.import') }}">
+            @csrf
+            <x-ui.button type="submit" size="lg">
+                Обновить из mamulov.ru
+            </x-ui.button>
+        </form>
+    @endif
 @endsection
 
 @section('before_content')

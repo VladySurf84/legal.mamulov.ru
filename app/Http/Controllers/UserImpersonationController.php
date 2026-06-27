@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,13 @@ class UserImpersonationController extends Controller
         $request->session()->put('impersonator_user_id', $authenticatedUser->getKey());
         $request->session()->put('impersonated_user_id', $user->getKey());
 
-        return back()->with('status', 'Теперь вы работаете как ' . ($user->name ?: $user->email) . '.');
+        $route = UserAccess::firstViewableRoute($user);
+
+        abort_unless($route !== null, 403);
+
+        return redirect()
+            ->route($route)
+            ->with('status', 'Теперь вы работаете как ' . ($user->name ?: $user->email) . '.');
     }
 
     public function destroy(Request $request): RedirectResponse

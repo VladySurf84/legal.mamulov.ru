@@ -6,9 +6,11 @@
 @endphp
 
 @section('page_actions')
-    <x-ui.button href="{{ route('user-access.index') }}" variant="soft">
-        Настроить права
-    </x-ui.button>
+    @if ($canViewUserAccess)
+        <x-ui.button href="{{ route('user-access.index') }}" variant="soft">
+            Настроить права
+        </x-ui.button>
+    @endif
 @endsection
 
 @section('content')
@@ -96,7 +98,7 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td align="right" class="tabular-nums">
-                    {{ $user->isAdmin() ? '∞' : $user->access_scopes_count }}
+                    {{ $user->isAdmin() ? '∞' : $user->access_scopes_count + $user->module_permissions_count }}
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td last align="right">
@@ -119,9 +121,11 @@
                             @endif
                         @endif
 
-                        <x-ui.button href="{{ route('user-access.index', ['user_id' => $user->getKey()]) }}" size="md" variant="ghost">
-                            Права
-                        </x-ui.button>
+                        @if ($canViewUserAccess)
+                            <x-ui.button href="{{ route('user-access.index', ['user_id' => $user->getKey()]) }}" size="md" variant="ghost">
+                                Права
+                            </x-ui.button>
+                        @endif
                     </div>
                 </x-ui.sticky-table-td>
             </tr>

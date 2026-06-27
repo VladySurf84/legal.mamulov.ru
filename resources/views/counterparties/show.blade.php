@@ -94,37 +94,28 @@
                     required
                 />
 
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Дата старта</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                        name="starts_on"
-                        type="date"
-                        value="{{ old('starts_on', '2025-01-01') }}"
-                        required
-                    >
-                </label>
+                <x-ui.input
+                    type="date"
+                    name="starts_on"
+                    label="Дата старта"
+                    :value="old('starts_on', '2025-01-01')"
+                    required
+                />
 
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Входящее сальдо</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                        name="amount"
-                        type="number"
-                        step="0.01"
-                        value="{{ old('amount') }}"
-                        required
-                    >
-                </label>
+                <x-ui.input
+                    type="number"
+                    name="amount"
+                    label="Входящее сальдо"
+                    :value="old('amount')"
+                    step="0.01"
+                    required
+                />
 
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Источник</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                        name="source"
-                        value="{{ old('source', 'Акт сверки') }}"
-                    >
-                </label>
+                <x-ui.input
+                    name="source"
+                    label="Источник"
+                    :value="old('source', 'Акт сверки')"
+                />
 
                 <label class="block lg:col-span-3">
                     <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Комментарий</span>

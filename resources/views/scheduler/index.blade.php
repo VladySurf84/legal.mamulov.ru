@@ -39,7 +39,7 @@
                         </div>
                         <div class="mt-1 break-all font-mono text-xs text-gray-500">{{ $task['command'] }}</div>
 
-                        @if ($task['run_route'])
+                        @if ($task['run_route'] && $canRunScheduler)
                             <form method="post" action="{{ $task['run_route'] }}" class="mt-3" onclick="event.stopPropagation();">
                                 @csrf
                                 <x-ui.button type="submit" variant="soft">

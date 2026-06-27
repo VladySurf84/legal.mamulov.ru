@@ -67,17 +67,14 @@
                     ])->values()"
                 />
 
-                <label class="block">
-                    <span class="block text-sm/6 font-medium text-gray-900 dark:text-white">Поиск</span>
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white py-1.5 pr-3 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
-                        name="q"
-                        data-ui-table-filter-input
-                        value="{{ $filters['q'] ?? '' }}"
-                        placeholder="ИНН, контрагент, счет-фактура, код"
-                        autocomplete="off"
-                    >
-                </label>
+                <x-ui.input
+                    label="Поиск"
+                    name="q"
+                    :value="$filters['q'] ?? ''"
+                    placeholder="ИНН, контрагент, счет-фактура, код"
+                    autocomplete="off"
+                    data-ui-table-filter-input
+                />
 
             <x-slot:actions>
                 <x-ui.button href="{{ route('vat-book-entries.index') }}" size="lg" wire:navigate>

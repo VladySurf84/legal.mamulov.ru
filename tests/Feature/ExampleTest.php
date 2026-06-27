@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\UserAccess;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -39,13 +40,20 @@ class ExampleTest extends TestCase
 
     private function test_user(): User
     {
-        return User::query()->updateOrCreate(
+        $user = User::query()->updateOrCreate(
             ['email' => 'feature@example.com'],
             [
                 'name' => 'Feature User',
                 'password' => 'secret',
+                'is_admin' => false,
                 'is_active' => true,
             ],
         );
+
+        $this->grantGlobalModule($user, UserAccess::MODULE_BANK_ACCOUNTS);
+        $this->grantGlobalModule($user, UserAccess::MODULE_BANK_TRANSACTIONS);
+        $this->grantGlobalModule($user, UserAccess::MODULE_DOCUMENT_TYPES);
+
+        return $user;
     }
 }

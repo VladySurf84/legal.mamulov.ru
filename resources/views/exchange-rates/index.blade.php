@@ -31,12 +31,14 @@
 @endphp
 
 @section('page_actions')
+    @if (\App\Support\UserAccess::canSyncExchangeRates(auth()->user()))
     <form method="post" action="{{ route('exchange-rates.sync') }}">
         @csrf
         <x-ui.button type="submit" size="lg" variant="ghost">
             Обновить курсы
         </x-ui.button>
     </form>
+    @endif
 @endsection
 
 @section('content')

@@ -362,6 +362,8 @@ SQL, $bindings);
 
     public function rebuildLinks(Request $request, AccountantReportLinkBuilder $builder): RedirectResponse
     {
+        abort_unless(UserAccess::canRebuildCounterpartyLinks($request->user()), 403);
+
         $filters = $request->validate([
             'legal_id' => ['nullable', 'string', 'max:12'],
             'contractor_inn' => ['nullable', 'string', 'max:12'],

@@ -10,9 +10,11 @@ use Illuminate\View\View;
 
 class LegalEntityController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $legalEntities = UserAccess::legalEntitiesQuery(request())
+        abort_unless(UserAccess::canViewModule($request->user(), UserAccess::MODULE_LEGAL_ENTITIES), 403);
+
+        $legalEntities = UserAccess::legalEntitiesQuery($request)
             ->withCount('bankAccounts')
             ->orderBy('legal_name')
             ->get();

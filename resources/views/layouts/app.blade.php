@@ -31,7 +31,26 @@
 
     $navItems = array_values(array_filter(
         $navItems,
-        fn (array $item): bool => $item['route'] !== 'kassa.index' || \App\Support\UserAccess::canViewCashPage(auth()->user()),
+        fn (array $item): bool => match ($item['route']) {
+            'legal-entities.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_LEGAL_ENTITIES),
+            'bank-accounts.index' => \App\Support\UserAccess::canViewBankAccounts(auth()->user()),
+            'bank-transactions.index' => \App\Support\UserAccess::canViewBankTransactions(auth()->user()),
+            'kassa.index' => \App\Support\UserAccess::canViewCashPage(auth()->user()),
+            'documents.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_DOCUMENTS),
+            'counterparties.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_COUNTERPARTIES),
+            'money-layer.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_MONEY_LAYER),
+            'vat-layer.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_VAT_LAYER),
+            'vat-books.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_VAT_BOOKS),
+            'vat-book-entries.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_VAT_BOOK_ENTRIES),
+            'currencies.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_CURRENCIES),
+            'exchange-rates.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_EXCHANGE_RATES),
+            'document-types.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_DOCUMENT_TYPES),
+            'electronic-signatures.index' => \App\Support\UserAccess::canViewElectronicSignatures(auth()->user()),
+            'users.index' => \App\Support\UserAccess::canViewUsers(auth()->user()),
+            'user-access.index' => \App\Support\UserAccess::canViewUserAccess(auth()->user()),
+            'scheduler.index' => \App\Support\UserAccess::canViewScheduler(auth()->user()),
+            default => true,
+        },
     ));
 
     $legalEntities = \App\Support\UserAccess::legalEntitiesQuery(request())

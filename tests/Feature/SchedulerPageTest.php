@@ -64,6 +64,7 @@ class SchedulerPageTest extends TestCase
             [
                 'name' => 'Scheduler User',
                 'password' => 'secret',
+                'is_admin' => true,
                 'is_active' => true,
             ],
         );

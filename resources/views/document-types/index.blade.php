@@ -4,9 +4,11 @@
 ])
 
 @section('page_actions')
+    @if (\App\Support\UserAccess::canCreateDocumentTypes(auth()->user()))
     <x-ui.button :href="route('document-types.create')" variant="ghost" wire:navigate>
         Создать тип
     </x-ui.button>
+    @endif
 @endsection
 
 @section('content')
@@ -80,10 +82,13 @@
 
                 <x-ui.sticky-table-td last align="right">
                     <div class="flex justify-end gap-2">
+                        @if (\App\Support\UserAccess::canEditDocumentTypes(auth()->user()))
                         <x-ui.button :href="route('document-types.edit', $documentType)" variant="ghost" wire:navigate>
                             Изменить
                         </x-ui.button>
+                        @endif
 
+                        @if (\App\Support\UserAccess::canDeleteDocumentTypes(auth()->user()))
                         <form method="post" action="{{ route('document-types.destroy', $documentType) }}" onsubmit="return confirm('Удалить тип документа?')">
                             @csrf
                             @method('delete')
@@ -91,6 +96,7 @@
                                 Удалить
                             </x-ui.button>
                         </form>
+                        @endif
                     </div>
                 </x-ui.sticky-table-td>
             </tr>

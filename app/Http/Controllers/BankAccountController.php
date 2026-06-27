@@ -12,6 +12,8 @@ class BankAccountController extends Controller
 {
     public function index(Request $request): View
     {
+        abort_unless(UserAccess::canViewBankAccounts($request->user()), 403);
+
         $accounts = UserAccess::bankAccountsQuery($request)
             ->with(['bank', 'legalEntity'])
             ->orderBy('legal_id')
@@ -21,11 +23,14 @@ class BankAccountController extends Controller
 
         return view('bank-accounts.index', [
             'accounts' => $accounts,
+            'canManageBankAccounts' => UserAccess::canManageBankAccounts($request->user()),
         ]);
     }
 
-    public function import(): RedirectResponse
+    public function import(Request $request): RedirectResponse
     {
+        abort_unless(UserAccess::canManageBankAccounts($request->user()), 403);
+
         Artisan::call('legacy:import-bank-directories');
 
         return redirect()

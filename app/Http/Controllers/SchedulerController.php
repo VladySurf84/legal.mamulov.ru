@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Console\ScheduleDefinitions;
+use App\Support\UserAccess;
 use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
@@ -17,6 +18,8 @@ class SchedulerController extends Controller
 {
     public function index(Schedule $schedule): View
     {
+        abort_unless(UserAccess::canViewScheduler(request()->user()), 403);
+
         if ($schedule->events() === []) {
             ScheduleDefinitions::define($schedule);
         }
@@ -28,11 +31,14 @@ class SchedulerController extends Controller
 
         return view('scheduler.index', [
             'tasks' => $tasks,
+            'canRunScheduler' => UserAccess::canRunScheduler(request()->user()),
         ]);
     }
 
     public function run(string $task): RedirectResponse
     {
+        abort_unless(UserAccess::canRunScheduler(request()->user()), 403);
+
         $commands = [
             'tinkoff-bank' => [
                 'command' => 'tinkoff:sync-bank',

@@ -3,7 +3,7 @@
 @endphp
 
 <tr>
-    <x-ui.sticky-table-summary-label first :columns="3">
+    <x-ui.sticky-table-summary-label first :columns="1">
         Всего: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
     </x-ui.sticky-table-summary-label>
     <x-ui.money-columns

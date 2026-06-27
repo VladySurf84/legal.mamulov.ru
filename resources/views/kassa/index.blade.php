@@ -7,41 +7,57 @@
     $displayTimezone = config('app.display_timezone', 'Europe/Moscow');
     $money = static fn ($value) => number_format((float) $value, 0, ',', ' ');
     $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value, 'UTC')->timezone($displayTimezone)->format('d.m.Y H:i') : '—';
-    $defaultKassaTime = now($displayTimezone)->format('Y-m-d\TH:i');
     $shouldOpenKassaCreateDialog = session('open_modal') === 'kassa-create-dialog' || (($errors ?? null)?->any() && old('_form') === 'kassa-create');
+    $articleFilterOptions = $articles
+        ->map(fn ($article) => [
+            'value' => (string) $article->article_id,
+            'label' => $article->article,
+        ])
+        ->values();
 @endphp
 
 @section('page_actions')
-    @if ($canEditManualOperations)
+    @if ($canCreateCashEntry || $canRebuildCashLayer)
     <div class="flex flex-wrap items-center gap-2">
-        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog">
+        @if ($canCreateCashEntry)
+        <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="kassa-create-dialog" data-kassa-create-open>
             Добавить запись
         </x-ui.button>
+        @endif
 
+        @if ($canRebuildCashLayer)
         <form method="post" action="{{ route('kassa.rebuild') }}">
             @csrf
             <x-ui.button type="submit" size="md" variant="ghost">
                 Пересчитать слой
             </x-ui.button>
         </form>
+        @endif
     </div>
     @endif
 @endsection
 
 @section('content')
-    @if ($canEditManualOperations)
+    @if ($canCreateCashEntry || $canEditAnyCashEntry)
+    <button type="button" class="hidden" data-ui-modal-open="kassa-create-dialog" data-kassa-edit-open></button>
+    <button type="button" class="hidden" data-ui-modal-close="kassa-create-dialog" data-kassa-form-close></button>
+
     <x-ui.modal
         id="kassa-create-dialog"
         title="Добавить запись кассы"
         description="Ручная денежная операция будет сохранена в legal.kassa и автоматически отражена как документ manual_cash_operation."
         size="xl"
         :open="$shouldOpenKassaCreateDialog"
+        data-kassa-form-dialog
     >
-        <form method="post" action="{{ route('kassa.store') }}">
+        <form method="post" action="{{ route('kassa.store') }}" data-kassa-create-form data-kassa-store-url="{{ route('kassa.store') }}">
             @csrf
+            <input type="hidden" name="_method" value="PUT" data-kassa-method-field disabled>
             <input type="hidden" name="_form" value="kassa-create">
 
             <div class="space-y-5 px-6 py-5">
+                <div class="hidden whitespace-pre-wrap rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" data-kassa-form-error></div>
+
                 @if (($errors ?? null)?->any() && old('_form') === 'kassa-create')
                     <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
                         @foreach ($errors->all() as $error)
@@ -50,68 +66,74 @@
                     </div>
                 @endif
 
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid gap-4 lg:grid-cols-[max-content_minmax(0,1fr)]">
+                    @php($direction = old('direction', 'expense'))
+                    <div>
+                        <input type="hidden" name="direction" value="{{ $direction }}" data-kassa-direction-input>
+                        <div class="flex">
+                            <button
+                                type="button"
+                                data-kassa-direction-toggle
+                                data-kassa-create-field
+                                @class([
+                                    'flex w-[76px] shrink-0 items-center justify-center rounded-l-md px-3 text-base font-medium outline-1 -outline-offset-1 transition-colors focus:outline-1 focus:-outline-offset-1 sm:text-sm/6',
+                                    'bg-emerald-50 text-emerald-700 outline-emerald-200 hover:bg-emerald-100' => $direction === 'income',
+                                    'bg-rose-50 text-rose-700 outline-rose-200 hover:bg-rose-100' => $direction !== 'income',
+                                ])
+                            >
+                                {{ $direction === 'income' ? 'Приход' : 'Расход' }}
+                            </button>
+                            <input
+                                type="text"
+                                name="amount"
+                                value="{{ old('amount') }}"
+                                placeholder="Сумма"
+                                inputmode="numeric"
+                                pattern="[0-9 ]*"
+                                class="-ml-px block w-[120px] rounded-r-md bg-white px-3 py-1.5 text-right text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-1 focus:-outline-offset-1 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-gray-700 dark:placeholder:text-gray-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                data-kassa-amount-input
+                                data-kassa-create-field
+                                required
+                            >
+                        </div>
+                    </div>
+
                     <x-ui.select
-                        label="Статья"
                         name="article_id"
                         :value="old('article_id')"
                         :options="$articles->pluck('article', 'article_id')->all()"
                         placeholder="Выберите статью"
+                        data-kassa-create-field
                     />
                 </div>
 
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
-                        <span>Дата и время</span>
-                        <input
-                            type="datetime-local"
-                            name="time"
-                            value="{{ old('time', $defaultKassaTime) }}"
-                            class="h-10 rounded-md bg-white px-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                            required
-                        >
-                    </label>
-
-                    <x-ui.select
-                        label="Тип"
-                        name="direction"
-                        :value="old('direction', 'expense')"
-                        :options="['income' => 'Приход', 'expense' => 'Расход']"
-                    />
-
-                    <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
-                        <span>Сумма</span>
-                        <input
-                            type="number"
-                            name="amount"
-                            value="{{ old('amount') }}"
-                            min="1"
-                            step="1"
-                            class="h-10 rounded-md bg-white px-3 text-right text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                            required
-                        >
-                    </label>
-                </div>
-
-                <label class="grid gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
-                    <span>Описание</span>
+                <label class="grid gap-1.5">
                     <textarea
                         name="description"
                         rows="4"
                         maxlength="2000"
+                        placeholder="Описание"
                         class="rounded-md bg-white px-3 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                        data-kassa-create-field
                         required
                     >{{ old('description') }}</textarea>
                 </label>
             </div>
 
             <div class="flex flex-wrap justify-end gap-2 border-t border-gray-200 px-6 py-4 dark:border-white/10">
-                <x-ui.button type="button" variant="ghost" data-ui-modal-close>
+                <x-ui.button type="button" variant="ghost" data-ui-modal-close data-kassa-cancel-button>
                     Отмена
                 </x-ui.button>
 
-                <x-ui.button type="submit" variant="soft">
-                    Добавить
+                <x-ui.button type="submit" variant="soft" data-kassa-submit-button>
+                    <span data-kassa-submit-idle data-kassa-submit-label>Добавить</span>
+                    <span class="hidden items-center gap-2" data-kassa-submit-loading>
+                        <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+                        </svg>
+                        <span data-kassa-submit-loading-label>Добавляем</span>
+                    </span>
                 </x-ui.button>
             </div>
         </form>
@@ -135,38 +157,38 @@
         rows-id="kassa-rows"
         loader-id="kassa-loader"
         table-selector="[data-kassa-table]"
-        columns="grid-cols-1 sm:grid-cols-2 xl:grid-cols-12"
+        columns="grid-cols-1"
     >
-            <div class="xl:col-span-3">
-                <x-ui.select
-                    label="Описание"
-                    name="article_id"
-                    :value="$filters['article_id'] ?? ''"
-                    :options="$articles->pluck('article', 'article_id')->all()"
-                    placeholder="Все описания"
-                />
-            </div>
+        <div class="min-w-0 max-w-full">
+            <div class="grid max-w-full grid-cols-1 gap-4 md:grid-cols-[minmax(0,240px)_minmax(0,240px)] xl:grid-cols-[minmax(0,240px)_minmax(0,240px)_minmax(280px,1fr)]">
+                <div>
+                    <x-ui.multi-select-with-secondary-text
+                        name="article_id"
+                        :value="$filters['article_id'] ?? []"
+                        :options="$articleFilterOptions"
+                        placeholder="Все статьи"
+                    />
+                </div>
 
-            <div class="sm:col-span-2 xl:col-span-9">
-                <x-ui.airdatepicker.date-range
-                    label="Период"
-                    name-from="date_from"
-                    name-to="date_to"
-                    :value-from="$filters['date_from'] ?? null"
-                    :value-to="$filters['date_to'] ?? null"
-                />
-            </div>
+                <div>
+                    <x-ui.airdatepicker.date-range
+                        name-from="date_from"
+                        name-to="date_to"
+                        :value-from="$filters['date_from'] ?? null"
+                        :value-to="$filters['date_to'] ?? null"
+                    />
+                </div>
 
-                <label class="grid gap-1.5 text-sm font-medium text-gray-900 sm:col-span-2 xl:col-span-12 dark:text-white">
-                    <span>Поиск</span>
-                    <input
-                        class="h-10 rounded-md bg-white px-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
+                <div class="md:col-span-2 xl:col-span-1">
+                    <x-ui.input
                         name="q"
-                        data-ui-table-filter-input
-                        value="{{ $filters['q'] ?? '' }}"
+                        :value="$filters['q'] ?? ''"
                         placeholder="Описание, статья, юрлицо или ИНН"
-                    >
-                </label>
+                        data-ui-table-filter-input
+                    />
+                </div>
+            </div>
+        </div>
     </x-ui.table-filters>
 
     <x-ui.sticky-table
@@ -182,21 +204,27 @@
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first>Дата</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Источник</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Статья</x-ui.sticky-table-th>
                 <x-ui.money-columns-head />
+                <x-ui.sticky-table-th>Статья</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Описание</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Документ</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Итог</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last align="right">ID</x-ui.sticky-table-th>
             </tr>
         </x-slot:head>
 
         @if ($operations->isNotEmpty())
-            @include('kassa.partials.rows', ['operations' => $operations, 'displayTimezone' => $displayTimezone])
+            @include('kassa.partials.rows', [
+                'operations' => $operations,
+                'displayTimezone' => $displayTimezone,
+                'canCreateCashEntry' => $canCreateCashEntry,
+                'canEditAnyCashEntry' => $canEditAnyCashEntry,
+                'canDeleteFreshCashEntry' => $canDeleteFreshCashEntry,
+                'canDeleteAnyCashEntry' => $canDeleteAnyCashEntry,
+                'freshEntryDays' => $freshEntryDays,
+            ])
         @else
             <tr>
-                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="10">
+                <td class="py-12 text-center text-sm text-gray-500 dark:text-gray-400" colspan="8">
                     Кассовые операции пока не найдены.
                 </td>
             </tr>
@@ -204,12 +232,12 @@
 
         @include('kassa.partials.loader-row', [
             'nextPage' => $nextPage,
-            'tableColspan' => 10,
+            'tableColspan' => 8,
         ])
 
         <x-slot:stickySummary>
             <tr>
-                <x-ui.sticky-table-summary-label first :columns="3">
+                <x-ui.sticky-table-summary-label first :columns="1">
                     Итого операций: {{ number_format((int) $summary->operations_count, 0, ',', ' ') }}
                 </x-ui.sticky-table-summary-label>
                 <x-ui.money-columns
@@ -239,8 +267,24 @@
             <x-ui.context-menu-item data-kassa-show-properties>
                 Свойства
             </x-ui.context-menu-item>
+            @if ($canDeleteCashEntry)
+            <x-ui.context-menu-item danger data-kassa-delete-row>
+                Удалить
+            </x-ui.context-menu-item>
+            @endif
         </x-slot:menu>
     </x-ui.context-menu>
+
+    <button type="button" class="hidden" data-ui-alert-dialog-open="kassa-delete-dialog" data-kassa-delete-open></button>
+
+    <x-ui.alert-dialog
+        id="kassa-delete-dialog"
+        title="Удалить запись кассы"
+        description="Запись будет удалена из кассы, а кассовый слой будет пересчитан. Это действие нельзя отменить."
+        confirm-label="Удалить"
+        cancel-label="Отмена"
+        data-kassa-delete-dialog
+    />
 
     <button type="button" class="hidden" data-ui-modal-open="kassa-properties-dialog" data-kassa-properties-open></button>
 
@@ -351,6 +395,258 @@
     @once
         <script>
             (() => {
+                const digitsOnly = (value) => String(value || '').replace(/\D+/g, '');
+                const formatInteger = (value) => digitsOnly(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+                const renderKassaDirection = (button, input) => {
+                    const isIncome = input.value === 'income';
+                    button.textContent = isIncome ? 'Приход' : 'Расход';
+                    button.classList.toggle('bg-emerald-50', isIncome);
+                    button.classList.toggle('text-emerald-700', isIncome);
+                    button.classList.toggle('outline-emerald-200', isIncome);
+                    button.classList.toggle('hover:bg-emerald-100', isIncome);
+                    button.classList.toggle('bg-rose-50', ! isIncome);
+                    button.classList.toggle('text-rose-700', ! isIncome);
+                    button.classList.toggle('outline-rose-200', ! isIncome);
+                    button.classList.toggle('hover:bg-rose-100', ! isIncome);
+                };
+
+                const initKassaAmountInputs = () => {
+                    document.querySelectorAll('[data-kassa-amount-input]').forEach((input) => {
+                        if (input.dataset.kassaAmountReady === 'true') {
+                            return;
+                        }
+
+                        input.dataset.kassaAmountReady = 'true';
+                        input.value = formatInteger(input.value);
+
+                        input.addEventListener('input', () => {
+                            input.value = formatInteger(input.value);
+                        });
+
+                    });
+                };
+
+                const initKassaDirectionToggles = () => {
+                    document.querySelectorAll('[data-kassa-direction-toggle]').forEach((button) => {
+                        if (button.dataset.kassaDirectionReady === 'true') {
+                            return;
+                        }
+
+                        const input = button.closest('form')?.querySelector('[data-kassa-direction-input]');
+
+                        if (! input) {
+                            return;
+                        }
+
+                        button.dataset.kassaDirectionReady = 'true';
+                        renderKassaDirection(button, input);
+
+                        button.addEventListener('click', () => {
+                            input.value = input.value === 'income' ? 'expense' : 'income';
+                            renderKassaDirection(button, input);
+                        });
+                    });
+                };
+
+                const setKassaCreateFormMode = (form, mode, row = null) => {
+                    const dialog = form.closest('[data-kassa-form-dialog]');
+                    const directionInput = form.querySelector('[data-kassa-direction-input]');
+                    const directionButton = form.querySelector('[data-kassa-direction-toggle]');
+                    const methodField = form.querySelector('[data-kassa-method-field]');
+                    const amountInput = form.querySelector('[name="amount"]');
+                    const articleSelect = form.querySelector('[name="article_id"]');
+                    const descriptionInput = form.querySelector('[name="description"]');
+                    const submitLabel = form.querySelector('[data-kassa-submit-label]');
+                    const loadingLabel = form.querySelector('[data-kassa-submit-loading-label]');
+
+                    form.dataset.kassaSubmitting = 'false';
+                    form.querySelectorAll('[data-kassa-create-field]').forEach((field) => {
+                        field.removeAttribute('aria-disabled');
+                        field.classList.remove('pointer-events-none', 'opacity-60');
+
+                        if (field.matches('input, textarea')) {
+                            field.readOnly = false;
+                        }
+
+                        if (field.matches('button')) {
+                            field.disabled = false;
+                        }
+                    });
+
+                    form.querySelector('[data-kassa-cancel-button]')?.removeAttribute('disabled');
+                    form.querySelector('[data-kassa-submit-button]')?.removeAttribute('disabled');
+                    form.querySelector('[data-kassa-submit-idle]')?.classList.remove('hidden');
+                    form.querySelector('[data-kassa-submit-loading]')?.classList.add('hidden');
+                    form.querySelector('[data-kassa-submit-loading]')?.classList.remove('inline-flex');
+
+                    if (mode === 'edit' && row) {
+                        form.action = row.dataset.kassaEditUrl;
+                        methodField.disabled = false;
+                        directionInput.value = row.dataset.kassaEditDirection || 'expense';
+                        amountInput.value = formatInteger(row.dataset.kassaEditAmount || '');
+                        articleSelect.value = row.dataset.kassaEditArticleId || '';
+                        descriptionInput.value = row.dataset.kassaEditDescription || '';
+                        dialog?.querySelector('h2')?.replaceChildren('Редактировать запись кассы');
+                        submitLabel.textContent = 'Сохранить';
+                        loadingLabel.textContent = 'Сохраняем';
+                    } else {
+                        form.action = form.dataset.kassaStoreUrl;
+                        methodField.disabled = true;
+                        directionInput.value = 'expense';
+                        amountInput.value = '';
+                        articleSelect.value = '';
+                        descriptionInput.value = '';
+                        dialog?.querySelector('h2')?.replaceChildren('Добавить запись кассы');
+                        submitLabel.textContent = 'Добавить';
+                        loadingLabel.textContent = 'Добавляем';
+                    }
+
+                    if (directionButton && directionInput) {
+                        renderKassaDirection(directionButton, directionInput);
+                    }
+                };
+
+                const refreshKassaTable = () => {
+                    const filters = document.querySelector('[data-ui-table-filters]');
+
+                    if (! filters) {
+                        return;
+                    }
+
+                    filters.dispatchEvent(new Event('submit', {
+                        bubbles: true,
+                        cancelable: true,
+                    }));
+                };
+
+                const setKassaFormSubmitting = (form, submitting) => {
+                    form.dataset.kassaSubmitting = submitting ? 'true' : 'false';
+
+                    form.querySelectorAll('[data-kassa-create-field]').forEach((field) => {
+                        field.toggleAttribute('aria-disabled', submitting);
+                        field.classList.toggle('pointer-events-none', submitting);
+                        field.classList.toggle('opacity-60', submitting);
+
+                        if (field.matches('input, textarea')) {
+                            field.readOnly = submitting;
+                        }
+
+                        if (field.matches('button')) {
+                            field.disabled = submitting;
+                        }
+                    });
+
+                    form.querySelector('[data-kassa-cancel-button]')?.toggleAttribute('disabled', submitting);
+
+                    const submitButton = form.querySelector('[data-kassa-submit-button]');
+                    submitButton?.toggleAttribute('disabled', submitting);
+                    submitButton?.querySelector('[data-kassa-submit-idle]')?.classList.toggle('hidden', submitting);
+
+                    const loading = submitButton?.querySelector('[data-kassa-submit-loading]');
+                    loading?.classList.toggle('hidden', ! submitting);
+                    loading?.classList.toggle('inline-flex', submitting);
+                };
+
+                const showKassaFormError = (form, message = '') => {
+                    const error = form.querySelector('[data-kassa-form-error]');
+
+                    if (! error) {
+                        return;
+                    }
+
+                    error.textContent = message;
+                    error.classList.toggle('hidden', message === '');
+                };
+
+                const errorMessageFromPayload = (payload, fallback = 'Не удалось сохранить запись.') => {
+                    const errors = payload?.errors ? Object.values(payload.errors).flat() : [];
+
+                    return errors[0] || payload?.message || fallback;
+                };
+
+                const responseLog = (response, payload, text) => [
+                    `HTTP ${response.status} ${response.statusText || ''}`.trim(),
+                    `URL: ${response.url}`,
+                    payload ? `JSON: ${JSON.stringify(payload, null, 2)}` : `TEXT: ${text || ''}`,
+                ].join('\n');
+
+                const parseResponse = async (response) => {
+                    const text = await response.text();
+                    let payload = null;
+
+                    try {
+                        payload = text ? JSON.parse(text) : null;
+                    } catch (error) {
+                        payload = null;
+                    }
+
+                    return { payload, text };
+                };
+
+                const initKassaCreateForms = () => {
+                    document.querySelectorAll('[data-kassa-create-form]').forEach((form) => {
+                        if (form.dataset.kassaCreateReady === 'true') {
+                            return;
+                        }
+
+                        form.dataset.kassaCreateReady = 'true';
+
+                        document.querySelectorAll('[data-kassa-create-open]').forEach((button) => {
+                            button.addEventListener('click', () => setKassaCreateFormMode(form, 'create'), true);
+                        });
+
+                        document.addEventListener('dblclick', (event) => {
+                            const row = event.target.closest('[data-kassa-edit-url]');
+
+                            if (! row) {
+                                return;
+                            }
+
+                            setKassaCreateFormMode(form, 'edit', row);
+                            document.querySelector('[data-kassa-edit-open]')?.click();
+                        });
+
+                        form.addEventListener('submit', async (event) => {
+                            event.preventDefault();
+
+                            if (form.dataset.kassaSubmitting === 'true') {
+                                return;
+                            }
+
+                            showKassaFormError(form);
+                            const formData = new FormData(form);
+                            formData.set('amount', digitsOnly(formData.get('amount')));
+                            setKassaFormSubmitting(form, true);
+
+                            try {
+                                const response = await fetch(form.action, {
+                                    method: 'POST',
+                                    body: formData,
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                    },
+                                });
+                                const { payload, text } = await parseResponse(response);
+
+                                if (! response.ok) {
+                                    throw new Error(responseLog(response, payload, text));
+                                }
+
+                                document.querySelector('[data-kassa-form-close]')?.click();
+                                setKassaCreateFormMode(form, 'create');
+                                refreshKassaTable();
+                            } catch (error) {
+                                console.error('Kassa form submit failed', error);
+                                showKassaFormError(form, error.message || 'Не удалось сохранить запись.');
+                                setKassaFormSubmitting(form, false);
+                                form.querySelector('[data-kassa-amount-input]')?.dispatchEvent(new Event('input'));
+                            }
+                        });
+                    });
+                };
+
                 const initKassaContextMenu = () => {
                     const menu = document.querySelector('[data-ui-context-menu-trigger-selector="[data-kassa-context-row]"]');
 
@@ -362,12 +658,14 @@
 
                     document.addEventListener('contextmenu', (event) => {
                         const row = event.target.closest('[data-kassa-context-row]');
+                        const deleteButton = menu.querySelector('[data-kassa-delete-row]');
 
                         if (!row) {
                             return;
                         }
 
                         menu.dataset.row = JSON.stringify(row.dataset);
+                        deleteButton?.toggleAttribute('disabled', ! row.dataset.kassaDeleteUrl);
                     });
 
                     menu.querySelector('[data-kassa-show-properties]')?.addEventListener('click', () => {
@@ -406,15 +704,77 @@
 
                         document.querySelector('[data-kassa-properties-open]')?.click();
                     });
+
+                    menu.querySelector('[data-kassa-delete-row]')?.addEventListener('click', async () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+
+                        if (! data.kassaDeleteUrl) {
+                            return;
+                        }
+
+                        const dialog = document.querySelector('[data-kassa-delete-dialog]');
+                        dialog.dataset.kassaDeleteUrl = data.kassaDeleteUrl;
+                        document.querySelector('[data-kassa-delete-open]')?.click();
+                    });
+
+                    document.querySelector('[data-kassa-delete-dialog]')?.addEventListener('ui:alert-dialog:confirm', async (event) => {
+                        event.preventDefault();
+
+                        const dialog = event.currentTarget;
+                        const confirmButton = event.detail?.confirmButton;
+
+                        try {
+                            confirmButton.disabled = true;
+
+                            const response = await fetch(dialog.dataset.kassaDeleteUrl, {
+                                method: 'POST',
+                                body: new URLSearchParams({
+                                    _token: document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value || '',
+                                    _method: 'DELETE',
+                                }),
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+                            const { payload, text } = await parseResponse(response);
+
+                            if (! response.ok) {
+                                throw new Error(responseLog(response, payload, text));
+                            }
+
+                            dialog.dispatchEvent(new Event('ui:alert-dialog:close', { bubbles: true }));
+                            refreshKassaTable();
+                        } catch (error) {
+                            console.error('Kassa delete failed', error);
+                            window.alert(error.message || 'Не удалось удалить кассовую запись.');
+                        } finally {
+                            confirmButton.disabled = false;
+                        }
+                    });
                 };
 
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initKassaContextMenu);
+                    document.addEventListener('DOMContentLoaded', () => {
+                        initKassaAmountInputs();
+                        initKassaDirectionToggles();
+                        initKassaCreateForms();
+                        initKassaContextMenu();
+                    });
                 } else {
+                    initKassaAmountInputs();
+                    initKassaDirectionToggles();
+                    initKassaCreateForms();
                     initKassaContextMenu();
                 }
 
-                document.addEventListener('livewire:navigated', initKassaContextMenu);
+                document.addEventListener('livewire:navigated', () => {
+                    initKassaAmountInputs();
+                    initKassaDirectionToggles();
+                    initKassaCreateForms();
+                    initKassaContextMenu();
+                });
             })();
         </script>
     @endonce

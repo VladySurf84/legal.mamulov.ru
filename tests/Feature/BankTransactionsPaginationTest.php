@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\UserAccess;
 use Tests\TestCase;
 
 class BankTransactionsPaginationTest extends TestCase
@@ -25,13 +26,18 @@ class BankTransactionsPaginationTest extends TestCase
 
     private function test_user(): User
     {
-        return User::query()->updateOrCreate(
+        $user = User::query()->updateOrCreate(
             ['email' => 'transactions@example.com'],
             [
                 'name' => 'Transactions User',
                 'password' => 'secret',
+                'is_admin' => false,
                 'is_active' => true,
             ],
         );
+
+        $this->grantGlobalModule($user, UserAccess::MODULE_BANK_TRANSACTIONS);
+
+        return $user;
     }
 }

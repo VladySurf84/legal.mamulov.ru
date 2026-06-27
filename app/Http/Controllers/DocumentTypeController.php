@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DocumentType;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,8 @@ class DocumentTypeController extends Controller
 
     public function create(): View
     {
+        abort_unless(UserAccess::canCreateDocumentTypes(request()->user()), 403);
+
         return view('document-types.create', [
             'documentType' => new DocumentType([
                 'requires_parties' => true,
@@ -37,6 +40,8 @@ class DocumentTypeController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        abort_unless(UserAccess::canCreateDocumentTypes($request->user()), 403);
+
         DocumentType::create($this->validatedData($request));
 
         return redirect()
@@ -46,6 +51,8 @@ class DocumentTypeController extends Controller
 
     public function edit(DocumentType $documentType): View
     {
+        abort_unless(UserAccess::canEditDocumentTypes(request()->user()), 403);
+
         return view('document-types.edit', [
             'documentType' => $documentType,
         ]);
@@ -53,6 +60,8 @@ class DocumentTypeController extends Controller
 
     public function update(Request $request, DocumentType $documentType): RedirectResponse
     {
+        abort_unless(UserAccess::canEditDocumentTypes($request->user()), 403);
+
         $documentType->update($this->validatedData($request, $documentType));
 
         return redirect()
@@ -62,6 +71,8 @@ class DocumentTypeController extends Controller
 
     public function destroy(DocumentType $documentType): RedirectResponse
     {
+        abort_unless(UserAccess::canDeleteDocumentTypes(request()->user()), 403);
+
         $documentType->delete();
 
         return redirect()

@@ -20,6 +20,8 @@ class BankTransactionController extends Controller
 
     public function index(Request $request): View|JsonResponse
     {
+        abort_unless(UserAccess::canViewBankTransactions($request->user()), 403);
+
         $filters = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
             'account_numbers' => ['nullable', 'array'],
@@ -106,11 +108,15 @@ class BankTransactionController extends Controller
             'nextPage' => $hasMore ? $page + 1 : null,
             'showAccountColumn' => $showAccountColumn,
             'tableColspan' => $tableColspan,
+            'canImportBankStatements' => UserAccess::canImportBankStatements($request->user()),
+            'canSyncBankApi' => UserAccess::canSyncBankApi($request->user()),
         ]);
     }
 
     public function sync(Request $request, TinkoffBankSyncService $service, CashLayerBuilder $cashLayerBuilder): RedirectResponse
     {
+        abort_unless(UserAccess::canSyncBankApi($request->user()), 403);
+
         $validated = $request->validate([
             'account_number' => ['nullable', 'string', 'max:20'],
             'days' => ['nullable', 'integer', 'min:1', 'max:366'],

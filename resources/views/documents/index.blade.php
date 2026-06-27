@@ -49,15 +49,12 @@
                     placeholder="Все статусы"
                 />
 
-                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">
-                    Поиск
-                    <input
-                        class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus-visible:outline-indigo-500"
-                        name="q"
-                        value="{{ $filters['q'] ?? '' }}"
-                        placeholder="Номер, название, ИНН, контрагент"
-                    >
-                </label>
+                <x-ui.input
+                    label="Поиск"
+                    name="q"
+                    :value="$filters['q'] ?? ''"
+                    placeholder="Номер, название, ИНН, контрагент"
+                />
             </div>
 
             <div class="mt-4 flex flex-wrap justify-end gap-2">

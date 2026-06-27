@@ -12,12 +12,14 @@
 @endphp
 
 @section('page_actions')
+    @if (\App\Support\UserAccess::canRebuildMoneyLayer(auth()->user()))
     <form method="post" action="{{ route('money-layer.rebuild') }}">
         @csrf
         <x-ui.button type="submit" size="lg">
             Пересчитать слой
         </x-ui.button>
     </form>
+    @endif
 @endsection
 
 @section('content')
@@ -41,24 +43,22 @@
             </div>
 
             <div class="lg:col-span-2">
-                <label for="contractor_inn" class="block text-sm/6 font-medium text-gray-900 dark:text-white">ИНН контрагента</label>
-                <input
+                <x-ui.input
                     id="contractor_inn"
                     name="contractor_inn"
-                    value="{{ $filters['contractor_inn'] ?? '' }}"
+                    label="ИНН контрагента"
+                    :value="$filters['contractor_inn'] ?? ''"
                     inputmode="numeric"
-                    class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
-                >
+                />
             </div>
 
             <div class="lg:col-span-3">
-                <label for="party" class="block text-sm/6 font-medium text-gray-900 dark:text-white">Участник / ИНН</label>
-                <input
+                <x-ui.input
                     id="party"
                     name="party"
-                    value="{{ $filters['party'] ?? '' }}"
-                    class="mt-2 block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus-visible:outline-indigo-500"
-                >
+                    label="Участник / ИНН"
+                    :value="$filters['party'] ?? ''"
+                />
             </div>
 
             <div class="lg:col-span-3">

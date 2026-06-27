@@ -72,6 +72,8 @@ SQL, $bindings);
 
     public function rebuild(MoneyLayerBuilder $builder): RedirectResponse
     {
+        abort_unless(UserAccess::canRebuildMoneyLayer(request()->user()), 403);
+
         $count = $builder->rebuild();
 
         return redirect()

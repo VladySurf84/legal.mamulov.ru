@@ -6,7 +6,9 @@ use App\Models\ApiCredential;
 use App\Services\Signing\CryptoProCertificateImporter;
 use App\Services\Signing\RemoteSignatureSyncer;
 use App\Services\Signing\SignatureSyncApiClient;
+use App\Support\UserAccess;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use RuntimeException;
@@ -19,8 +21,10 @@ class ElectronicSignatureController extends Controller
         'remote_certificate_thumbprint',
     ];
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        abort_unless(UserAccess::canViewElectronicSignatures($request->user()), 403);
+
         $credentials = ApiCredential::query()
             ->from('legal.api_credentials as c')
             ->leftJoin('legal.legal_own as legal', function ($join): void {
@@ -79,11 +83,14 @@ class ElectronicSignatureController extends Controller
             'signaturesCount' => DB::table('legal.api_credentials')
                 ->whereIn('credential_type', self::SIGNATURE_TYPES)
                 ->count(),
+            'canManageElectronicSignatures' => UserAccess::canManageElectronicSignatures($request->user()),
         ]);
     }
 
-    public function import(SignatureSyncApiClient $client, RemoteSignatureSyncer $syncer): RedirectResponse
+    public function import(Request $request, SignatureSyncApiClient $client, RemoteSignatureSyncer $syncer): RedirectResponse
     {
+        abort_unless(UserAccess::canManageElectronicSignatures($request->user()), 403);
+
         try {
             $payload = $client->import();
             $syncSummary = $syncer->sync(is_array($payload['data'] ?? null) ? $payload['data'] : []);

@@ -5,9 +5,11 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
+        @if (\App\Support\UserAccess::canImportVatBooks(auth()->user()))
         <x-ui.button type="button" size="md" variant="ghost" data-ui-modal-open="vat-book-import-dialog">
             Загрузить книгу
         </x-ui.button>
+        @endif
 
         <x-ui.button href="{{ route('vat-book-entries.index') }}" size="md" variant="ghost" wire:navigate>
             Содержание книг
@@ -16,6 +18,7 @@
 @endsection
 
 @section('content')
+    @if (\App\Support\UserAccess::canImportVatBooks(auth()->user()))
     <x-ui.modal
         id="vat-book-import-dialog"
         title="Загрузка книг НДС"
@@ -42,6 +45,7 @@
             </div>
         </form>
     </x-ui.modal>
+    @endif
 
     @if (session('status'))
         <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">

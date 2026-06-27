@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Vat\VatBookImportService;
+use App\Support\UserAccess;
 use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -197,6 +198,8 @@ class VatBookController extends Controller
 
     public function store(Request $request, VatBookImportService $service): RedirectResponse|JsonResponse
     {
+        abort_unless(UserAccess::canImportVatBooks($request->user()), 403);
+
         $validated = $request->validate([
             'book_files' => ['nullable', 'array', 'min:1'],
             'book_files.*' => ['required', 'file', 'max:20480'],
