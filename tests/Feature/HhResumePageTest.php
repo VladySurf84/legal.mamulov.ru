@@ -302,6 +302,8 @@ class HhResumePageTest extends TestCase
             ->assertSee('Pagination First Candidate')
             ->assertDontSee('Pagination Second Candidate')
             ->assertDontSee('Pagination Navigation')
+            ->assertSee('data-ui-sticky-table-loader', false)
+            ->assertSee('data-next-page="2"', false)
             ->assertSee('page=2', false);
 
         $this->actingAs($user)
@@ -309,6 +311,24 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Pagination Second Candidate')
             ->assertDontSee('Pagination First Candidate');
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'pagination-test-vacancy', 'per_page' => 1, 'page' => 2]), [
+                'Accept' => 'application/json',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])
+            ->assertOk()
+            ->assertJsonPath('has_more', false)
+            ->assertJsonPath('next_page', null)
+            ->assertJson(fn ($json) => $json
+                ->whereType('html', 'string')
+                ->whereType('loader_html', 'string')
+                ->where('has_more', false)
+                ->where('next_page', null)
+                ->etc()
+            )
+            ->assertSee('Pagination Second Candidate', false)
+            ->assertDontSee('Pagination First Candidate', false);
     }
 
     public function test_admin_hh_resumes_pagination_uses_sticky_table_settings(): void

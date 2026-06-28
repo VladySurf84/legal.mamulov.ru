@@ -7,6 +7,7 @@ use App\Services\Hh\HhResumeBatchAnalysisService;
 use App\Services\Hh\HhResumeSyncService;
 use App\Support\UserUiSettings;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -16,7 +17,7 @@ use Throwable;
 
 class HhResumeController extends Controller
 {
-    public function index(Request $request, HhApiClient $client): View
+    public function index(Request $request, HhApiClient $client): View|JsonResponse
     {
         abort_unless($request->user()?->isAdmin(), 403);
 
@@ -72,6 +73,21 @@ class HhResumeController extends Controller
                 ->paginate($perPage, $columns)
                 ->withQueryString()
                 ->through(fn (object $negotiation): object => $this->hydrateDisplayCandidate($negotiation));
+        $nextPage = $negotiations->hasMorePages() ? $negotiations->currentPage() + 1 : null;
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('hh-resumes.partials.rows', [
+                    'negotiations' => $negotiations,
+                ])->render(),
+                'loader_html' => view('hh-resumes.partials.loader-row', [
+                    'nextPage' => $nextPage,
+                    'tableColspan' => 6,
+                ])->render(),
+                'has_more' => $negotiations->hasMorePages(),
+                'next_page' => $nextPage,
+            ]);
+        }
 
         $vacancies = DB::table('legal.hh_vacancies')
             ->orderByDesc('last_synced_at')
@@ -90,6 +106,7 @@ class HhResumeController extends Controller
             'summary' => $summary,
             'vacancies' => $vacancies,
             'negotiations' => $negotiations,
+            'nextPage' => $nextPage,
             'latestAnalysisBatch' => $latestAnalysisBatch,
         ]);
     }
