@@ -48,6 +48,7 @@
             'document-types.index' => \App\Support\UserAccess::canViewModule(auth()->user(), \App\Support\UserAccess::MODULE_DOCUMENT_TYPES),
             'electronic-signatures.index' => \App\Support\UserAccess::canViewElectronicSignatures(auth()->user()),
             'hh-resumes.index' => auth()->user()?->isAdmin() ?? false,
+            'hh-browser-captures.index' => auth()->user()?->isAdmin() ?? false,
             'users.index' => \App\Support\UserAccess::canViewUsers(auth()->user()),
             'user-access.index' => \App\Support\UserAccess::canViewUserAccess(auth()->user()),
             'scheduler.index' => \App\Support\UserAccess::canViewScheduler(auth()->user()),
