@@ -99,7 +99,27 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white dark:divide-white/10 dark:bg-gray-800">
                         @forelse ($negotiations as $negotiation)
-                            <tr>
+                            @php
+                                $resumeRaw = is_string($negotiation->resume_raw ?? null)
+                                    ? (json_decode($negotiation->resume_raw, true) ?: [])
+                                    : (array) ($negotiation->resume_raw ?? []);
+                                $candidateName = $negotiation->candidate_name ?: 'Кандидат без имени';
+                                $candidateInitial = mb_strtoupper(mb_substr($candidateName, 0, 1));
+                                $candidatePhoto = data_get($resumeRaw, 'photo.small')
+                                    ?: data_get($resumeRaw, 'photo.100')
+                                    ?: data_get($resumeRaw, 'photo.40')
+                                    ?: data_get($resumeRaw, 'photo.medium')
+                                    ?: data_get($resumeRaw, 'photo.500')
+                                    ?: data_get($resumeRaw, 'browser_capture.resumeStructured.photo')
+                                    ?: data_get($resumeRaw, 'browser_capture.browser_capture.resumeStructured.photo');
+                                $responseUrl = $negotiation->alternate_url ?: $negotiation->resume_url;
+                            @endphp
+                            <tr
+                                @if ($responseUrl)
+                                    class="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                                    ondblclick="window.open(@js($responseUrl), '_blank', 'noopener')"
+                                @endif
+                            >
                                 <td class="py-3 pr-3 pl-4 align-top sm:pl-6">
                                     <div class="font-medium text-gray-900 dark:text-white">
                                         {{ $negotiation->candidate_name ?: 'Кандидат без имени' }}
