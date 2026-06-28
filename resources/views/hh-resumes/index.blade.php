@@ -121,13 +121,24 @@
                                 @endif
                             >
                                 <td class="py-3 pr-3 pl-4 align-top sm:pl-6">
-                                    <div class="font-medium text-gray-900 dark:text-white">
-                                        {{ $negotiation->candidate_name ?: 'Кандидат без имени' }}
+                                    <div class="flex items-start gap-3">
+                                        @if ($candidatePhoto)
+                                            <img src="{{ $candidatePhoto }}" alt="" class="size-10 shrink-0 rounded-full object-cover outline -outline-offset-1 outline-gray-200 dark:outline-white/10">
+                                        @else
+                                            <span class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
+                                                {{ $candidateInitial }}
+                                            </span>
+                                        @endif
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-gray-900 dark:text-white">
+                                                {{ $candidateName }}
+                                            </div>
+                                            <div class="mt-0.5 text-gray-500 dark:text-gray-400">{{ $negotiation->resume_title ?: 'Без заголовка' }}</div>
+                                            @if ($negotiation->area_name)
+                                                <div class="mt-0.5 text-xs text-gray-400">{{ $negotiation->area_name }}</div>
+                                            @endif
+                                        </div>
                                     </div>
-                                    <div class="mt-0.5 text-gray-500 dark:text-gray-400">{{ $negotiation->resume_title ?: 'Без заголовка' }}</div>
-                                    @if ($negotiation->area_name)
-                                        <div class="mt-0.5 text-xs text-gray-400">{{ $negotiation->area_name }}</div>
-                                    @endif
                                 </td>
                                 <td class="px-3 py-3 align-top">
                                     <div class="text-gray-900 dark:text-white">{{ $negotiation->status_name ?: $negotiation->status_id ?: '—' }}</div>

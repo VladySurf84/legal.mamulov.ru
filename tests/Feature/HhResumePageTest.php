@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class HhResumePageTest extends TestCase
@@ -23,5 +24,56 @@ class HhResumePageTest extends TestCase
             ->get(route('hh-resumes.index'))
             ->assertOk()
             ->assertSee('HH');
+    }
+
+    public function test_admin_sees_candidate_photo_and_double_click_response_link(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-photo@example.com'],
+            [
+                'name' => 'HH Resumes Photo Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'photo-test-vacancy'],
+            [
+                'name' => 'Photo Test Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => 'photo-test-vacancy',
+                'resume_id' => 'photo-test-resume',
+            ],
+            [
+                'candidate_name' => 'Иван Петров',
+                'resume_title' => 'Laravel разработчик',
+                'alternate_url' => 'https://hh.ru/applicant/negotiations/response-test',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([
+                    'photo' => [
+                        'small' => 'https://img.hhcdn.ru/photo-test.jpg',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'photo-test-vacancy']))
+            ->assertOk()
+            ->assertSee('Иван Петров')
+            ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
+            ->assertSee('ondblclick="window.open', false);
     }
 }
