@@ -19,6 +19,31 @@
         $skills = (array) data_get($structured, 'skills', []);
         $sections = (array) data_get($structured, 'sections', []);
         $experience = (array) data_get($structured, 'experience', []);
+        $stringify = function (mixed $value): string {
+            if (! is_array($value)) {
+                return (string) $value;
+            }
+
+            return collect($value)
+                ->map(function (mixed $item): string {
+                    if (! is_array($item)) {
+                        return (string) $item;
+                    }
+
+                    return collect($item)
+                        ->filter(fn (mixed $nested): bool => filled($nested))
+                        ->map(function (mixed $nested, string|int $key): string {
+                            $text = is_array($nested)
+                                ? json_encode($nested, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                                : (string) $nested;
+
+                            return $key.': '.$text;
+                        })
+                        ->implode("\n");
+                })
+                ->filter()
+                ->implode("\n\n");
+        };
         $facts = [
             'resumeId' => $capture->resume_id,
             'Вакансия' => $capture->vacancy_title ?: $capture->hh_vacancy_id,
@@ -87,7 +112,7 @@
                 @if (is_array($value) ? $value !== [] : filled($value))
                     <section class="rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10 sm:p-6">
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $heading }}</h2>
-                        <div class="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-700 dark:text-gray-300">@if (is_array($value)){{ implode("\n\n", $value) }}@else{{ $value }}@endif</div>
+                        <div class="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-700 dark:text-gray-300">{{ $stringify($value) }}</div>
                     </section>
                 @endif
             @endforeach

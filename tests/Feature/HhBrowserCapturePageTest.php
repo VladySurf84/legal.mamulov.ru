@@ -40,6 +40,11 @@ class HhBrowserCapturePageTest extends TestCase
             'resume_structured' => json_encode([
                 'title' => 'PHP Backend Developer',
                 'skills' => ['Laravel', 'PostgreSQL'],
+                'experience' => [[
+                    'company' => '365 Media Group',
+                    'position' => 'PHP Backend Developer',
+                    'period' => 'November 2025 - now',
+                ]],
                 'sections' => [
                     ['heading' => 'Experience', 'text' => 'Built ERP systems'],
                 ],
@@ -60,6 +65,7 @@ class HhBrowserCapturePageTest extends TestCase
             ->get(route('hh-browser-captures.show', $captureId))
             ->assertOk()
             ->assertSee('PHP Backend Developer')
+            ->assertSee('365 Media Group')
             ->assertSee('https://hh.ru/resume/original?vacancyId=134293071&amp;resumeId=260541190', false)
             ->assertSee('Full resume text');
     }
