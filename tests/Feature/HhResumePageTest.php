@@ -101,6 +101,8 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Иван Петров')
             ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
+            ->assertSee('Всего:')
+            ->assertSee('Сохраненных:')
             ->assertSee(route('hh-browser-captures.show', $captureId), false)
             ->assertSee('ondblclick="window.location.href = this.dataset.href"', false)
             ->assertDontSee('ondblclick="window.open', false);

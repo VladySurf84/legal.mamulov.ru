@@ -127,6 +127,7 @@
         :contained="false"
         :scrollable="true"
         :viewport-sticky="true"
+        :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
     >
@@ -259,5 +260,26 @@
                 </td>
             </tr>
         @endforelse
+
+        <x-slot:stickySummary>
+            <tr>
+                <x-ui.sticky-table-summary-label first :columns="1">
+                    Всего: {{ number_format($resumesCount, 0, ',', ' ') }}
+                </x-ui.sticky-table-summary-label>
+                <x-ui.sticky-table-td summary nowrap class="text-sm text-gray-600 dark:text-gray-300">
+                    Сохраненных: {{ number_format($capturedCount, 0, ',', ' ') }}
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary align="right" nowrap class="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    {{ number_format($highScoreCount, 0, ',', ' ') }}
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary :nowrap="false" class="text-sm text-gray-600 dark:text-gray-300">
+                    Сильных кандидатов по текущей выборке
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary nowrap class="text-sm text-gray-600 dark:text-gray-300">
+                    PDF: {{ number_format($pdfCount, 0, ',', ' ') }}
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary last align="right" nowrap />
+            </tr>
+        </x-slot:stickySummary>
     </x-ui.sticky-table>
 @endsection
