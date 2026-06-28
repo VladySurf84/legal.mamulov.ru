@@ -389,7 +389,8 @@ class HhResumePageTest extends TestCase
             ->get(route('hh-resumes.index'))
             ->assertOk()
             ->assertSee(route('hh-resumes.analyze-all'), false)
-            ->assertSee('Оценить все');
+            ->assertSee('Оценить все')
+            ->assertSee('Оценка Codex');
     }
 
     public function test_admin_submits_hh_resume_analysis_batch(): void
@@ -459,7 +460,28 @@ class HhResumePageTest extends TestCase
             'status' => 'validating',
         ]);
 
+        $batchId = (int) DB::table('legal.hh_resume_analysis_batches')
+            ->where('openai_batch_id', 'batch-test')
+            ->value('hh_resume_analysis_batch_id');
+
+        foreach ([
+            'batch_jsonl_prepared',
+            'openai_file_upload_request',
+            'openai_file_upload_response',
+            'openai_batch_create_request',
+            'openai_batch_create_response',
+        ] as $eventType) {
+            $this->assertDatabaseHas('legal.hh_resume_analysis_batch_logs', [
+                'hh_resume_analysis_batch_id' => $batchId,
+                'event_type' => $eventType,
+            ]);
+        }
+
         Http::assertSentCount(2);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.openai.test/v1/files'
+            && str_contains($request->body(), 'цель -> правила -> функции -> события -> контроль исполнения -> улучшения')
+            && str_contains($request->body(), 'production-логами')
+            && str_contains($request->body(), 'legal.mamulov.ru'));
     }
 
     public function test_poll_hh_resume_analysis_batch_applies_results(): void
@@ -526,6 +548,10 @@ class HhResumePageTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $batchId = (int) DB::table('legal.hh_resume_analysis_batches')
+            ->where('openai_batch_id', 'batch-poll-test')
+            ->value('hh_resume_analysis_batch_id');
+
         $outputLine = json_encode([
             'custom_id' => 'hh_resume:'.$negotiationId,
             'response' => [
@@ -556,8 +582,8 @@ class HhResumePageTest extends TestCase
 
         $this->assertDatabaseHas('legal.hh_negotiations', [
             'hh_negotiation_id' => $negotiationId,
-            'analysis_score' => 87,
-            'analysis_summary' => 'Сильный ERP/backend кандидат.',
+            'codex_analysis_score' => 87,
+            'codex_analysis_summary' => 'Сильный ERP/backend кандидат.',
         ]);
 
         $this->assertDatabaseHas('legal.hh_resume_analysis_batches', [
@@ -566,5 +592,18 @@ class HhResumePageTest extends TestCase
             'processed_count' => 1,
             'failed_count' => 0,
         ]);
+
+        foreach ([
+            'openai_get_request',
+            'openai_get_response',
+            'openai_output_download_request',
+            'openai_output_download_response',
+            'openai_output_row_applied',
+        ] as $eventType) {
+            $this->assertDatabaseHas('legal.hh_resume_analysis_batch_logs', [
+                'hh_resume_analysis_batch_id' => $batchId,
+                'event_type' => $eventType,
+            ]);
+        }
     }
 }

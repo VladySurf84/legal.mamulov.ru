@@ -181,6 +181,7 @@
                 <x-ui.sticky-table-th first>Кандидат</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Отклик</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Оценка</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Оценка Codex</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Разбор</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last>Файлы</x-ui.sticky-table-th>
             </tr>
@@ -193,6 +194,8 @@
                 $candidatePhoto = $negotiation->display_candidate_photo;
                 $detailUrl = $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
                 $score = $negotiation->analysis_score;
+                $codexScore = $negotiation->codex_analysis_score;
+                $summaryText = $negotiation->codex_analysis_summary ?: $negotiation->analysis_summary;
             @endphp
 
             <tr
@@ -255,8 +258,20 @@
                     <div class="mt-1 text-xs text-gray-400">{{ $scoreLabel($score) }}</div>
                 </x-ui.sticky-table-td>
 
+                <x-ui.sticky-table-td align="right" nowrap>
+                    <div @class([
+                        'ml-auto inline-flex min-w-16 justify-center rounded-md px-2 py-1 text-xs font-semibold ring-1',
+                        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20' => (int) $codexScore >= 75,
+                        'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20' => (int) $codexScore >= 55 && (int) $codexScore < 75,
+                        'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10' => $codexScore === null || (int) $codexScore < 55,
+                    ])>
+                        {{ $codexScore ?? '—' }}
+                    </div>
+                    <div class="mt-1 text-xs text-gray-400">{{ $scoreLabel($codexScore) }}</div>
+                </x-ui.sticky-table-td>
+
                 <x-ui.sticky-table-td :nowrap="false" class="min-w-80 max-w-2xl text-gray-600 dark:text-gray-300">
-                    {{ $negotiation->analysis_summary ?: 'Пока не анализировалось.' }}
+                    {{ $summaryText ?: 'Пока не анализировалось.' }}
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td last nowrap>
@@ -282,7 +297,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                     Синхронизированных откликов пока нет.
                 </td>
             </tr>
@@ -298,6 +313,9 @@
                 </x-ui.sticky-table-td>
                 <x-ui.sticky-table-td summary align="right" nowrap class="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
                     {{ number_format($highScoreCount, 0, ',', ' ') }}
+                </x-ui.sticky-table-td>
+                <x-ui.sticky-table-td summary align="right" nowrap class="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    Codex
                 </x-ui.sticky-table-td>
                 <x-ui.sticky-table-td summary :nowrap="false" class="text-sm text-gray-600 dark:text-gray-300">
                     Сильных кандидатов по текущей выборке

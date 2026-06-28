@@ -37,7 +37,7 @@ class HhResumeController extends Controller
                     ->on('bc.resume_id', '=', 'n.resume_id');
             })
             ->leftJoin('legal.hh_browser_captures as capture', 'capture.hh_browser_capture_id', '=', 'bc.hh_browser_capture_id')
-            ->orderByDesc('n.analysis_score')
+            ->orderByDesc(DB::raw('COALESCE(n.codex_analysis_score, n.analysis_score)'))
             ->orderByDesc('n.responded_at');
 
         if ($vacancyId !== '') {
@@ -47,7 +47,7 @@ class HhResumeController extends Controller
         $summary = [
             'count' => (clone $query)->count('n.hh_negotiation_id'),
             'captured_count' => (clone $query)->whereNotNull('bc.hh_browser_capture_id')->count('n.hh_negotiation_id'),
-            'high_score_count' => (clone $query)->where('n.analysis_score', '>=', 75)->count('n.hh_negotiation_id'),
+            'high_score_count' => (clone $query)->whereRaw('COALESCE(n.codex_analysis_score, n.analysis_score) >= ?', [75])->count('n.hh_negotiation_id'),
             'pdf_count' => (clone $query)
                 ->whereNotNull('n.pdf_path')
                 ->where('n.pdf_path', '<>', '')
