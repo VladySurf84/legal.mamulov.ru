@@ -19,6 +19,7 @@ class HhBrowserCaptureService
     public function store(array $payload, array $context = []): array
     {
         $pageUrl = $this->text(Arr::get($payload, 'page.url')) ?? '';
+        $originalUrl = $this->originalUrl($payload) ?? $pageUrl;
         $vacancyId = $this->vacancyId($payload);
         $resumeId = $this->resumeId($payload);
         $capturedAt = $this->date(Arr::get($payload, 'capturedAt')) ?? now();
@@ -29,6 +30,7 @@ INSERT INTO legal.hh_browser_captures (
     dedupe_key,
     source,
     page_url,
+    original_url,
     page_title,
     hh_vacancy_id,
     vacancy_title,
@@ -50,10 +52,11 @@ INSERT INTO legal.hh_browser_captures (
     captured_at,
     created_at,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?::inet, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?::inet, ?, ?, ?, ?)
 ON CONFLICT (dedupe_key) DO UPDATE SET
     source = EXCLUDED.source,
     page_url = EXCLUDED.page_url,
+    original_url = EXCLUDED.original_url,
     page_title = EXCLUDED.page_title,
     hh_vacancy_id = EXCLUDED.hh_vacancy_id,
     vacancy_title = EXCLUDED.vacancy_title,
@@ -79,6 +82,7 @@ SQL, [
             $dedupeKey,
             $this->text(Arr::get($payload, 'source')) ?? 'hh-browser-extension',
             $pageUrl,
+            $originalUrl,
             $this->text(Arr::get($payload, 'page.title')),
             $vacancyId,
             $this->text(Arr::get($payload, 'vacancy.title')),
@@ -245,6 +249,24 @@ SQL, [
         ]);
     }
 
+    /** @param array<string, mixed> $payload */
+    private function originalUrl(array $payload): ?string
+    {
+        foreach ([
+            Arr::get($payload, 'page.originalUrl'),
+            Arr::get($payload, 'candidate.resumeUrl'),
+            Arr::get($payload, 'resumeStructured.originalUrl'),
+            Arr::get($payload, 'page.url'),
+        ] as $value) {
+            $url = $this->text($value);
+
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        return null;
+    }
     /** @param array<string, mixed> $payload */
     private function vacancyId(array $payload): ?string
     {

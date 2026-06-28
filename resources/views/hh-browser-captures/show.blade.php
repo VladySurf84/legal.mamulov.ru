@@ -7,9 +7,9 @@
     <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $capture->hh_vacancy_id])) }}" size="md" variant="ghost">
         К списку
     </x-ui.button>
-    @if ($capture->page_url)
-        <x-ui.button href="{{ $capture->page_url }}" size="md" variant="soft" target="_blank" rel="noopener">
-            Открыть HH
+    @if ($capture->original_url ?: $capture->page_url)
+        <x-ui.button href="{{ $capture->original_url ?: $capture->page_url }}" size="md" variant="soft" target="_blank" rel="noopener">
+            Оригинал HH
         </x-ui.button>
     @endif
 @endsection
@@ -53,6 +53,9 @@
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Технически</div>
                     <div class="mt-2 space-y-1 font-mono text-xs text-gray-700 dark:text-gray-300">
                         <div>ID: {{ $capture->hh_browser_capture_id }}</div>
+                        @if ($capture->original_url)
+                            <div class="break-all">original: {{ $capture->original_url }}</div>
+                        @endif
                         <div>source: {{ $capture->source }}</div>
                         <div>текст: {{ number_format(mb_strlen((string) $capture->raw_text), 0, ',', ' ') }} симв.</div>
                         <div>секций: {{ count($sections) }}</div>

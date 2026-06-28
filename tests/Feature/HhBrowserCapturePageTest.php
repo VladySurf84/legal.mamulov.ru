@@ -28,6 +28,7 @@ class HhBrowserCapturePageTest extends TestCase
             'dedupe_key' => 'test-hh-browser-capture-page',
             'source' => 'test',
             'page_url' => 'https://hh.ru/resume/test?vacancyId=134293071&resumeId=260541190',
+            'original_url' => 'https://hh.ru/resume/original?vacancyId=134293071&resumeId=260541190',
             'page_title' => 'PHP Backend Developer',
             'hh_vacancy_id' => '134293071',
             'vacancy_title' => 'PHP backend',
@@ -59,6 +60,7 @@ class HhBrowserCapturePageTest extends TestCase
             ->get(route('hh-browser-captures.show', $captureId))
             ->assertOk()
             ->assertSee('PHP Backend Developer')
+            ->assertSee('https://hh.ru/resume/original?vacancyId=134293071&amp;resumeId=260541190', false)
             ->assertSee('Full resume text');
     }
 }

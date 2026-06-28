@@ -96,8 +96,8 @@
                                     {{ $capture->captured_at ? \Illuminate\Support\Carbon::parse($capture->captured_at)->format('d.m.Y H:i') : '—' }}
                                 </td>
                                 <td class="py-3 pr-4 pl-3 text-right align-top sm:pr-6">
-                                    @if ($capture->page_url)
-                                        <a class="font-medium text-indigo-600 hover:text-indigo-500" href="{{ $capture->page_url }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">HH</a>
+                                    @if ($capture->original_url ?: $capture->page_url)
+                                        <a class="font-medium text-indigo-600 hover:text-indigo-500" href="{{ $capture->original_url ?: $capture->page_url }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">HH</a>
                                     @endif
                                 </td>
                             </tr>
