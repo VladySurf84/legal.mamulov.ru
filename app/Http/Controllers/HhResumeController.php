@@ -20,8 +20,19 @@ class HhResumeController extends Controller
         $vacancyId = trim((string) $request->query('vacancy_id', ''));
         $credential = $client->activeTokenForUser((int) $request->user()->getKey());
 
+        $captures = DB::table('legal.hh_browser_captures')
+            ->select('hh_vacancy_id', 'resume_id', DB::raw('max(hh_browser_capture_id) as hh_browser_capture_id'))
+            ->whereNotNull('hh_vacancy_id')
+            ->whereNotNull('resume_id')
+            ->groupBy('hh_vacancy_id', 'resume_id');
+
         $query = DB::table('legal.hh_negotiations as n')
             ->leftJoin('legal.hh_vacancies as v', 'v.hh_vacancy_id', '=', 'n.hh_vacancy_id')
+            ->leftJoinSub($captures, 'bc', function ($join): void {
+                $join->on('bc.hh_vacancy_id', '=', 'n.hh_vacancy_id')
+                    ->on('bc.resume_id', '=', 'n.resume_id');
+            })
+            ->leftJoin('legal.hh_browser_captures as capture', 'capture.hh_browser_capture_id', '=', 'bc.hh_browser_capture_id')
             ->orderByDesc('n.analysis_score')
             ->orderByDesc('n.responded_at');
 
@@ -34,6 +45,8 @@ class HhResumeController extends Controller
             ->get([
                 'n.*',
                 'v.name as vacancy_name',
+                'bc.hh_browser_capture_id',
+                'capture.resume_structured as browser_resume_structured',
             ]);
 
         $vacancies = DB::table('legal.hh_vacancies')

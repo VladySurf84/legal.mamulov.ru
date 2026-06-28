@@ -103,21 +103,33 @@
                                 $resumeRaw = is_string($negotiation->resume_raw ?? null)
                                     ? (json_decode($negotiation->resume_raw, true) ?: [])
                                     : (array) ($negotiation->resume_raw ?? []);
-                                $candidateName = $negotiation->candidate_name ?: 'Кандидат без имени';
+                                $browserResume = is_string($negotiation->browser_resume_structured ?? null)
+                                    ? (json_decode($negotiation->browser_resume_structured, true) ?: [])
+                                    : (array) ($negotiation->browser_resume_structured ?? []);
+                                $candidateName = $negotiation->candidate_name
+                                    ?: data_get($browserResume, 'name')
+                                    ?: data_get($browserResume, 'candidate.name')
+                                    ?: 'Кандидат без имени';
                                 $candidateInitial = mb_strtoupper(mb_substr($candidateName, 0, 1));
                                 $candidatePhoto = data_get($resumeRaw, 'photo.small')
                                     ?: data_get($resumeRaw, 'photo.100')
                                     ?: data_get($resumeRaw, 'photo.40')
                                     ?: data_get($resumeRaw, 'photo.medium')
                                     ?: data_get($resumeRaw, 'photo.500')
+                                    ?: data_get($browserResume, 'photo')
+                                    ?: data_get($browserResume, 'photo.small')
+                                    ?: data_get($browserResume, 'photo.100')
+                                    ?: data_get($browserResume, 'photo.40')
+                                    ?: data_get($browserResume, 'avatar')
+                                    ?: data_get($browserResume, 'image')
                                     ?: data_get($resumeRaw, 'browser_capture.resumeStructured.photo')
                                     ?: data_get($resumeRaw, 'browser_capture.browser_capture.resumeStructured.photo');
-                                $responseUrl = $negotiation->alternate_url ?: $negotiation->resume_url;
                             @endphp
                             <tr
-                                @if ($responseUrl)
+                                @if ($negotiation->hh_browser_capture_id)
+                                    data-href="{{ route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) }}"
                                     class="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
-                                    ondblclick="window.open(@js($responseUrl), '_blank', 'noopener')"
+                                    ondblclick="window.location.href = this.dataset.href"
                                 @endif
                             >
                                 <td class="py-3 pr-3 pl-4 align-top sm:pl-6">

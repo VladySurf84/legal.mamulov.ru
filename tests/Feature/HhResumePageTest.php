@@ -26,7 +26,7 @@ class HhResumePageTest extends TestCase
             ->assertSee('HH');
     }
 
-    public function test_admin_sees_candidate_photo_and_double_click_response_link(): void
+    public function test_admin_sees_candidate_photo_and_double_click_internal_capture_detail(): void
     {
         $user = User::query()->updateOrCreate(
             ['email' => 'hh-resumes-photo@example.com'],
@@ -37,6 +37,10 @@ class HhResumePageTest extends TestCase
                 'is_active' => true,
             ],
         );
+
+        DB::table('legal.hh_browser_captures')
+            ->where('dedupe_key', 'test-hh-resumes-page-capture')
+            ->delete();
 
         DB::table('legal.hh_vacancies')->updateOrInsert(
             ['hh_vacancy_id' => 'photo-test-vacancy'],
@@ -55,25 +59,46 @@ class HhResumePageTest extends TestCase
                 'resume_id' => 'photo-test-resume',
             ],
             [
-                'candidate_name' => 'Иван Петров',
+                'candidate_name' => null,
                 'resume_title' => 'Laravel разработчик',
                 'alternate_url' => 'https://hh.ru/applicant/negotiations/response-test',
                 'raw' => json_encode([], JSON_THROW_ON_ERROR),
-                'resume_raw' => json_encode([
-                    'photo' => [
-                        'small' => 'https://img.hhcdn.ru/photo-test.jpg',
-                    ],
-                ], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
         );
+
+        $captureId = DB::table('legal.hh_browser_captures')->insertGetId([
+            'dedupe_key' => 'test-hh-resumes-page-capture',
+            'source' => 'test',
+            'page_url' => 'https://hh.ru/resume/photo-test?vacancyId=photo-test-vacancy&resumeId=photo-test-resume',
+            'original_url' => 'https://hh.ru/resume/photo-test?vacancyId=photo-test-vacancy&resumeId=photo-test-resume',
+            'page_title' => 'Laravel разработчик',
+            'hh_vacancy_id' => 'photo-test-vacancy',
+            'vacancy_title' => 'Photo Test Vacancy',
+            'resume_id' => 'photo-test-resume',
+            'candidate_name' => 'Иван Петров',
+            'candidate_resume_url' => 'https://hh.ru/resume/photo-test?vacancyId=photo-test-vacancy&resumeId=photo-test-resume',
+            'raw_text' => 'Full resume text',
+            'raw_links' => json_encode([], JSON_THROW_ON_ERROR),
+            'resume_structured' => json_encode([
+                'name' => 'Иван Петров',
+                'photo' => 'https://img.hhcdn.ru/photo-test.jpg',
+            ], JSON_THROW_ON_ERROR),
+            'payload' => json_encode(['source' => 'test'], JSON_THROW_ON_ERROR),
+            'captured_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'hh_browser_capture_id');
 
         $this->actingAs($user)
             ->get(route('hh-resumes.index', ['vacancy_id' => 'photo-test-vacancy']))
             ->assertOk()
             ->assertSee('Иван Петров')
             ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
-            ->assertSee('ondblclick="window.open', false);
+            ->assertSee(route('hh-browser-captures.show', $captureId), false)
+            ->assertSee('ondblclick="window.location.href = this.dataset.href"', false)
+            ->assertDontSee('ondblclick="window.open', false);
     }
 }
