@@ -79,7 +79,7 @@
         id="bank-transaction-data-map-dialog"
         title="Карта данных банковской операции"
         description="Откуда берется строка в таблице банковских транзакций и какие слои участвуют."
-        size="2xl"
+        size="content"
     >
         <div class="space-y-6 px-6 py-5 text-sm text-gray-600 dark:text-gray-300">
             <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-900/5 dark:bg-white/5 dark:ring-white/10">

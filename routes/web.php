@@ -9,6 +9,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\ElectronicSignatureController;
 use App\Http\Controllers\ExchangeRateController;
+use App\Http\Controllers\HhResumeController;
 use App\Http\Controllers\InternalApiDocsController;
 use App\Http\Controllers\KassaController;
 use App\Http\Controllers\LegalEntityController;
@@ -61,6 +62,10 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('kassa/rebuild', [KassaController::class, 'rebuild'])->name('kassa.rebuild');
     Route::get('electronic-signatures', [ElectronicSignatureController::class, 'index'])->name('electronic-signatures.index');
     Route::post('electronic-signatures/import', [ElectronicSignatureController::class, 'import'])->name('electronic-signatures.import');
+    Route::get('hh/resumes', [HhResumeController::class, 'index'])->name('hh-resumes.index');
+    Route::post('hh/resumes/sync', [HhResumeController::class, 'sync'])->name('hh-resumes.sync');
+    Route::get('hh/oauth/redirect', [HhResumeController::class, 'redirect'])->name('hh.oauth.redirect');
+    Route::get('hh/oauth/callback', [HhResumeController::class, 'callback'])->name('hh.oauth.callback');
     Route::get('internal-api-docs', [InternalApiDocsController::class, 'index'])->name('internal-api-docs.index');
     Route::get('internal-api-docs/openapi.json', [InternalApiDocsController::class, 'spec'])->name('internal-api-docs.spec');
     Route::get('bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts.index');

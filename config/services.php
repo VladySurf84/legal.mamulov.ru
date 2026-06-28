@@ -54,4 +54,17 @@ return [
         'timeout' => (int) env('MAMULOV_GATEWAY_TIMEOUT', 10),
     ],
 
+    'hh' => [
+        'client_id' => env('HH_CLIENT_ID'),
+        'client_secret' => env('HH_CLIENT_SECRET'),
+        'redirect_uri' => env('HH_REDIRECT_URI', env('APP_URL').'/hh/oauth/callback'),
+        'base_url' => env('HH_API_BASE_URL', 'https://api.hh.ru'),
+        'auth_url' => env('HH_AUTH_URL', 'https://hh.ru/oauth/authorize'),
+        'token_url' => env('HH_TOKEN_URL', 'https://api.hh.ru/token'),
+        'user_agent' => env('HH_USER_AGENT', 'legal.mamulov.ru resume sync (admin@mamulov.ru)'),
+        'timeout' => (int) env('HH_TIMEOUT', 60),
+        'download_resumes' => filter_var(env('HH_DOWNLOAD_RESUMES', true), FILTER_VALIDATE_BOOL),
+        'browser_capture_token' => env('HH_BROWSER_CAPTURE_TOKEN'),
+    ],
+
 ];
