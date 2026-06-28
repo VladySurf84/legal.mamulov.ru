@@ -105,4 +105,63 @@ class HhResumePageTest extends TestCase
             ->assertSee('ondblclick="window.location.href = this.dataset.href"', false)
             ->assertDontSee('ondblclick="window.open', false);
     }
+
+    public function test_admin_deletes_hh_resume_from_row_menu(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-delete@example.com'],
+            [
+                'name' => 'HH Resumes Delete Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'delete-test-vacancy'],
+            [
+                'name' => 'Delete Test Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => 'delete-test-vacancy',
+                'resume_id' => 'delete-test-resume',
+            ],
+            [
+                'candidate_name' => 'Удаляемый Кандидат',
+                'resume_title' => 'PHP разработчик',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $negotiationId = (int) DB::table('legal.hh_negotiations')
+            ->where('hh_vacancy_id', 'delete-test-vacancy')
+            ->where('resume_id', 'delete-test-resume')
+            ->value('hh_negotiation_id');
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'delete-test-vacancy']))
+            ->assertOk()
+            ->assertSee('Удаляемый Кандидат')
+            ->assertSee(route('hh-resumes.destroy', $negotiationId), false)
+            ->assertSee('Удалить');
+
+        $this->actingAs($user)
+            ->delete(route('hh-resumes.destroy', $negotiationId))
+            ->assertRedirect(route('hh-resumes.index', ['vacancy_id' => 'delete-test-vacancy']));
+
+        $this->assertDatabaseMissing('legal.hh_negotiations', [
+            'hh_negotiation_id' => $negotiationId,
+        ]);
+    }
 }

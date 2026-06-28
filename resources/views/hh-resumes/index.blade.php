@@ -158,6 +158,20 @@
                                         @if ($negotiation->pdf_path)
                                             <span class="text-sm text-gray-500" title="{{ $negotiation->pdf_path }}">PDF</span>
                                         @endif
+                                        <details class="group relative" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">
+                                            <summary class="flex size-7 cursor-pointer list-none items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:hover:bg-white/10 dark:hover:text-white [&::-webkit-details-marker]:hidden" aria-label="Действия">
+                                                ⋮
+                                            </summary>
+                                            <div class="absolute right-0 z-20 mt-1 w-40 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg ring-1 ring-black/5 dark:border-white/10 dark:bg-gray-900 dark:ring-white/10">
+                                                <form method="post" action="{{ route('hh-resumes.destroy', $negotiation->hh_negotiation_id) }}" onsubmit="return confirm('Удалить HH резюме из списка?')">
+                                                    @csrf
+                                                    @method('delete')
+                                                    <button type="submit" class="block w-full rounded px-3 py-1.5 text-left text-sm text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10">
+                                                        Удалить
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </details>
                                     </div>
                                 </td>
                             </tr>

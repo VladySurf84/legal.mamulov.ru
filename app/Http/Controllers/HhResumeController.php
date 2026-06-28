@@ -228,4 +228,23 @@ class HhResumeController extends Controller
                 $summary['sync_run_id'],
             ));
     }
+
+    public function destroy(Request $request, int $negotiationId): RedirectResponse
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        $negotiation = DB::table('legal.hh_negotiations')
+            ->where('hh_negotiation_id', $negotiationId)
+            ->first(['hh_negotiation_id', 'hh_vacancy_id']);
+
+        abort_unless($negotiation !== null, 404);
+
+        DB::table('legal.hh_negotiations')
+            ->where('hh_negotiation_id', $negotiationId)
+            ->delete();
+
+        return redirect()
+            ->route('hh-resumes.index', ['vacancy_id' => $negotiation->hh_vacancy_id])
+            ->with('status', 'HH резюме удалено из списка.');
+    }
 }
