@@ -11,7 +11,7 @@ class HhBrowserCapturePageController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless(UserAccess::canViewHhBrowserCaptures($request->user()), 403);
+        abort_unless(UserAccess::canViewHhResumes($request->user()), 403);
 
         $vacancyId = trim((string) $request->query('vacancy_id', ''));
         $search = trim((string) $request->query('q', ''));
@@ -56,7 +56,7 @@ class HhBrowserCapturePageController extends Controller
 
     public function show(Request $request, int $captureId): View
     {
-        abort_unless(UserAccess::canViewHhBrowserCaptures($request->user()), 403);
+        abort_unless(UserAccess::canViewHhResumes($request->user()), 403);
 
         $capture = DB::table('legal.hh_browser_captures')
             ->where('hh_browser_capture_id', $captureId)

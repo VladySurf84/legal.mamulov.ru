@@ -12,7 +12,6 @@
     }
 
     $canManageHhResumes = $canManageHhResumes ?? false;
-    $canViewHhBrowserCaptures = $canViewHhBrowserCaptures ?? true;
 @endphp
 
 @forelse ($negotiations as $negotiation)
@@ -20,7 +19,7 @@
         $candidateName = $negotiation->display_candidate_name;
         $candidateInitial = mb_strtoupper(mb_substr($candidateName, 0, 1));
         $candidatePhoto = $negotiation->display_candidate_photo;
-        $detailUrl = $canViewHhBrowserCaptures && $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
+        $detailUrl = $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
         $score = $negotiation->analysis_score;
         $codexScore = $negotiation->codex_analysis_score;
         $summaryText = $negotiation->codex_analysis_summary ?: $negotiation->analysis_summary;
@@ -76,7 +75,6 @@
                     data-hh-cover-letter-toggle
                     data-collapsed-label="Полностью"
                     data-expanded-label="Сократить"
-                    onclick="event.stopPropagation()"
                 >
                     Полностью
                 </button>

@@ -67,11 +67,9 @@
             </form>
         @endif
 
-        @if ($canViewHhBrowserCaptures)
-            <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $vacancyId])) }}" size="md" variant="ghost">
-                Архив откликов
-            </x-ui.button>
-        @endif
+        <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $vacancyId])) }}" size="md" variant="ghost">
+            Архив откликов
+        </x-ui.button>
 
         @if ($canManageHhResumes)
             @if ($credential)
@@ -199,7 +197,6 @@
             'negotiations' => $negotiations,
             'scoreLabel' => $scoreLabel,
             'canManageHhResumes' => $canManageHhResumes,
-            'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
         ])
 
         @include('hh-resumes.partials.loader-row', [

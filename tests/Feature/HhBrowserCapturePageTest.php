@@ -71,7 +71,7 @@ class HhBrowserCapturePageTest extends TestCase
             ->assertSee('Full resume text');
     }
 
-    public function test_non_admin_can_open_browser_capture_list_and_detail_with_permission(): void
+    public function test_non_admin_can_open_browser_capture_list_and_detail_with_hh_resumes_permission(): void
     {
         DB::table('legal.hh_browser_captures')
             ->where('dedupe_key', 'test-hh-browser-capture-permission')
@@ -114,7 +114,7 @@ class HhBrowserCapturePageTest extends TestCase
             ->get(route('hh-browser-captures.index'))
             ->assertForbidden();
 
-        $this->grantGlobalModule($user, UserAccess::MODULE_HH_BROWSER_CAPTURES);
+        $this->grantGlobalModule($user, UserAccess::MODULE_HH_RESUMES);
 
         $this->actingAs($user)
             ->get(route('hh-browser-captures.index'))

@@ -30,7 +30,7 @@ class HhResumePageTest extends TestCase
             ->assertSee('HH');
     }
 
-    public function test_non_admin_can_view_hh_resumes_and_detail_only_with_module_permissions(): void
+    public function test_non_admin_can_view_hh_resumes_and_detail_with_hh_resumes_permission(): void
     {
         $user = User::query()->updateOrCreate(
             ['email' => 'hh-resumes-viewer@example.com'],
@@ -108,17 +108,9 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Permission Candidate')
             ->assertSee('Permission cover letter')
-            ->assertDontSee(route('hh-browser-captures.show', $captureId), false)
-            ->assertDontSee(route('hh-resumes.analyze-all'), false)
-            ->assertDontSee('data-hh-resume-delete-url', false);
-
-        $this->grantGlobalModule($user, UserAccess::MODULE_HH_BROWSER_CAPTURES);
-
-        $this->actingAs($user)
-            ->get(route('hh-resumes.index', ['vacancy_id' => 'permission-test-vacancy']))
-            ->assertOk()
             ->assertSee(route('hh-browser-captures.show', $captureId), false)
             ->assertSee('ondblclick="window.location.href = this.dataset.href"', false)
+            ->assertDontSee(route('hh-resumes.analyze-all'), false)
             ->assertDontSee('data-hh-resume-delete-url', false);
     }
 

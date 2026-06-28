@@ -26,7 +26,6 @@ class HhResumeController extends Controller
         $perPage = $this->perPage($request);
         $credential = $client->activeTokenForUser((int) $request->user()->getKey());
         $canManageHhResumes = (bool) $request->user()?->isAdmin();
-        $canViewHhBrowserCaptures = UserAccess::canViewHhBrowserCaptures($request->user());
 
         $captures = DB::table('legal.hh_browser_captures')
             ->select('hh_vacancy_id', 'resume_id', DB::raw('max(hh_browser_capture_id) as hh_browser_capture_id'))
@@ -83,7 +82,6 @@ class HhResumeController extends Controller
                 'html' => view('hh-resumes.partials.rows', [
                     'negotiations' => $negotiations,
                     'canManageHhResumes' => $canManageHhResumes,
-                    'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
                 ])->render(),
                 'loader_html' => view('hh-resumes.partials.loader-row', [
                     'nextPage' => $nextPage,
@@ -113,7 +111,6 @@ class HhResumeController extends Controller
             'negotiations' => $negotiations,
             'nextPage' => $nextPage,
             'canManageHhResumes' => $canManageHhResumes,
-            'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
             'latestAnalysisBatch' => $latestAnalysisBatch,
         ]);
     }
