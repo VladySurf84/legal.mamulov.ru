@@ -78,15 +78,19 @@ class HhResumePageTest extends TestCase
             'hh_vacancy_id' => 'photo-test-vacancy',
             'vacancy_title' => 'Photo Test Vacancy',
             'resume_id' => 'photo-test-resume',
-            'candidate_name' => 'Иван Петров',
+            'candidate_name' => 'Посмотреть',
             'candidate_resume_url' => 'https://hh.ru/resume/photo-test?vacancyId=photo-test-vacancy&resumeId=photo-test-resume',
-            'raw_text' => 'Full resume text',
+            'raw_text' => "Отправить нанимающему
+Иван Петров
+Мужчина, 30 лет",
             'raw_links' => json_encode([], JSON_THROW_ON_ERROR),
-            'resume_structured' => json_encode([
-                'name' => 'Иван Петров',
-                'photo' => 'https://img.hhcdn.ru/photo-test.jpg',
+            'resume_structured' => json_encode([], JSON_THROW_ON_ERROR),
+            'payload' => json_encode([
+                'source' => 'test',
+                'candidate' => [
+                    'photo' => 'https://img.hhcdn.ru/photo-test.jpg',
+                ],
             ], JSON_THROW_ON_ERROR),
-            'payload' => json_encode(['source' => 'test'], JSON_THROW_ON_ERROR),
             'captured_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),

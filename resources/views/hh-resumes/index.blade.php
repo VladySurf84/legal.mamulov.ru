@@ -100,30 +100,9 @@
                     <tbody class="divide-y divide-gray-100 bg-white dark:divide-white/10 dark:bg-gray-800">
                         @forelse ($negotiations as $negotiation)
                             @php
-                                $resumeRaw = is_string($negotiation->resume_raw ?? null)
-                                    ? (json_decode($negotiation->resume_raw, true) ?: [])
-                                    : (array) ($negotiation->resume_raw ?? []);
-                                $browserResume = is_string($negotiation->browser_resume_structured ?? null)
-                                    ? (json_decode($negotiation->browser_resume_structured, true) ?: [])
-                                    : (array) ($negotiation->browser_resume_structured ?? []);
-                                $candidateName = $negotiation->candidate_name
-                                    ?: data_get($browserResume, 'name')
-                                    ?: data_get($browserResume, 'candidate.name')
-                                    ?: 'Кандидат без имени';
+                                $candidateName = $negotiation->display_candidate_name;
                                 $candidateInitial = mb_strtoupper(mb_substr($candidateName, 0, 1));
-                                $candidatePhoto = data_get($resumeRaw, 'photo.small')
-                                    ?: data_get($resumeRaw, 'photo.100')
-                                    ?: data_get($resumeRaw, 'photo.40')
-                                    ?: data_get($resumeRaw, 'photo.medium')
-                                    ?: data_get($resumeRaw, 'photo.500')
-                                    ?: data_get($browserResume, 'photo')
-                                    ?: data_get($browserResume, 'photo.small')
-                                    ?: data_get($browserResume, 'photo.100')
-                                    ?: data_get($browserResume, 'photo.40')
-                                    ?: data_get($browserResume, 'avatar')
-                                    ?: data_get($browserResume, 'image')
-                                    ?: data_get($resumeRaw, 'browser_capture.resumeStructured.photo')
-                                    ?: data_get($resumeRaw, 'browser_capture.browser_capture.resumeStructured.photo');
+                                $candidatePhoto = $negotiation->display_candidate_photo;
                             @endphp
                             <tr
                                 @if ($negotiation->hh_browser_capture_id)
