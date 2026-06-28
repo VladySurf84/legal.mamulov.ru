@@ -353,4 +353,73 @@
             })();
         </script>
     @endonce
+
+    @once
+        <script>
+            (() => {
+                if (window.__hhResumeCoverLetterToggleReady) {
+                    return;
+                }
+
+                window.__hhResumeCoverLetterToggleReady = true;
+
+                const refreshCoverLetterToggles = () => {
+                    requestAnimationFrame(() => {
+                        document.querySelectorAll('[data-hh-cover-letter-toggle]').forEach((button) => {
+                            const text = button.previousElementSibling;
+
+                            if (!text?.matches('[data-hh-cover-letter]')) {
+                                return;
+                            }
+
+                            const expanded = text.dataset.hhCoverLetterExpanded === 'true';
+
+                            if (expanded) {
+                                button.classList.remove('hidden');
+                                return;
+                            }
+
+                            text.classList.add('line-clamp-5');
+                            button.textContent = button.dataset.collapsedLabel || 'Полностью';
+                            button.classList.toggle('hidden', text.scrollHeight <= text.clientHeight + 1);
+                        });
+                    });
+                };
+
+                document.addEventListener('click', (event) => {
+                    const button = event.target.closest('[data-hh-cover-letter-toggle]');
+
+                    if (!button) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const text = button.previousElementSibling;
+
+                    if (!text?.matches('[data-hh-cover-letter]')) {
+                        return;
+                    }
+
+                    const expanded = text.dataset.hhCoverLetterExpanded === 'true';
+                    text.dataset.hhCoverLetterExpanded = expanded ? 'false' : 'true';
+                    text.classList.toggle('line-clamp-5', expanded);
+                    button.textContent = expanded
+                        ? (button.dataset.collapsedLabel || 'Полностью')
+                        : (button.dataset.expandedLabel || 'Сократить');
+                });
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', refreshCoverLetterToggles);
+                } else {
+                    refreshCoverLetterToggles();
+                }
+
+                window.addEventListener('resize', refreshCoverLetterToggles);
+                document.addEventListener('livewire:navigated', refreshCoverLetterToggles);
+                document.addEventListener('ui:sticky-table-refresh', refreshCoverLetterToggles);
+            })();
+        </script>
+    @endonce
 @endsection

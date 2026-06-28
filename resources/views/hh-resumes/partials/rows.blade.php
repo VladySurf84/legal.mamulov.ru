@@ -64,7 +64,17 @@
 
         <x-ui.sticky-table-td :nowrap="false" class="min-w-96 max-w-xl text-sm">
             @if ($coverLetter)
-                <div class="line-clamp-5 whitespace-pre-line text-gray-700 dark:text-gray-200">{{ $coverLetter }}</div>
+                <div data-hh-cover-letter class="line-clamp-5 whitespace-pre-line text-gray-700 dark:text-gray-200">{{ $coverLetter }}</div>
+                <button
+                    type="button"
+                    class="mt-1 hidden text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+                    data-hh-cover-letter-toggle
+                    data-collapsed-label="Полностью"
+                    data-expanded-label="Сократить"
+                    onclick="event.stopPropagation()"
+                >
+                    Полностью
+                </button>
             @else
                 <div class="text-gray-400">Нет сопроводительного письма</div>
             @endif
