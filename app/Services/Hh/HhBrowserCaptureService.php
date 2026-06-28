@@ -106,6 +106,7 @@ SQL, [
             now(),
         ]);
 
+        $this->mirrorVacanciesPage($payload, $capturedAt);
         $this->mirrorIntoResumeTables($payload, $vacancyId, $resumeId, $capturedAt);
 
         return [
@@ -146,6 +147,63 @@ SQL, [
             ->values()
             ->all();
     }
+    /** @param array<string, mixed> $payload */
+    private function mirrorVacanciesPage(array $payload, Carbon $capturedAt): void
+    {
+        $vacancies = $this->array(Arr::get($payload, 'vacancies'));
+
+        if ($vacancies === []) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($vacancies as $vacancy) {
+            if (! is_array($vacancy)) {
+                continue;
+            }
+
+            $vacancyId = $this->text(Arr::get($vacancy, 'id'));
+
+            if ($vacancyId === null) {
+                $vacancyId = $this->vacancyId(['vacancy' => ['url' => Arr::get($vacancy, 'url')]]);
+            }
+
+            if ($vacancyId === null) {
+                continue;
+            }
+
+            DB::statement(<<<'SQL'
+INSERT INTO legal.hh_vacancies (
+    hh_vacancy_id,
+    name,
+    alternate_url,
+    raw,
+    last_synced_at,
+    created_at,
+    updated_at
+) VALUES (?, ?, ?, ?::jsonb, ?, ?, ?)
+ON CONFLICT (hh_vacancy_id) DO UPDATE SET
+    name = COALESCE(EXCLUDED.name, legal.hh_vacancies.name),
+    alternate_url = COALESCE(EXCLUDED.alternate_url, legal.hh_vacancies.alternate_url),
+    raw = CASE
+        WHEN legal.hh_vacancies.raw IS NULL THEN EXCLUDED.raw
+        ELSE legal.hh_vacancies.raw || jsonb_build_object('browser_vacancy', EXCLUDED.raw)
+    END,
+    last_synced_at = EXCLUDED.last_synced_at,
+    updated_at = EXCLUDED.updated_at
+SQL, [
+                $vacancyId,
+                $this->text(Arr::get($vacancy, 'title')),
+                $this->text(Arr::get($vacancy, 'url')),
+                $this->json($vacancy),
+                $capturedAt,
+                $now,
+                $now,
+            ]);
+        }
+    }
+
     /** @param array<string, mixed> $payload */
     private function mirrorIntoResumeTables(array $payload, ?string $vacancyId, ?string $resumeId, Carbon $capturedAt): void
     {
