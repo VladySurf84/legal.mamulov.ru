@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserUiSetting;
+use App\Support\UserAccess;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -27,6 +28,98 @@ class HhResumePageTest extends TestCase
             ->get(route('hh-resumes.index'))
             ->assertOk()
             ->assertSee('HH');
+    }
+
+    public function test_non_admin_can_view_hh_resumes_and_detail_only_with_module_permissions(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-viewer@example.com'],
+            [
+                'name' => 'HH Resumes Viewer',
+                'password' => 'secret',
+                'is_admin' => false,
+                'is_active' => true,
+            ],
+        );
+        DB::table('legal.user_module_permissions')
+            ->where('user_id', $user->getKey())
+            ->delete();
+
+        DB::table('legal.hh_browser_captures')
+            ->where('dedupe_key', 'test-hh-resumes-permission-capture')
+            ->delete();
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'permission-test-vacancy'],
+            [
+                'name' => 'Permission Test Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => 'permission-test-vacancy',
+                'resume_id' => 'permission-test-resume',
+            ],
+            [
+                'candidate_name' => 'Permission Candidate',
+                'resume_title' => 'PHP developer',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $captureId = DB::table('legal.hh_browser_captures')->insertGetId([
+            'dedupe_key' => 'test-hh-resumes-permission-capture',
+            'source' => 'test',
+            'page_url' => 'https://hh.ru/resume/permission-test?vacancyId=permission-test-vacancy&resumeId=permission-test-resume',
+            'original_url' => 'https://hh.ru/resume/permission-test?vacancyId=permission-test-vacancy&resumeId=permission-test-resume',
+            'page_title' => 'PHP developer',
+            'hh_vacancy_id' => 'permission-test-vacancy',
+            'vacancy_title' => 'Permission Test Vacancy',
+            'resume_id' => 'permission-test-resume',
+            'candidate_name' => 'Permission Candidate',
+            'candidate_resume_url' => 'https://hh.ru/resume/permission-test?vacancyId=permission-test-vacancy&resumeId=permission-test-resume',
+            'raw_text' => 'Permission resume text',
+            'raw_links' => json_encode([], JSON_THROW_ON_ERROR),
+            'resume_structured' => json_encode([
+                'response' => ['coverLetter' => 'Permission cover letter'],
+            ], JSON_THROW_ON_ERROR),
+            'payload' => json_encode(['source' => 'test'], JSON_THROW_ON_ERROR),
+            'captured_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'hh_browser_capture_id');
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'permission-test-vacancy']))
+            ->assertForbidden();
+
+        $this->grantGlobalModule($user, UserAccess::MODULE_HH_RESUMES);
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'permission-test-vacancy']))
+            ->assertOk()
+            ->assertSee('Permission Candidate')
+            ->assertSee('Permission cover letter')
+            ->assertDontSee(route('hh-browser-captures.show', $captureId), false)
+            ->assertDontSee(route('hh-resumes.analyze-all'), false)
+            ->assertDontSee('data-hh-resume-delete-url', false);
+
+        $this->grantGlobalModule($user, UserAccess::MODULE_HH_BROWSER_CAPTURES);
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'permission-test-vacancy']))
+            ->assertOk()
+            ->assertSee(route('hh-browser-captures.show', $captureId), false)
+            ->assertSee('ondblclick="window.location.href = this.dataset.href"', false)
+            ->assertDontSee('data-hh-resume-delete-url', false);
     }
 
     public function test_admin_sees_candidate_photo_and_double_click_internal_capture_detail(): void

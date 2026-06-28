@@ -23,6 +23,8 @@ class UserAccess
     public const MODULE_EXCHANGE_RATES = 'exchange_rates';
     public const MODULE_DOCUMENT_TYPES = 'document_types';
     public const MODULE_ELECTRONIC_SIGNATURES = 'electronic_signatures';
+    public const MODULE_HH_RESUMES = 'hh_resumes';
+    public const MODULE_HH_BROWSER_CAPTURES = 'hh_browser_captures';
     public const MODULE_KASSA = 'kassa';
     public const MODULE_USERS = 'users';
     public const ACTION_BANK_ACCOUNTS_IMPORT = 'bank_accounts.import';
@@ -208,6 +210,8 @@ class UserAccess
             'exchange-rates.index' => self::canViewModule($user, self::MODULE_EXCHANGE_RATES),
             'document-types.index' => self::canViewModule($user, self::MODULE_DOCUMENT_TYPES),
             'electronic-signatures.index' => self::canViewElectronicSignatures($user),
+            'hh-resumes.index' => self::canViewHhResumes($user),
+            'hh-browser-captures.index' => self::canViewHhBrowserCaptures($user),
             'users.index' => self::canViewUsers($user),
             'user-access.index' => self::canViewUserAccess($user),
             'scheduler.index' => self::canViewScheduler($user),
@@ -316,6 +320,16 @@ class UserAccess
     public static function canViewElectronicSignatures(?User $user): bool
     {
         return self::canViewModule($user, self::MODULE_ELECTRONIC_SIGNATURES);
+    }
+
+    public static function canViewHhResumes(?User $user): bool
+    {
+        return self::canViewModule($user, self::MODULE_HH_RESUMES);
+    }
+
+    public static function canViewHhBrowserCaptures(?User $user): bool
+    {
+        return self::canViewModule($user, self::MODULE_HH_BROWSER_CAPTURES);
     }
 
     public static function canManageElectronicSignatures(?User $user): bool

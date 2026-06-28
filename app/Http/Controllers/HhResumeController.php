@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\Hh\HhApiClient;
 use App\Services\Hh\HhResumeBatchAnalysisService;
 use App\Services\Hh\HhResumeSyncService;
+use App\Support\UserAccess;
 use App\Support\UserUiSettings;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -19,11 +20,13 @@ class HhResumeController extends Controller
 {
     public function index(Request $request, HhApiClient $client): View|JsonResponse
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless(UserAccess::canViewHhResumes($request->user()), 403);
 
         $vacancyId = trim((string) $request->query('vacancy_id', ''));
         $perPage = $this->perPage($request);
         $credential = $client->activeTokenForUser((int) $request->user()->getKey());
+        $canManageHhResumes = (bool) $request->user()?->isAdmin();
+        $canViewHhBrowserCaptures = UserAccess::canViewHhBrowserCaptures($request->user());
 
         $captures = DB::table('legal.hh_browser_captures')
             ->select('hh_vacancy_id', 'resume_id', DB::raw('max(hh_browser_capture_id) as hh_browser_capture_id'))
@@ -79,6 +82,8 @@ class HhResumeController extends Controller
             return response()->json([
                 'html' => view('hh-resumes.partials.rows', [
                     'negotiations' => $negotiations,
+                    'canManageHhResumes' => $canManageHhResumes,
+                    'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
                 ])->render(),
                 'loader_html' => view('hh-resumes.partials.loader-row', [
                     'nextPage' => $nextPage,
@@ -107,6 +112,8 @@ class HhResumeController extends Controller
             'vacancies' => $vacancies,
             'negotiations' => $negotiations,
             'nextPage' => $nextPage,
+            'canManageHhResumes' => $canManageHhResumes,
+            'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
             'latestAnalysisBatch' => $latestAnalysisBatch,
         ]);
     }

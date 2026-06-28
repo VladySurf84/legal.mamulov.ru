@@ -10,6 +10,9 @@
             return $score >= 75 ? 'Сильный' : ($score >= 55 ? 'Средний' : 'Слабый');
         };
     }
+
+    $canManageHhResumes = $canManageHhResumes ?? false;
+    $canViewHhBrowserCaptures = $canViewHhBrowserCaptures ?? true;
 @endphp
 
 @forelse ($negotiations as $negotiation)
@@ -17,7 +20,7 @@
         $candidateName = $negotiation->display_candidate_name;
         $candidateInitial = mb_strtoupper(mb_substr($candidateName, 0, 1));
         $candidatePhoto = $negotiation->display_candidate_photo;
-        $detailUrl = $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
+        $detailUrl = $canViewHhBrowserCaptures && $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
         $score = $negotiation->analysis_score;
         $codexScore = $negotiation->codex_analysis_score;
         $summaryText = $negotiation->codex_analysis_summary ?: $negotiation->analysis_summary;
@@ -35,7 +38,9 @@
             ondblclick="window.location.href = this.dataset.href"
         @endif
         data-hh-resume-context-row
-        data-hh-resume-delete-url="{{ route('hh-resumes.destroy', $negotiation->hh_negotiation_id) }}"
+        @if ($canManageHhResumes)
+            data-hh-resume-delete-url="{{ route('hh-resumes.destroy', $negotiation->hh_negotiation_id) }}"
+        @endif
         data-hh-resume-hh-url="{{ $negotiation->alternate_url }}"
     >
         <x-ui.sticky-table-td first :nowrap="false" class="min-w-72">
@@ -78,9 +83,6 @@
             @else
                 <div class="text-gray-400">Нет сопроводительного письма</div>
             @endif
-            <div class="mt-2 font-mono text-xs text-gray-400">
-                {{ $negotiation->responded_at ? \Illuminate\Support\Carbon::parse($negotiation->responded_at)->format('d.m.Y H:i') : '—' }}
-            </div>
         </x-ui.sticky-table-td>
 
         <x-ui.sticky-table-td align="right" nowrap>

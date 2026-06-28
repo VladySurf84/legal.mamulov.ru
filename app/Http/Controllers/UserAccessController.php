@@ -26,6 +26,8 @@ class UserAccessController extends Controller
         UserAccess::ACTION_DOCUMENT_TYPES_DELETE,
         UserAccess::MODULE_ELECTRONIC_SIGNATURES,
         UserAccess::ACTION_ELECTRONIC_SIGNATURES_IMPORT,
+        UserAccess::MODULE_HH_RESUMES,
+        UserAccess::MODULE_HH_BROWSER_CAPTURES,
         UserAccess::MODULE_USERS,
     ];
 

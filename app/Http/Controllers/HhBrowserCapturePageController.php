@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\UserAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -10,7 +11,7 @@ class HhBrowserCapturePageController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless(UserAccess::canViewHhBrowserCaptures($request->user()), 403);
 
         $vacancyId = trim((string) $request->query('vacancy_id', ''));
         $search = trim((string) $request->query('q', ''));
@@ -55,7 +56,7 @@ class HhBrowserCapturePageController extends Controller
 
     public function show(Request $request, int $captureId): View
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless(UserAccess::canViewHhBrowserCaptures($request->user()), 403);
 
         $capture = DB::table('legal.hh_browser_captures')
             ->where('hh_browser_capture_id', $captureId)

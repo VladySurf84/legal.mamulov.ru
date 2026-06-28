@@ -55,28 +55,34 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
-        <form method="post" action="{{ route('hh-resumes.analyze-all') }}">
-            @csrf
-            @if ($vacancyId !== '')
-                <input type="hidden" name="vacancy_id" value="{{ $vacancyId }}">
+        @if ($canManageHhResumes)
+            <form method="post" action="{{ route('hh-resumes.analyze-all') }}">
+                @csrf
+                @if ($vacancyId !== '')
+                    <input type="hidden" name="vacancy_id" value="{{ $vacancyId }}">
+                @endif
+                <x-ui.button type="submit" size="md" variant="soft">
+                    Оценить все
+                </x-ui.button>
+            </form>
+        @endif
+
+        @if ($canViewHhBrowserCaptures)
+            <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $vacancyId])) }}" size="md" variant="ghost">
+                Архив откликов
+            </x-ui.button>
+        @endif
+
+        @if ($canManageHhResumes)
+            @if ($credential)
+                <x-ui.button href="{{ route('hh.oauth.redirect') }}" size="md" variant="ghost">
+                    Переподключить HH
+                </x-ui.button>
+            @else
+                <x-ui.button href="{{ route('hh.oauth.redirect') }}" size="md" variant="soft">
+                    Подключить HH
+                </x-ui.button>
             @endif
-            <x-ui.button type="submit" size="md" variant="soft">
-                Оценить все
-            </x-ui.button>
-        </form>
-
-        <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $vacancyId])) }}" size="md" variant="ghost">
-            Архив откликов
-        </x-ui.button>
-
-        @if ($credential)
-            <x-ui.button href="{{ route('hh.oauth.redirect') }}" size="md" variant="ghost">
-                Переподключить HH
-            </x-ui.button>
-        @else
-            <x-ui.button href="{{ route('hh.oauth.redirect') }}" size="md" variant="soft">
-                Подключить HH
-            </x-ui.button>
         @endif
     </div>
 @endsection
@@ -135,7 +141,8 @@
                 @endif
             </div>
 
-            <form method="post" action="{{ route('hh-resumes.sync') }}" class="grid gap-3 sm:grid-cols-[minmax(0,18rem)_auto] sm:items-end">
+            @if ($canManageHhResumes)
+                <form method="post" action="{{ route('hh-resumes.sync') }}" class="grid gap-3 sm:grid-cols-[minmax(0,18rem)_auto] sm:items-end">
                 @csrf
                 <x-ui.input
                     name="vacancy_id"
@@ -153,7 +160,8 @@
                         Синхронизировать
                     </button>
                 @endif
-            </form>
+                </form>
+            @endif
         </div>
     </div>
 
@@ -190,6 +198,8 @@
         @include('hh-resumes.partials.rows', [
             'negotiations' => $negotiations,
             'scoreLabel' => $scoreLabel,
+            'canManageHhResumes' => $canManageHhResumes,
+            'canViewHhBrowserCaptures' => $canViewHhBrowserCaptures,
         ])
 
         @include('hh-resumes.partials.loader-row', [
@@ -278,9 +288,11 @@
             <x-ui.context-menu-item data-hh-resume-open-hh>
                 Открыть HH
             </x-ui.context-menu-item>
-            <x-ui.context-menu-item danger data-hh-resume-delete>
-                Удалить
-            </x-ui.context-menu-item>
+            @if ($canManageHhResumes)
+                <x-ui.context-menu-item danger data-hh-resume-delete>
+                    Удалить
+                </x-ui.context-menu-item>
+            @endif
         </x-slot:menu>
     </x-ui.context-menu>
 
