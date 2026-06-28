@@ -29,6 +29,7 @@ class HhBrowserCaptureController extends Controller
             'response' => ['nullable', 'array'],
             'response.status' => ['nullable', 'string', 'max:255'],
             'response.coverLetter' => ['nullable', 'string'],
+            'resumeStructured' => ['nullable', 'array'],
             'raw' => ['nullable', 'array'],
             'raw.text' => ['nullable', 'string'],
             'raw.links' => ['nullable', 'array'],

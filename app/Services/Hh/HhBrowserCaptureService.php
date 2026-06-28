@@ -42,6 +42,7 @@ INSERT INTO legal.hh_browser_captures (
     cover_letter,
     raw_text,
     raw_links,
+    resume_structured,
     payload,
     captured_by_user_id,
     captured_ip,
@@ -49,7 +50,7 @@ INSERT INTO legal.hh_browser_captures (
     captured_at,
     created_at,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?::inet, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?::inet, ?, ?, ?, ?)
 ON CONFLICT (dedupe_key) DO UPDATE SET
     source = EXCLUDED.source,
     page_url = EXCLUDED.page_url,
@@ -66,6 +67,7 @@ ON CONFLICT (dedupe_key) DO UPDATE SET
     cover_letter = EXCLUDED.cover_letter,
     raw_text = EXCLUDED.raw_text,
     raw_links = EXCLUDED.raw_links,
+    resume_structured = EXCLUDED.resume_structured,
     payload = EXCLUDED.payload,
     captured_by_user_id = EXCLUDED.captured_by_user_id,
     captured_ip = EXCLUDED.captured_ip,
@@ -88,8 +90,9 @@ SQL, [
             $this->text(Arr::get($payload, 'candidate.age')),
             $this->text(Arr::get($payload, 'response.status')),
             $this->text(Arr::get($payload, 'response.coverLetter')),
-            $this->text(Arr::get($payload, 'raw.text')),
+            $this->rawText(Arr::get($payload, 'raw.text')),
             $this->json($this->array(Arr::get($payload, 'raw.links'))),
+            $this->json($this->array(Arr::get($payload, 'resumeStructured'))),
             $this->json($payload),
             $context['captured_by_user_id'] ?? null,
             $this->text($context['ip'] ?? null),
@@ -331,6 +334,17 @@ SQL, [
         return $value === '' ? null : $value;
     }
 
+
+    private function rawText(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim(str_replace("\0", '', $value));
+
+        return $value === '' ? null : $value;
+    }
     /** @return array<int|string, mixed> */
     private function array(mixed $value): array
     {
