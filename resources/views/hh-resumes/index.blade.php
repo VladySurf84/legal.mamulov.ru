@@ -179,7 +179,7 @@
                                     <span>{{ $negotiation->area_name }}</span>
                                 @endif
                                 <span class="font-mono">vacancyId: {{ $negotiation->hh_vacancy_id }}</span>
-                                <span class="font-mono">resumeId: {{ $negotiation->resume_id }}</span>
+                                <span class="font-mono">resumeId: {{ $negotiation->display_resume_id }}</span>
                             </div>
                         </div>
                     </div>

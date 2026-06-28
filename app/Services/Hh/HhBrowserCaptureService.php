@@ -346,7 +346,14 @@ SQL, [
     /** @param array<string, mixed> $payload */
     private function resumeId(array $payload): ?string
     {
-        foreach ([Arr::get($payload, 'candidate.resumeUrl'), Arr::get($payload, 'page.url')] as $url) {
+        $urls = [
+            Arr::get($payload, 'page.originalUrl'),
+            Arr::get($payload, 'candidate.resumeUrl'),
+            Arr::get($payload, 'resumeStructured.originalUrl'),
+            Arr::get($payload, 'page.url'),
+        ];
+
+        foreach ($urls as $url) {
             if (! is_string($url) || $url === '') {
                 continue;
             }
@@ -358,6 +365,12 @@ SQL, [
                 if (isset($params[$key]) && is_scalar($params[$key]) && (string) $params[$key] !== '') {
                     return (string) $params[$key];
                 }
+            }
+        }
+
+        foreach ($urls as $url) {
+            if (! is_string($url) || $url === '') {
+                continue;
             }
 
             if (preg_match('~/resume/([A-Za-z0-9]+)~', $url, $matches) === 1) {
@@ -371,6 +384,10 @@ SQL, [
     /** @param array<string, mixed> $payload */
     private function dedupeKey(array $payload, ?string $vacancyId, ?string $resumeId): string
     {
+        if ($vacancyId !== null && $resumeId !== null) {
+            return hash('sha256', implode('|', ['negotiation', $vacancyId, $resumeId]));
+        }
+
         $parts = array_filter([
             $resumeId,
             $this->text(Arr::get($payload, 'candidate.resumeUrl')),

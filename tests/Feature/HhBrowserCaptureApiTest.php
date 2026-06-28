@@ -99,6 +99,103 @@ class HhBrowserCaptureApiTest extends TestCase
         $this->assertSame('https://hh.ru/photo/768289024.jpeg?t=1782745875&h=test', data_get(json_decode((string) $resumeRaw, true), 'browser_capture.candidate.photo'));
     }
 
+    public function test_browser_capture_prefers_numeric_resume_id_query_over_resume_url_hash(): void
+    {
+        Config::set('services.hh.browser_capture_token', 'test-token');
+
+        $resumeHash = 'aa8a7877000cd4465300bec22a4c344b4b3156';
+        $resumeUrl = 'https://hh.ru/resume/'.$resumeHash;
+        $originalUrl = $resumeUrl.'?vacancyId=134293071&t=5389512776&resumeId=215238227&hhtmFromLabel=responses';
+
+        DB::table('legal.hh_negotiations')
+            ->where('hh_vacancy_id', '134293071')
+            ->whereIn('resume_id', [$resumeHash, '215238227'])
+            ->delete();
+        DB::table('legal.hh_browser_captures')
+            ->whereIn('resume_id', [$resumeHash, '215238227'])
+            ->delete();
+        DB::table('legal.hh_vacancies')
+            ->where('hh_vacancy_id', '134293071')
+            ->delete();
+
+        $response = $this
+            ->withHeader('X-HH-Capture-Token', 'test-token')
+            ->postJson(route('api.hh.browser-captures.store'), [
+                'source' => 'hh-browser-extension',
+                'capturedAt' => '2026-06-28T15:40:00.000Z',
+                'page' => [
+                    'url' => $resumeUrl,
+                    'originalUrl' => $originalUrl,
+                    'title' => 'Numeric resume id test',
+                ],
+                'candidate' => [
+                    'name' => 'Numeric Candidate',
+                    'resumeUrl' => $resumeUrl,
+                ],
+                'vacancy' => [
+                    'id' => '134293071',
+                    'title' => 'Backend role',
+                    'url' => 'https://hh.ru/vacancy/134293071',
+                ],
+                'raw' => [
+                    'text' => 'Full resume text',
+                    'links' => [],
+                ],
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('resume_id', '215238227');
+
+        $this->assertDatabaseHas('legal.hh_browser_captures', [
+            'hh_vacancy_id' => '134293071',
+            'resume_id' => '215238227',
+        ]);
+        $this->assertDatabaseHas('legal.hh_negotiations', [
+            'hh_vacancy_id' => '134293071',
+            'resume_id' => '215238227',
+        ]);
+        $this->assertDatabaseMissing('legal.hh_negotiations', [
+            'hh_vacancy_id' => '134293071',
+            'resume_id' => $resumeHash,
+        ]);
+
+        $secondResponse = $this
+            ->withHeader('X-HH-Capture-Token', 'test-token')
+            ->postJson(route('api.hh.browser-captures.store'), [
+                'source' => 'hh-browser-extension',
+                'capturedAt' => '2026-06-28T15:45:00.000Z',
+                'page' => [
+                    'url' => $resumeUrl.'?vacancyId=134293071&t=9999999999&resumeId=215238227',
+                    'originalUrl' => $resumeUrl.'?vacancyId=134293071&t=9999999999&resumeId=215238227',
+                    'title' => 'Numeric resume id test updated',
+                ],
+                'candidate' => [
+                    'name' => 'Numeric Candidate Updated',
+                    'resumeUrl' => $resumeUrl,
+                ],
+                'vacancy' => [
+                    'id' => '134293071',
+                    'title' => 'Backend role',
+                    'url' => 'https://hh.ru/vacancy/134293071',
+                ],
+                'raw' => [
+                    'text' => 'Updated resume text',
+                    'links' => [],
+                ],
+            ]);
+
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('action', 'updated')
+            ->assertJsonPath('resume_id', '215238227');
+
+        $this->assertSame(1, DB::table('legal.hh_browser_captures')
+            ->where('hh_vacancy_id', '134293071')
+            ->where('resume_id', '215238227')
+            ->count());
+    }
+
     public function test_browser_capture_stores_vacancies_page(): void
     {
         Config::set('services.hh.browser_capture_token', 'test-token');

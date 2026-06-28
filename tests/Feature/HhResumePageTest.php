@@ -168,4 +168,79 @@ class HhResumePageTest extends TestCase
             'hh_negotiation_id' => $negotiationId,
         ]);
     }
+
+    public function test_resume_id_display_prefers_numeric_query_parameter(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-numeric-id@example.com'],
+            [
+                'name' => 'HH Resumes Numeric Id Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        $resumeHash = 'aa8a7877000cd4465300bec22a4c344b4b3156';
+        $resumeUrl = 'https://hh.ru/resume/'.$resumeHash;
+        $originalUrl = $resumeUrl.'?vacancyId=134293071&t=5389512776&resumeId=215238227&hhtmFromLabel=responses';
+
+        DB::table('legal.hh_browser_captures')
+            ->where('dedupe_key', 'test-hh-resumes-numeric-original-url')
+            ->delete();
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => '134293071'],
+            [
+                'name' => 'Numeric Resume Id Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => '134293071',
+                'resume_id' => $resumeHash,
+            ],
+            [
+                'candidate_name' => 'Numeric Resume Candidate',
+                'resume_title' => 'Backend developer',
+                'alternate_url' => $resumeUrl,
+                'resume_url' => $resumeUrl,
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_browser_captures')->insert([
+            'dedupe_key' => 'test-hh-resumes-numeric-original-url',
+            'source' => 'test',
+            'page_url' => $resumeUrl,
+            'original_url' => $originalUrl,
+            'page_title' => 'Backend developer',
+            'hh_vacancy_id' => '134293071',
+            'vacancy_title' => 'Numeric Resume Id Vacancy',
+            'resume_id' => $resumeHash,
+            'candidate_name' => 'Numeric Resume Candidate',
+            'candidate_resume_url' => $resumeUrl,
+            'raw_text' => 'Full resume text',
+            'raw_links' => json_encode([], JSON_THROW_ON_ERROR),
+            'resume_structured' => json_encode([], JSON_THROW_ON_ERROR),
+            'payload' => json_encode(['source' => 'test'], JSON_THROW_ON_ERROR),
+            'captured_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => '134293071']))
+            ->assertOk()
+            ->assertSee('resumeId: 215238227')
+            ->assertDontSee('resumeId: '.$resumeHash);
+    }
 }

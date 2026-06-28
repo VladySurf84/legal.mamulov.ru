@@ -47,6 +47,8 @@ class HhResumeController extends Controller
                 'v.name as vacancy_name',
                 'bc.hh_browser_capture_id',
                 'capture.candidate_name as browser_candidate_name',
+                'capture.original_url as browser_original_url',
+                'capture.candidate_resume_url as browser_candidate_resume_url',
                 'capture.payload as browser_payload',
                 'capture.resume_structured as browser_resume_structured',
                 'capture.raw_text as browser_raw_text',
@@ -97,6 +99,21 @@ class HhResumeController extends Controller
             ?: data_get($resumeRaw, 'browser_capture.resumeStructured.photo')
             ?: data_get($resumeRaw, 'browser_capture.browser_capture.resumeStructured.photo');
 
+        $negotiation->display_resume_id = $this->numericResumeIdFromUrls([
+            $negotiation->browser_original_url ?? null,
+            $negotiation->browser_candidate_resume_url ?? null,
+            $negotiation->alternate_url ?? null,
+            $negotiation->resume_url ?? null,
+            data_get($browserPayload, 'candidate.resumeUrl'),
+            data_get($browserPayload, 'page.url'),
+            data_get($browserPayload, 'page.originalUrl'),
+            data_get($browserResume, 'originalUrl'),
+            data_get($resumeRaw, 'alternate_url'),
+            data_get($resumeRaw, 'browser_capture.candidate.resumeUrl'),
+            data_get($resumeRaw, 'browser_capture.page.url'),
+            data_get($resumeRaw, 'browser_capture.page.originalUrl'),
+        ]) ?? $negotiation->resume_id;
+
         return $negotiation;
     }
 
@@ -132,6 +149,29 @@ class HhResumeController extends Controller
         }
 
         return $value;
+    }
+
+    /**
+     * @param list<mixed> $urls
+     */
+    private function numericResumeIdFromUrls(array $urls): ?string
+    {
+        foreach ($urls as $url) {
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+
+            $query = parse_url($url, PHP_URL_QUERY);
+            parse_str(is_string($query) ? $query : '', $params);
+
+            $resumeId = $params['resumeId'] ?? $params['resume_id'] ?? null;
+
+            if (is_scalar($resumeId) && preg_match('/^\d+$/', (string) $resumeId) === 1) {
+                return (string) $resumeId;
+            }
+        }
+
+        return null;
     }
 
     private function candidateNameFromRawText(mixed $value): ?string

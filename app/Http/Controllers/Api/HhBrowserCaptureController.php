@@ -16,6 +16,7 @@ class HhBrowserCaptureController extends Controller
             'capturedAt' => ['nullable', 'date'],
             'page' => ['required', 'array'],
             'page.url' => ['required', 'url', 'max:4000'],
+            'page.originalUrl' => ['nullable', 'url', 'max:4000'],
             'page.title' => ['nullable', 'string', 'max:1000'],
             'candidate' => ['nullable', 'array'],
             'candidate.name' => ['nullable', 'string', 'max:500'],
