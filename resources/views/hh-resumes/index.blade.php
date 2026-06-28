@@ -52,9 +52,15 @@
                         :value="$vacancyId"
                         placeholder="Например 123456789"
                     />
-                    <x-ui.button type="submit" size="md" variant="soft" @disabled(! $credential)>
-                        Синхронизировать
-                    </x-ui.button>
+                    @if ($credential)
+                        <x-ui.button type="submit" size="md" variant="soft">
+                            Синхронизировать
+                        </x-ui.button>
+                    @else
+                        <button type="button" disabled class="inline-flex items-center justify-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 opacity-50 ring-1 ring-indigo-700/10">
+                            Синхронизировать
+                        </button>
+                    @endif
                 </form>
             </div>
         </section>
