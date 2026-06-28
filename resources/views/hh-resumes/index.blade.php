@@ -179,7 +179,7 @@
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first>Кандидат</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Отклик</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Сопроводительное письмо</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Оценка</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Оценка Codex</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Разбор</x-ui.sticky-table-th>

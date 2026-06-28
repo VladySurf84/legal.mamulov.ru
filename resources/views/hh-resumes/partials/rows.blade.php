@@ -21,6 +21,7 @@
         $score = $negotiation->analysis_score;
         $codexScore = $negotiation->codex_analysis_score;
         $summaryText = $negotiation->codex_analysis_summary ?: $negotiation->analysis_summary;
+        $coverLetter = $negotiation->display_cover_letter;
     @endphp
 
     <tr
@@ -61,14 +62,15 @@
             </div>
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td nowrap>
-            <div class="font-medium text-gray-900 dark:text-white">{{ $negotiation->status_name ?: $negotiation->status_id ?: '—' }}</div>
-            <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">
+        <x-ui.sticky-table-td :nowrap="false" class="min-w-96 max-w-xl text-sm">
+            @if ($coverLetter)
+                <div class="line-clamp-5 whitespace-pre-line text-gray-700 dark:text-gray-200">{{ $coverLetter }}</div>
+            @else
+                <div class="text-gray-400">Нет сопроводительного письма</div>
+            @endif
+            <div class="mt-2 font-mono text-xs text-gray-400">
                 {{ $negotiation->responded_at ? \Illuminate\Support\Carbon::parse($negotiation->responded_at)->format('d.m.Y H:i') : '—' }}
             </div>
-            @if ($negotiation->vacancy_name)
-                <div class="mt-1 max-w-56 truncate text-xs text-gray-400">{{ $negotiation->vacancy_name }}</div>
-            @endif
         </x-ui.sticky-table-td>
 
         <x-ui.sticky-table-td align="right" nowrap>

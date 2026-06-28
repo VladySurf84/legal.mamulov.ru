@@ -132,6 +132,7 @@ class HhResumeController extends Controller
 
     private function hydrateDisplayCandidate(object $negotiation): object
     {
+        $raw = $this->jsonArray($negotiation->raw ?? null);
         $resumeRaw = $this->jsonArray($negotiation->resume_raw ?? null);
         $browserResume = $this->jsonArray($negotiation->browser_resume_structured ?? null);
         $browserPayload = $this->jsonArray($negotiation->browser_payload ?? null);
@@ -176,6 +177,15 @@ class HhResumeController extends Controller
             data_get($resumeRaw, 'browser_capture.page.originalUrl'),
         ]) ?? $negotiation->resume_id;
 
+        $negotiation->display_cover_letter = $this->usableCoverLetter(data_get($browserResume, 'response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($browserPayload, 'response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($browserPayload, 'browser_capture.response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($raw, 'response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($raw, 'browser_capture.response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($resumeRaw, 'response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($resumeRaw, 'browser_capture.response.coverLetter'))
+            ?? $this->usableCoverLetter(data_get($resumeRaw, 'browser_capture.browser_capture.response.coverLetter'));
+
         return $negotiation;
     }
 
@@ -211,6 +221,20 @@ class HhResumeController extends Controller
         }
 
         return $value;
+    }
+
+    private function usableCoverLetter(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = str_replace(["\r\n", "\r"], "\n", $value);
+        $value = preg_replace('/[ \t]+/u', ' ', $value) ?? $value;
+        $value = preg_replace("/\n{3,}/u", "\n\n", $value) ?? $value;
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

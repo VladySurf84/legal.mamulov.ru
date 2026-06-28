@@ -87,7 +87,11 @@ class HhResumePageTest extends TestCase
 Иван Петров
 Мужчина, 30 лет",
             'raw_links' => json_encode([], JSON_THROW_ON_ERROR),
-            'resume_structured' => json_encode([], JSON_THROW_ON_ERROR),
+            'resume_structured' => json_encode([
+                'response' => [
+                    'coverLetter' => 'Здравствуйте, хочу обсудить ERP и Laravel PostgreSQL задачи.',
+                ],
+            ], JSON_THROW_ON_ERROR),
             'payload' => json_encode([
                 'source' => 'test',
                 'candidate' => [
@@ -106,6 +110,8 @@ class HhResumePageTest extends TestCase
             ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
             ->assertSee('vacancyId: photo-test-vacancy')
             ->assertSee('resumeId: photo-test-resume')
+            ->assertSee('Сопроводительное письмо')
+            ->assertSee('Здравствуйте, хочу обсудить ERP и Laravel PostgreSQL задачи.')
             ->assertSee('Всего:')
             ->assertSee('Сохраненных:')
             ->assertSee(route('hh-browser-captures.show', $captureId), false)
