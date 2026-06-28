@@ -327,9 +327,54 @@
         </x-slot:stickySummary>
     </x-ui.sticky-table>
 
-    <div class="mt-4 border-t border-gray-200 pt-4 dark:border-white/10">
-        {{ $negotiations->links() }}
-    </div>
+    @if ($negotiations->hasPages())
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600 dark:text-gray-300">
+            <div>
+                Страница {{ number_format($negotiations->currentPage(), 0, ',', ' ') }} из {{ number_format($negotiations->lastPage(), 0, ',', ' ') }}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1">
+                @if ($negotiations->onFirstPage())
+                    <span class="inline-flex min-h-8 items-center rounded-md px-2.5 text-gray-400 ring-1 ring-gray-200 dark:ring-white/10">Назад</span>
+                @else
+                    <a href="{{ $negotiations->previousPageUrl() }}" class="inline-flex min-h-8 items-center rounded-md px-2.5 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/5" wire:navigate>Назад</a>
+                @endif
+
+                @php
+                    $startPage = max(1, $negotiations->currentPage() - 2);
+                    $endPage = min($negotiations->lastPage(), $negotiations->currentPage() + 2);
+                @endphp
+
+                @if ($startPage > 1)
+                    <a href="{{ $negotiations->url(1) }}" class="inline-flex size-8 items-center justify-center rounded-md font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/5" wire:navigate>1</a>
+                    @if ($startPage > 2)
+                        <span class="inline-flex size-8 items-center justify-center text-gray-400">…</span>
+                    @endif
+                @endif
+
+                @for ($page = $startPage; $page <= $endPage; $page++)
+                    @if ($page === $negotiations->currentPage())
+                        <span class="inline-flex size-8 items-center justify-center rounded-md bg-gray-900 text-sm font-semibold text-white dark:bg-white dark:text-gray-900">{{ $page }}</span>
+                    @else
+                        <a href="{{ $negotiations->url($page) }}" class="inline-flex size-8 items-center justify-center rounded-md font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/5" wire:navigate>{{ $page }}</a>
+                    @endif
+                @endfor
+
+                @if ($endPage < $negotiations->lastPage())
+                    @if ($endPage < $negotiations->lastPage() - 1)
+                        <span class="inline-flex size-8 items-center justify-center text-gray-400">…</span>
+                    @endif
+                    <a href="{{ $negotiations->url($negotiations->lastPage()) }}" class="inline-flex size-8 items-center justify-center rounded-md font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/5" wire:navigate>{{ $negotiations->lastPage() }}</a>
+                @endif
+
+                @if ($negotiations->hasMorePages())
+                    <a href="{{ $negotiations->nextPageUrl() }}" class="inline-flex min-h-8 items-center rounded-md px-2.5 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/5" wire:navigate>Вперед</a>
+                @else
+                    <span class="inline-flex min-h-8 items-center rounded-md px-2.5 text-gray-400 ring-1 ring-gray-200 dark:ring-white/10">Вперед</span>
+                @endif
+            </div>
+        </div>
+    @endif
 
     <x-ui.context-menu trigger-selector="[data-hh-resume-context-row]">
         <x-slot:menu>

@@ -301,6 +301,7 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Pagination First Candidate')
             ->assertDontSee('Pagination Second Candidate')
+            ->assertDontSee('Pagination Navigation')
             ->assertSee('page=2', false);
 
         $this->actingAs($user)
