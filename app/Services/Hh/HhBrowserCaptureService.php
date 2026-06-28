@@ -109,6 +109,36 @@ SQL, [
         ];
     }
 
+
+    /**
+     * @param list<string> $resumeIds
+     * @return list<string>
+     */
+    public function downloadedResumeIds(?string $vacancyId, array $resumeIds): array
+    {
+        $resumeIds = array_values(array_unique(array_filter(array_map(
+            fn (mixed $value): ?string => $this->text(is_scalar($value) ? (string) $value : null),
+            $resumeIds,
+        ))));
+
+        if ($resumeIds === []) {
+            return [];
+        }
+
+        $query = DB::table('legal.hh_browser_captures')
+            ->whereIn('resume_id', $resumeIds);
+
+        if ($vacancyId !== null && $vacancyId !== '') {
+            $query->where('hh_vacancy_id', $vacancyId);
+        }
+
+        return $query
+            ->pluck('resume_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
     /** @param array<string, mixed> $payload */
     private function mirrorIntoResumeTables(array $payload, ?string $vacancyId, ?string $resumeId, Carbon $capturedAt): void
     {
@@ -234,7 +264,20 @@ SQL, [
     private function resumeId(array $payload): ?string
     {
         foreach ([Arr::get($payload, 'candidate.resumeUrl'), Arr::get($payload, 'page.url')] as $url) {
-            if (is_string($url) && preg_match('~/resume/([A-Za-z0-9]+)~', $url, $matches) === 1) {
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+
+            $query = parse_url($url, PHP_URL_QUERY);
+            parse_str(is_string($query) ? $query : '', $params);
+
+            foreach (['resumeId', 'resume_id'] as $key) {
+                if (isset($params[$key]) && is_scalar($params[$key]) && (string) $params[$key] !== '') {
+                    return (string) $params[$key];
+                }
+            }
+
+            if (preg_match('~/resume/([A-Za-z0-9]+)~', $url, $matches) === 1) {
                 return $matches[1];
             }
         }

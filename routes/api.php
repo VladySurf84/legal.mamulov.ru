@@ -11,6 +11,9 @@ Route::post('telegram/webhook/{secret}', TelegramWebhookController::class)
 Route::post('hh/browser-captures', [HhBrowserCaptureController::class, 'store'])
     ->middleware('hh.browser.capture')
     ->name('api.hh.browser-captures.store');
+Route::post('hh/browser-captures/lookup', [HhBrowserCaptureController::class, 'lookup'])
+    ->middleware('hh.browser.capture')
+    ->name('api.hh.browser-captures.lookup');
 
 Route::prefix('internal')
     ->middleware('internal.api')

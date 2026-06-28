@@ -48,4 +48,22 @@ class HhBrowserCaptureController extends Controller
             'resume_id' => $result['resume_id'],
         ], $result['action'] === 'inserted' ? 201 : 200);
     }
+    public function lookup(Request $request, HhBrowserCaptureService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'vacancy_id' => ['nullable', 'string', 'max:50'],
+            'resume_ids' => ['required', 'array', 'max:200'],
+            'resume_ids.*' => ['required', 'string', 'max:120'],
+        ]);
+
+        $downloaded = $service->downloadedResumeIds(
+            isset($validated['vacancy_id']) ? (string) $validated['vacancy_id'] : null,
+            $validated['resume_ids'],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'downloaded_resume_ids' => $downloaded,
+        ]);
+    }
 }
