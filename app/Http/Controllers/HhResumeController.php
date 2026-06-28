@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Services\Hh\HhApiClient;
+use App\Services\Hh\HhResumeBatchAnalysisService;
 use App\Services\Hh\HhResumeSyncService;
+use App\Support\UserUiSettings;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -18,6 +21,7 @@ class HhResumeController extends Controller
         abort_unless($request->user()?->isAdmin(), 403);
 
         $vacancyId = trim((string) $request->query('vacancy_id', ''));
+        $perPage = $this->perPage($request);
         $credential = $client->activeTokenForUser((int) $request->user()->getKey());
 
         $captures = DB::table('legal.hh_browser_captures')
@@ -40,32 +44,73 @@ class HhResumeController extends Controller
             $query->where('n.hh_vacancy_id', $vacancyId);
         }
 
-        $negotiations = $query
-            ->limit(100)
-            ->get([
-                'n.*',
-                'v.name as vacancy_name',
-                'bc.hh_browser_capture_id',
-                'capture.candidate_name as browser_candidate_name',
-                'capture.original_url as browser_original_url',
-                'capture.candidate_resume_url as browser_candidate_resume_url',
-                'capture.payload as browser_payload',
-                'capture.resume_structured as browser_resume_structured',
-                'capture.raw_text as browser_raw_text',
-            ])
-            ->map(fn (object $negotiation): object => $this->hydrateDisplayCandidate($negotiation));
+        $summary = [
+            'count' => (clone $query)->count('n.hh_negotiation_id'),
+            'captured_count' => (clone $query)->whereNotNull('bc.hh_browser_capture_id')->count('n.hh_negotiation_id'),
+            'high_score_count' => (clone $query)->where('n.analysis_score', '>=', 75)->count('n.hh_negotiation_id'),
+            'pdf_count' => (clone $query)
+                ->whereNotNull('n.pdf_path')
+                ->where('n.pdf_path', '<>', '')
+                ->count('n.hh_negotiation_id'),
+        ];
+
+        $columns = [
+            'n.*',
+            'v.name as vacancy_name',
+            'bc.hh_browser_capture_id',
+            'capture.candidate_name as browser_candidate_name',
+            'capture.original_url as browser_original_url',
+            'capture.candidate_resume_url as browser_candidate_resume_url',
+            'capture.payload as browser_payload',
+            'capture.resume_structured as browser_resume_structured',
+            'capture.raw_text as browser_raw_text',
+        ];
+
+        $negotiations = $perPage === 0
+            ? $this->allRowsPaginator($query->get($columns)->map(fn (object $negotiation): object => $this->hydrateDisplayCandidate($negotiation)), $request)
+            : $query
+                ->paginate($perPage, $columns)
+                ->withQueryString()
+                ->through(fn (object $negotiation): object => $this->hydrateDisplayCandidate($negotiation));
 
         $vacancies = DB::table('legal.hh_vacancies')
             ->orderByDesc('last_synced_at')
             ->limit(20)
             ->get();
 
+        $latestAnalysisBatch = DB::table('legal.hh_resume_analysis_batches')
+            ->when($vacancyId !== '', fn ($query) => $query->where('hh_vacancy_id', $vacancyId))
+            ->orderByDesc('hh_resume_analysis_batch_id')
+            ->first();
+
         return view('hh-resumes.index', [
             'credential' => $credential,
             'vacancyId' => $vacancyId,
+            'perPage' => $perPage,
+            'summary' => $summary,
             'vacancies' => $vacancies,
             'negotiations' => $negotiations,
+            'latestAnalysisBatch' => $latestAnalysisBatch,
         ]);
+    }
+
+    private function perPage(Request $request): int
+    {
+        return UserUiSettings::paginationRows($request, 'hh-resumes-rows', 100);
+    }
+
+    private function allRowsPaginator(\Illuminate\Support\Collection $rows, Request $request): LengthAwarePaginator
+    {
+        return new LengthAwarePaginator(
+            $rows,
+            $rows->count(),
+            max(1, $rows->count()),
+            1,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
     }
 
     private function hydrateDisplayCandidate(object $negotiation): object
@@ -266,6 +311,34 @@ class HhResumeController extends Controller
                 $summary['negotiations'],
                 $summary['pdfs'],
                 $summary['sync_run_id'],
+            ));
+    }
+
+    public function analyzeAll(Request $request, HhResumeBatchAnalysisService $service): RedirectResponse
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        $validated = $request->validate([
+            'vacancy_id' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $vacancyId = trim((string) ($validated['vacancy_id'] ?? ''));
+        $scopeVacancyId = $vacancyId === '' ? null : $vacancyId;
+
+        try {
+            $summary = $service->submit($scopeVacancyId, (int) $request->user()->getKey(), 'ui');
+        } catch (Throwable $exception) {
+            return redirect()
+                ->route('hh-resumes.index', array_filter(['vacancy_id' => $vacancyId]))
+                ->with('error', $exception->getMessage());
+        }
+
+        return redirect()
+            ->route('hh-resumes.index', array_filter(['vacancy_id' => $vacancyId]))
+            ->with('status', sprintf(
+                'Оценка резюме отправлена в OpenAI Batch: %d резюме, batch #%d.',
+                $summary['total_count'],
+                $summary['batch_id'],
             ));
     }
 

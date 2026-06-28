@@ -4,10 +4,24 @@
 ])
 
 @php
-    $resumesCount = $negotiations->count();
-    $capturedCount = $negotiations->filter(fn ($negotiation) => (bool) $negotiation->hh_browser_capture_id)->count();
-    $highScoreCount = $negotiations->filter(fn ($negotiation) => (int) $negotiation->analysis_score >= 75)->count();
-    $pdfCount = $negotiations->filter(fn ($negotiation) => filled($negotiation->pdf_path))->count();
+    $resumesCount = (int) ($summary['count'] ?? $negotiations->total());
+    $pageResumesCount = $negotiations->count();
+    $capturedCount = (int) ($summary['captured_count'] ?? 0);
+    $highScoreCount = (int) ($summary['high_score_count'] ?? 0);
+    $pdfCount = (int) ($summary['pdf_count'] ?? 0);
+    $firstItem = $negotiations->firstItem() ?? 0;
+    $lastItem = $negotiations->lastItem() ?? 0;
+    $batchStatus = $latestAnalysisBatch->status ?? null;
+    $batchStatusLabel = match ($batchStatus) {
+        'validating' => 'Проверяется',
+        'in_progress' => 'В обработке',
+        'finalizing' => 'Завершается',
+        'completed' => 'Готово',
+        'failed' => 'Ошибка',
+        'expired' => 'Истекло',
+        'cancelled' => 'Отменено',
+        default => $batchStatus,
+    };
     $scoreLabel = static function ($score): string {
         if ($score === null) {
             return 'Нет';
@@ -24,6 +38,9 @@
         <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
             {{ number_format($resumesCount, 0, ',', ' ') }} в списке
         </span>
+        <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">
+            показано {{ number_format($pageResumesCount, 0, ',', ' ') }}
+        </span>
         <span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
             {{ number_format($highScoreCount, 0, ',', ' ') }} сильных
         </span>
@@ -38,6 +55,16 @@
 
 @section('page_actions')
     <div class="flex flex-wrap items-center gap-2">
+        <form method="post" action="{{ route('hh-resumes.analyze-all') }}">
+            @csrf
+            @if ($vacancyId !== '')
+                <input type="hidden" name="vacancy_id" value="{{ $vacancyId }}">
+            @endif
+            <x-ui.button type="submit" size="md" variant="soft">
+                Оценить все
+            </x-ui.button>
+        </form>
+
         <x-ui.button href="{{ route('hh-browser-captures.index', array_filter(['vacancy_id' => $vacancyId])) }}" size="md" variant="ghost">
             Архив откликов
         </x-ui.button>
@@ -84,6 +111,13 @@
                     @if ($vacancyId !== '')
                         <span class="font-mono text-xs text-gray-500 dark:text-gray-400">vacancy_id: {{ $vacancyId }}</span>
                     @endif
+
+                    @if ($latestAnalysisBatch)
+                        <span class="inline-flex rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20">
+                            AI batch #{{ $latestAnalysisBatch->hh_resume_analysis_batch_id }}: {{ $batchStatusLabel }}
+                            · {{ number_format((int) $latestAnalysisBatch->processed_count, 0, ',', ' ') }}/{{ number_format((int) $latestAnalysisBatch->total_count, 0, ',', ' ') }}
+                        </span>
+                    @endif
                 </div>
 
                 @if ($vacancies->isNotEmpty())
@@ -123,7 +157,18 @@
         </div>
     </div>
 
+    <div class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+        <div>
+            @if ($resumesCount > 0)
+                Показано {{ number_format($firstItem, 0, ',', ' ') }}-{{ number_format($lastItem, 0, ',', ' ') }} из {{ number_format($resumesCount, 0, ',', ' ') }}
+            @else
+                Откликов нет
+            @endif
+        </div>
+    </div>
+
     <x-ui.sticky-table
+        body-id="hh-resumes-rows"
         :contained="false"
         :scrollable="true"
         :viewport-sticky="true"
@@ -137,8 +182,7 @@
                 <x-ui.sticky-table-th>Отклик</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Оценка</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Разбор</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Файлы</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th last align="right">Действия</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th last>Файлы</x-ui.sticky-table-th>
             </tr>
         </x-slot:head>
 
@@ -158,8 +202,12 @@
                 ])
                 @if ($detailUrl)
                     data-href="{{ $detailUrl }}"
+                    data-hh-resume-detail-url="{{ $detailUrl }}"
                     ondblclick="window.location.href = this.dataset.href"
                 @endif
+                data-hh-resume-context-row
+                data-hh-resume-delete-url="{{ route('hh-resumes.destroy', $negotiation->hh_negotiation_id) }}"
+                data-hh-resume-hh-url="{{ $negotiation->alternate_url }}"
             >
                 <x-ui.sticky-table-td first :nowrap="false" class="min-w-72">
                     <div class="flex items-start gap-3">
@@ -211,7 +259,7 @@
                     {{ $negotiation->analysis_summary ?: 'Пока не анализировалось.' }}
                 </x-ui.sticky-table-td>
 
-                <x-ui.sticky-table-td nowrap>
+                <x-ui.sticky-table-td last nowrap>
                     <div class="flex flex-wrap gap-2">
                         @if ($detailUrl)
                             <a class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200" href="{{ $detailUrl }}" onclick="event.stopPropagation()" wire:navigate>
@@ -231,32 +279,10 @@
                         @endunless
                     </div>
                 </x-ui.sticky-table-td>
-
-                <x-ui.sticky-table-td last align="right" nowrap>
-                    <details class="group relative inline-block text-left" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">
-                        <summary class="flex size-8 cursor-pointer list-none items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:hover:bg-white/10 dark:hover:text-white [&::-webkit-details-marker]:hidden" aria-label="Действия">
-                            ⋮
-                        </summary>
-                        <div class="absolute right-0 z-30 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg ring-1 ring-black/5 dark:border-white/10 dark:bg-gray-900 dark:ring-white/10">
-                            @if ($detailUrl)
-                                <a href="{{ $detailUrl }}" class="block rounded px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/10" wire:navigate>
-                                    Открыть отклик
-                                </a>
-                            @endif
-                            <form method="post" action="{{ route('hh-resumes.destroy', $negotiation->hh_negotiation_id) }}" onsubmit="return confirm('Удалить HH резюме из списка?')">
-                                @csrf
-                                @method('delete')
-                                <button type="submit" class="block w-full rounded px-3 py-1.5 text-left text-sm text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10">
-                                    Удалить
-                                </button>
-                            </form>
-                        </div>
-                    </details>
-                </x-ui.sticky-table-td>
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                     Синхронизированных откликов пока нет.
                 </td>
             </tr>
@@ -279,8 +305,95 @@
                 <x-ui.sticky-table-td summary nowrap class="text-sm text-gray-600 dark:text-gray-300">
                     PDF: {{ number_format($pdfCount, 0, ',', ' ') }}
                 </x-ui.sticky-table-td>
-                <x-ui.sticky-table-td summary last align="right" nowrap />
             </tr>
         </x-slot:stickySummary>
     </x-ui.sticky-table>
+
+    <div class="mt-4 border-t border-gray-200 pt-4 dark:border-white/10">
+        {{ $negotiations->links() }}
+    </div>
+
+    <x-ui.context-menu trigger-selector="[data-hh-resume-context-row]">
+        <x-slot:menu>
+            <x-ui.context-menu-item data-hh-resume-open-detail>
+                Открыть отклик
+            </x-ui.context-menu-item>
+            <x-ui.context-menu-item data-hh-resume-open-hh>
+                Открыть HH
+            </x-ui.context-menu-item>
+            <x-ui.context-menu-item danger data-hh-resume-delete>
+                Удалить
+            </x-ui.context-menu-item>
+        </x-slot:menu>
+    </x-ui.context-menu>
+
+    <form method="post" class="hidden" data-hh-resume-delete-form>
+        @csrf
+        @method('delete')
+    </form>
+
+    @once
+        <script>
+            (() => {
+                const initHhResumeContextMenu = () => {
+                    const menu = document.querySelector('[data-ui-context-menu-trigger-selector="[data-hh-resume-context-row]"]');
+                    const deleteForm = document.querySelector('[data-hh-resume-delete-form]');
+
+                    if (!menu || menu.dataset.hhResumeMenuReady === 'true') {
+                        return;
+                    }
+
+                    menu.dataset.hhResumeMenuReady = 'true';
+
+                    document.addEventListener('contextmenu', (event) => {
+                        const row = event.target.closest('[data-hh-resume-context-row]');
+
+                        if (!row) {
+                            return;
+                        }
+
+                        menu.dataset.row = JSON.stringify(row.dataset);
+                        menu.querySelector('[data-hh-resume-open-detail]')?.toggleAttribute('disabled', ! row.dataset.hhResumeDetailUrl);
+                        menu.querySelector('[data-hh-resume-open-hh]')?.toggleAttribute('disabled', ! row.dataset.hhResumeHhUrl);
+                        menu.querySelector('[data-hh-resume-delete]')?.toggleAttribute('disabled', ! row.dataset.hhResumeDeleteUrl);
+                    });
+
+                    menu.querySelector('[data-hh-resume-open-detail]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+
+                        if (data.hhResumeDetailUrl) {
+                            window.location.href = data.hhResumeDetailUrl;
+                        }
+                    });
+
+                    menu.querySelector('[data-hh-resume-open-hh]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+
+                        if (data.hhResumeHhUrl) {
+                            window.open(data.hhResumeHhUrl, '_blank', 'noopener');
+                        }
+                    });
+
+                    menu.querySelector('[data-hh-resume-delete]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+
+                        if (!data.hhResumeDeleteUrl || !deleteForm || !window.confirm('Удалить HH резюме из списка?')) {
+                            return;
+                        }
+
+                        deleteForm.action = data.hhResumeDeleteUrl;
+                        deleteForm.submit();
+                    });
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initHhResumeContextMenu);
+                } else {
+                    initHhResumeContextMenu();
+                }
+
+                document.addEventListener('livewire:navigated', initHhResumeContextMenu);
+            })();
+        </script>
+    @endonce
 @endsection

@@ -67,6 +67,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('hh/browser-captures/{captureId}', [HhBrowserCapturePageController::class, 'show'])->whereNumber('captureId')->name('hh-browser-captures.show');
     Route::get('hh/resumes', [HhResumeController::class, 'index'])->name('hh-resumes.index');
     Route::post('hh/resumes/sync', [HhResumeController::class, 'sync'])->name('hh-resumes.sync');
+    Route::post('hh/resumes/analyze', [HhResumeController::class, 'analyzeAll'])->name('hh-resumes.analyze-all');
     Route::delete('hh/resumes/{negotiationId}', [HhResumeController::class, 'destroy'])->whereNumber('negotiationId')->name('hh-resumes.destroy');
     Route::get('hh/oauth/redirect', [HhResumeController::class, 'redirect'])->name('hh.oauth.redirect');
     Route::get('hh/oauth/callback', [HhResumeController::class, 'callback'])->name('hh.oauth.callback');

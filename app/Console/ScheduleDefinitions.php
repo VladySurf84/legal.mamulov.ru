@@ -21,5 +21,12 @@ class ScheduleDefinitions
             ->withoutOverlapping()
             ->onOneServer()
             ->appendOutputTo(storage_path('logs/scheduler.log'));
+
+        $schedule->command('hh:poll-resume-analysis')
+            ->description('Poll HH resume OpenAI analysis batches')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
     }
 }

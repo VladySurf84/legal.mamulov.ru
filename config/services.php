@@ -54,6 +54,13 @@ return [
         'timeout' => (int) env('MAMULOV_GATEWAY_TIMEOUT', 10),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'model' => env('OPENAI_MODEL', 'gpt-4.1-mini'),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 120),
+    ],
+
     'hh' => [
         'client_id' => env('HH_CLIENT_ID'),
         'client_secret' => env('HH_CLIENT_SECRET'),

@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\UserUiSetting;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class HhResumePageTest extends TestCase
@@ -158,7 +161,11 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Удаляемый Кандидат')
             ->assertSee(route('hh-resumes.destroy', $negotiationId), false)
-            ->assertSee('Удалить');
+            ->assertSee('data-hh-resume-context-row', false)
+            ->assertSee('data-hh-resume-delete-url="'.route('hh-resumes.destroy', $negotiationId).'"', false)
+            ->assertSee('trigger-selector="[data-hh-resume-context-row]"', false)
+            ->assertSee('Удалить')
+            ->assertDontSee('Действия');
 
         $this->actingAs($user)
             ->delete(route('hh-resumes.destroy', $negotiationId))
@@ -242,5 +249,322 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('resumeId: 215238227')
             ->assertDontSee('resumeId: '.$resumeHash);
+    }
+
+    public function test_admin_paginates_hh_resumes(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-pagination@example.com'],
+            [
+                'name' => 'HH Resumes Pagination Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'pagination-test-vacancy'],
+            [
+                'name' => 'Pagination Test Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        foreach ([
+            ['resume_id' => 'pagination-resume-first', 'candidate_name' => 'Pagination First Candidate', 'analysis_score' => 90],
+            ['resume_id' => 'pagination-resume-second', 'candidate_name' => 'Pagination Second Candidate', 'analysis_score' => 10],
+        ] as $row) {
+            DB::table('legal.hh_negotiations')->updateOrInsert(
+                [
+                    'hh_vacancy_id' => 'pagination-test-vacancy',
+                    'resume_id' => $row['resume_id'],
+                ],
+                [
+                    'candidate_name' => $row['candidate_name'],
+                    'resume_title' => 'Pagination developer',
+                    'analysis_score' => $row['analysis_score'],
+                    'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                    'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                    'responded_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+        }
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'pagination-test-vacancy', 'per_page' => 1]))
+            ->assertOk()
+            ->assertSee('Pagination First Candidate')
+            ->assertDontSee('Pagination Second Candidate')
+            ->assertSee('page=2', false);
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'pagination-test-vacancy', 'per_page' => 1, 'page' => 2]))
+            ->assertOk()
+            ->assertSee('Pagination Second Candidate')
+            ->assertDontSee('Pagination First Candidate');
+    }
+
+    public function test_admin_hh_resumes_pagination_uses_sticky_table_settings(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-pagination-settings@example.com'],
+            [
+                'name' => 'HH Resumes Pagination Settings Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        UserUiSetting::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'setting_key' => 'sticky-table:hh-resumes.index:hh-resumes-rows',
+            ],
+            [
+                'settings' => ['paginationRows' => 1],
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'pagination-settings-test-vacancy'],
+            [
+                'name' => 'Pagination Settings Test Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        foreach ([
+            ['resume_id' => 'pagination-settings-resume-first', 'candidate_name' => 'Pagination Settings First Candidate', 'analysis_score' => 90],
+            ['resume_id' => 'pagination-settings-resume-second', 'candidate_name' => 'Pagination Settings Second Candidate', 'analysis_score' => 10],
+        ] as $row) {
+            DB::table('legal.hh_negotiations')->updateOrInsert(
+                [
+                    'hh_vacancy_id' => 'pagination-settings-test-vacancy',
+                    'resume_id' => $row['resume_id'],
+                ],
+                [
+                    'candidate_name' => $row['candidate_name'],
+                    'resume_title' => 'Pagination settings developer',
+                    'analysis_score' => $row['analysis_score'],
+                    'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                    'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                    'responded_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+        }
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index', ['vacancy_id' => 'pagination-settings-test-vacancy']))
+            ->assertOk()
+            ->assertSee('Pagination Settings First Candidate')
+            ->assertDontSee('Pagination Settings Second Candidate')
+            ->assertSee('id="hh-resumes-rows"', false);
+    }
+
+    public function test_admin_sees_analyze_all_button(): void
+    {
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-analysis-button@example.com'],
+            [
+                'name' => 'HH Resumes Analysis Button Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        $this->actingAs($user)
+            ->get(route('hh-resumes.index'))
+            ->assertOk()
+            ->assertSee(route('hh-resumes.analyze-all'), false)
+            ->assertSee('Оценить все');
+    }
+
+    public function test_admin_submits_hh_resume_analysis_batch(): void
+    {
+        Config::set('services.openai.api_key', 'sk-test');
+        Config::set('services.openai.base_url', 'https://api.openai.test/v1');
+        Config::set('services.openai.model', 'gpt-test');
+
+        Http::fake([
+            'https://api.openai.test/v1/files' => Http::response(['id' => 'file-test-input'], 200),
+            'https://api.openai.test/v1/batches' => Http::response([
+                'id' => 'batch-test',
+                'status' => 'validating',
+            ], 200),
+        ]);
+
+        DB::table('legal.hh_resume_analysis_batches')
+            ->where('openai_batch_id', 'batch-test')
+            ->delete();
+
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-analysis-submit@example.com'],
+            [
+                'name' => 'HH Resumes Analysis Submit Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'analysis-submit-vacancy'],
+            [
+                'name' => 'Analysis Submit Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => 'analysis-submit-vacancy',
+                'resume_id' => 'analysis-submit-resume',
+            ],
+            [
+                'candidate_name' => 'Analysis Submit Candidate',
+                'resume_title' => 'Laravel backend developer',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode(['skill_set' => ['PHP', 'Laravel']], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $this->actingAs($user)
+            ->post(route('hh-resumes.analyze-all'), ['vacancy_id' => 'analysis-submit-vacancy'])
+            ->assertRedirect(route('hh-resumes.index', ['vacancy_id' => 'analysis-submit-vacancy']));
+
+        $this->assertDatabaseHas('legal.hh_resume_analysis_batches', [
+            'openai_batch_id' => 'batch-test',
+            'input_file_id' => 'file-test-input',
+            'hh_vacancy_id' => 'analysis-submit-vacancy',
+            'model' => 'gpt-test',
+            'total_count' => 1,
+            'status' => 'validating',
+        ]);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_poll_hh_resume_analysis_batch_applies_results(): void
+    {
+        Config::set('services.openai.api_key', 'sk-test');
+        Config::set('services.openai.base_url', 'https://api.openai.test/v1');
+
+        DB::table('legal.hh_resume_analysis_batches')
+            ->where('openai_batch_id', 'like', 'batch-%test')
+            ->delete();
+
+        $user = User::query()->updateOrCreate(
+            ['email' => 'hh-resumes-analysis-poll@example.com'],
+            [
+                'name' => 'HH Resumes Analysis Poll Admin',
+                'password' => 'secret',
+                'is_admin' => true,
+                'is_active' => true,
+            ],
+        );
+
+        DB::table('legal.hh_vacancies')->updateOrInsert(
+            ['hh_vacancy_id' => 'analysis-poll-vacancy'],
+            [
+                'name' => 'Analysis Poll Vacancy',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'last_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('legal.hh_negotiations')->updateOrInsert(
+            [
+                'hh_vacancy_id' => 'analysis-poll-vacancy',
+                'resume_id' => 'analysis-poll-resume',
+            ],
+            [
+                'candidate_name' => 'Analysis Poll Candidate',
+                'resume_title' => 'ERP backend developer',
+                'raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'resume_raw' => json_encode([], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $negotiationId = (int) DB::table('legal.hh_negotiations')
+            ->where('hh_vacancy_id', 'analysis-poll-vacancy')
+            ->where('resume_id', 'analysis-poll-resume')
+            ->value('hh_negotiation_id');
+
+        DB::table('legal.hh_resume_analysis_batches')->insert([
+            'openai_batch_id' => 'batch-poll-test',
+            'input_file_id' => 'file-input-test',
+            'status' => 'in_progress',
+            'hh_vacancy_id' => 'analysis-poll-vacancy',
+            'model' => 'gpt-test',
+            'total_count' => 1,
+            'requested_by_user_id' => $user->id,
+            'requested_from' => 'test',
+            'submitted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $outputLine = json_encode([
+            'custom_id' => 'hh_resume:'.$negotiationId,
+            'response' => [
+                'status_code' => 200,
+                'body' => [
+                    'output_text' => json_encode([
+                        'score' => 87,
+                        'summary' => 'Сильный ERP/backend кандидат.',
+                        'flags' => [
+                            ['label' => 'Laravel и PostgreSQL', 'weight' => 18, 'matched' => true],
+                        ],
+                    ], JSON_UNESCAPED_UNICODE),
+                ],
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        Http::fake([
+            'https://api.openai.test/v1/batches/batch-poll-test' => Http::response([
+                'id' => 'batch-poll-test',
+                'status' => 'completed',
+                'output_file_id' => 'file-output-test',
+            ], 200),
+            'https://api.openai.test/v1/files/file-output-test/content' => Http::response($outputLine."\n", 200),
+        ]);
+
+        $this->artisan('hh:poll-resume-analysis')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('legal.hh_negotiations', [
+            'hh_negotiation_id' => $negotiationId,
+            'analysis_score' => 87,
+            'analysis_summary' => 'Сильный ERP/backend кандидат.',
+        ]);
+
+        $this->assertDatabaseHas('legal.hh_resume_analysis_batches', [
+            'openai_batch_id' => 'batch-poll-test',
+            'status' => 'completed',
+            'processed_count' => 1,
+            'failed_count' => 0,
+        ]);
     }
 }

@@ -4,6 +4,7 @@ use App\Console\Commands\ImportBankDirectories;
 use App\Console\Commands\ImportBankStatement;
 use App\Console\Commands\ImportOzonBankStatement;
 use App\Console\Commands\AuthEdoLight;
+use App\Console\Commands\PollHhResumeAnalysisBatches;
 use App\Console\Commands\RebuildCashLayer;
 use App\Console\Commands\SetApiCredential;
 use App\Console\Commands\SetTelegramWebhook;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ImportBankDirectories::class,
         ImportBankStatement::class,
         ImportOzonBankStatement::class,
+        PollHhResumeAnalysisBatches::class,
         RebuildCashLayer::class,
         SetApiCredential::class,
         SetTelegramWebhook::class,
