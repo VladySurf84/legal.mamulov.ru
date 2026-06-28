@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS legal.hh_browser_captures (
     raw_text text,
     raw_links jsonb NOT NULL DEFAULT '[]'::jsonb,
     payload jsonb NOT NULL,
-    captured_by_user_id bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    captured_by_user_id bigint REFERENCES legal.laravel_users(id) ON UPDATE CASCADE ON DELETE SET NULL,
     captured_ip inet,
     captured_user_agent text,
     captured_at timestamp(0) without time zone NOT NULL,
