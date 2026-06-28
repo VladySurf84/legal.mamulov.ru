@@ -101,6 +101,8 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Иван Петров')
             ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
+            ->assertSee('vacancyId: photo-test-vacancy')
+            ->assertSee('resumeId: photo-test-resume')
             ->assertSee('Всего:')
             ->assertSee('Сохраненных:')
             ->assertSee(route('hh-browser-captures.show', $captureId), false)
