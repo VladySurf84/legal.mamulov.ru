@@ -189,7 +189,13 @@ SQL, [
     private function persistNegotiation(string $vacancyId, array $item, array $resume, array $analysis, ?string $pdfPath): void
     {
         $resumeId = (string) Arr::get($resume, 'id');
+        $resumeUrlKey = $this->resumeUrlKey([
+            Arr::get($resume, 'alternate_url'),
+            Arr::get($resume, 'url'),
+        ]);
         $now = now();
+
+        $this->mergeExistingNegotiationByResumeUrl($vacancyId, $resumeId, $resumeUrlKey);
 
         DB::statement(<<<'SQL'
 INSERT INTO legal.hh_negotiations (
@@ -268,6 +274,132 @@ SQL, [
         ]);
     }
 
+    private function mergeExistingNegotiationByResumeUrl(string $vacancyId, string $resumeId, ?string $resumeUrlKey): void
+    {
+        if ($resumeUrlKey === null || ! ctype_digit($resumeId)) {
+            return;
+        }
+
+        DB::statement(<<<'SQL'
+DO $$
+DECLARE
+    target_id bigint;
+    source_record record;
+BEGIN
+    SELECT hh_negotiation_id
+    INTO target_id
+    FROM legal.hh_negotiations
+    WHERE hh_vacancy_id = ?
+      AND (
+          resume_id = ?
+          OR COALESCE(
+                (regexp_match(alternate_url, '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(resume_url, '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(resume_raw->>'alternate_url', '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(raw #>> '{resume,alternate_url}', '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(raw #>> '{resume,url}', '/resume/([A-Za-z0-9]+)'))[1],
+                CASE WHEN resume_id ~ '^[A-Za-z0-9]{30,}$' THEN resume_id END
+          ) = ?
+      )
+    ORDER BY
+        CASE WHEN resume_id = ? THEN 0 ELSE 1 END,
+        CASE WHEN resume_id ~ '^[0-9]+$' THEN 0 ELSE 1 END,
+        hh_negotiation_id DESC
+    LIMIT 1;
+
+    IF target_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    UPDATE legal.hh_negotiations
+    SET resume_id = ?
+    WHERE hh_negotiation_id = target_id
+      AND resume_id <> ?
+      AND NOT EXISTS (
+          SELECT 1
+          FROM legal.hh_negotiations existing
+          WHERE existing.hh_vacancy_id = ?
+            AND existing.resume_id = ?
+            AND existing.hh_negotiation_id <> target_id
+      );
+
+    SELECT hh_negotiation_id
+    INTO target_id
+    FROM legal.hh_negotiations
+    WHERE hh_vacancy_id = ?
+      AND resume_id = ?
+    LIMIT 1;
+
+    IF target_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    FOR source_record IN
+        SELECT *
+        FROM legal.hh_negotiations
+        WHERE hh_vacancy_id = ?
+          AND hh_negotiation_id <> target_id
+          AND COALESCE(
+                (regexp_match(alternate_url, '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(resume_url, '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(resume_raw->>'alternate_url', '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(raw #>> '{resume,alternate_url}', '/resume/([A-Za-z0-9]+)'))[1],
+                (regexp_match(raw #>> '{resume,url}', '/resume/([A-Za-z0-9]+)'))[1],
+                CASE WHEN resume_id ~ '^[A-Za-z0-9]{30,}$' THEN resume_id END
+          ) = ?
+    LOOP
+        UPDATE legal.hh_negotiations AS target
+        SET
+            candidate_name = COALESCE(NULLIF(target.candidate_name, ''), source_record.candidate_name),
+            resume_title = COALESCE(NULLIF(target.resume_title, ''), source_record.resume_title),
+            area_name = COALESCE(NULLIF(target.area_name, ''), source_record.area_name),
+            status_id = COALESCE(NULLIF(target.status_id, ''), source_record.status_id),
+            status_name = COALESCE(NULLIF(target.status_name, ''), source_record.status_name),
+            alternate_url = COALESCE(NULLIF(target.alternate_url, ''), source_record.alternate_url),
+            resume_url = COALESCE(NULLIF(target.resume_url, ''), source_record.resume_url),
+            raw = COALESCE(target.raw, '{}'::jsonb) || jsonb_build_object('merged_hh_negotiation_' || source_record.hh_negotiation_id, source_record.raw),
+            resume_raw = COALESCE(target.resume_raw, '{}'::jsonb) || jsonb_build_object('merged_hh_negotiation_' || source_record.hh_negotiation_id, source_record.resume_raw),
+            updated_at = now()
+        WHERE target.hh_negotiation_id = target_id;
+
+        DELETE FROM legal.hh_negotiations
+        WHERE hh_negotiation_id = source_record.hh_negotiation_id;
+    END LOOP;
+
+    UPDATE legal.hh_browser_captures
+    SET resume_id = ?,
+        updated_at = now()
+    WHERE hh_vacancy_id = ?
+      AND COALESCE(
+            (regexp_match(original_url, '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(candidate_resume_url, '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(page_url, '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(resume_structured->>'originalUrl', '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(payload #>> '{candidate,resumeUrl}', '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(payload #>> '{page,originalUrl}', '/resume/([A-Za-z0-9]+)'))[1],
+            (regexp_match(payload #>> '{page,url}', '/resume/([A-Za-z0-9]+)'))[1],
+            CASE WHEN resume_id ~ '^[A-Za-z0-9]{30,}$' THEN resume_id END
+      ) = ?;
+END $$;
+SQL, [
+            $vacancyId,
+            $resumeId,
+            $resumeUrlKey,
+            $resumeId,
+            $resumeId,
+            $resumeId,
+            $vacancyId,
+            $resumeId,
+            $vacancyId,
+            $resumeId,
+            $vacancyId,
+            $resumeUrlKey,
+            $resumeId,
+            $vacancyId,
+            $resumeUrlKey,
+        ]);
+    }
+
     private function downloadPdf(ApiCredential $credential, int $runId, string $vacancyId, string $resumeId, array $resume): ?string
     {
         if (! (bool) config('services.hh.download_resumes', true)) {
@@ -286,6 +418,24 @@ SQL, [
         Storage::disk('local')->put($path, $content);
 
         return $path;
+    }
+
+    /**
+     * @param list<mixed> $urls
+     */
+    private function resumeUrlKey(array $urls): ?string
+    {
+        foreach ($urls as $url) {
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+
+            if (preg_match('~/resume/([A-Za-z0-9]+)~', $url, $matches) === 1) {
+                return $matches[1];
+            }
+        }
+
+        return null;
     }
 
     private function candidateName(array $resume): ?string

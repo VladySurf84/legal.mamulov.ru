@@ -22,7 +22,12 @@
         $detailUrl = $negotiation->hh_browser_capture_id ? route('hh-browser-captures.show', $negotiation->hh_browser_capture_id) : null;
         $score = $negotiation->analysis_score;
         $codexScore = $negotiation->codex_analysis_score;
-        $summaryText = $negotiation->codex_analysis_summary ?: $negotiation->analysis_summary;
+        $summaryParts = array_values(array_filter([
+            trim((string) ($negotiation->codex_analysis_summary ?? '')),
+            trim((string) ($negotiation->analysis_summary ?? '')),
+        ], fn ($value) => $value !== ''));
+        $summaryParts = array_values(array_unique($summaryParts));
+        $summaryText = implode("\n\n", $summaryParts);
         $coverLetter = $negotiation->display_cover_letter;
     @endphp
 
@@ -42,7 +47,7 @@
         @endif
         data-hh-resume-hh-url="{{ $negotiation->alternate_url }}"
     >
-        <x-ui.sticky-table-td first :nowrap="false" class="min-w-72">
+        <x-ui.sticky-table-td first :nowrap="false" class="min-w-56 max-w-xs">
             <div class="flex items-start gap-3">
                 @if ($candidatePhoto)
                     <img src="{{ $candidatePhoto }}" alt="" class="size-10 shrink-0 rounded-full object-cover outline -outline-offset-1 outline-gray-200 dark:outline-white/10">
@@ -59,14 +64,12 @@
                         @if ($negotiation->area_name)
                             <span>{{ $negotiation->area_name }}</span>
                         @endif
-                        <span class="font-mono">vacancyId: {{ $negotiation->hh_vacancy_id }}</span>
-                        <span class="font-mono">resumeId: {{ $negotiation->display_resume_id }}</span>
                     </div>
                 </div>
             </div>
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-96 max-w-xl text-sm">
+        <x-ui.sticky-table-td :nowrap="false" class="min-w-64 max-w-md text-sm">
             @if ($coverLetter)
                 <div data-hh-cover-letter class="line-clamp-5 whitespace-pre-line text-gray-700 dark:text-gray-200">{{ $coverLetter }}</div>
                 <button
@@ -107,8 +110,10 @@
             <div class="mt-1 text-xs text-gray-400">{{ $scoreLabel($codexScore) }}</div>
         </x-ui.sticky-table-td>
 
-        <x-ui.sticky-table-td :nowrap="false" class="min-w-80 max-w-2xl text-gray-600 dark:text-gray-300">
-            {{ $summaryText ?: 'Пока не анализировалось.' }}
+        <x-ui.sticky-table-td :nowrap="false" class="min-w-64 max-w-lg break-words text-gray-600 dark:text-gray-300">
+            <div class="line-clamp-8">
+                {{ $summaryText ?: 'Пока не анализировалось.' }}
+            </div>
         </x-ui.sticky-table-td>
 
         <x-ui.sticky-table-td last nowrap>

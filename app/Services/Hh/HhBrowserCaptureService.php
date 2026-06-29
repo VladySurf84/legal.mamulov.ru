@@ -22,6 +22,7 @@ class HhBrowserCaptureService
         $originalUrl = $this->originalUrl($payload) ?? $pageUrl;
         $vacancyId = $this->vacancyId($payload);
         $resumeId = $this->resumeId($payload);
+        $resumeId = $this->canonicalResumeId($vacancyId, $resumeId, $payload) ?? $resumeId;
         $capturedAt = $this->date(Arr::get($payload, 'capturedAt')) ?? now();
         $dedupeKey = $this->dedupeKey($payload, $vacancyId, $resumeId);
 
@@ -369,6 +370,61 @@ SQL, [
         }
 
         foreach ($urls as $url) {
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+
+            if (preg_match('~/resume/([A-Za-z0-9]+)~', $url, $matches) === 1) {
+                return $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function canonicalResumeId(?string $vacancyId, ?string $resumeId, array $payload): ?string
+    {
+        if ($vacancyId === null) {
+            return null;
+        }
+
+        if ($resumeId !== null && ctype_digit($resumeId)) {
+            return $resumeId;
+        }
+
+        $resumeUrlKey = $this->resumeUrlKey($payload);
+
+        if ($resumeUrlKey === null) {
+            return null;
+        }
+
+        $canonical = DB::table('legal.hh_negotiations')
+            ->where('hh_vacancy_id', $vacancyId)
+            ->whereRaw("resume_id ~ '^[0-9]+$'")
+            ->whereRaw(<<<'SQL'
+COALESCE(
+    (regexp_match(alternate_url, '/resume/([A-Za-z0-9]+)'))[1],
+    (regexp_match(resume_url, '/resume/([A-Za-z0-9]+)'))[1],
+    (regexp_match(resume_raw->>'alternate_url', '/resume/([A-Za-z0-9]+)'))[1],
+    (regexp_match(raw #>> '{resume,alternate_url}', '/resume/([A-Za-z0-9]+)'))[1],
+    (regexp_match(raw #>> '{resume,url}', '/resume/([A-Za-z0-9]+)'))[1]
+) = ?
+SQL, [$resumeUrlKey])
+            ->value('resume_id');
+
+        return is_string($canonical) && $canonical !== '' ? $canonical : null;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function resumeUrlKey(array $payload): ?string
+    {
+        foreach ([
+            Arr::get($payload, 'page.originalUrl'),
+            Arr::get($payload, 'candidate.resumeUrl'),
+            Arr::get($payload, 'resumeStructured.originalUrl'),
+            Arr::get($payload, 'page.url'),
+        ] as $url) {
             if (! is_string($url) || $url === '') {
                 continue;
             }

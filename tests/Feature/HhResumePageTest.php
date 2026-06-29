@@ -193,8 +193,8 @@ class HhResumePageTest extends TestCase
             ->assertOk()
             ->assertSee('Иван Петров')
             ->assertSee('src="https://img.hhcdn.ru/photo-test.jpg"', false)
-            ->assertSee('vacancyId: photo-test-vacancy')
-            ->assertSee('resumeId: photo-test-resume')
+            ->assertDontSee('vacancyId:')
+            ->assertDontSee('resumeId:')
             ->assertSee('Сопроводительное письмо')
             ->assertSee('Здравствуйте, хочу обсудить ERP и Laravel PostgreSQL задачи.')
             ->assertSee('data-hh-cover-letter-toggle', false)
@@ -270,7 +270,7 @@ class HhResumePageTest extends TestCase
         ]);
     }
 
-    public function test_resume_id_display_prefers_numeric_query_parameter(): void
+    public function test_candidate_column_does_not_show_resume_or_vacancy_ids(): void
     {
         $user = User::query()->updateOrCreate(
             ['email' => 'hh-resumes-numeric-id@example.com'],
@@ -341,8 +341,9 @@ class HhResumePageTest extends TestCase
         $this->actingAs($user)
             ->get(route('hh-resumes.index', ['vacancy_id' => '134293071']))
             ->assertOk()
-            ->assertSee('resumeId: 215238227')
-            ->assertDontSee('resumeId: '.$resumeHash);
+            ->assertSee('Numeric Resume Candidate')
+            ->assertDontSee('resumeId:')
+            ->assertDontSee('vacancyId:');
     }
 
     public function test_admin_paginates_hh_resumes(): void
