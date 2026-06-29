@@ -310,6 +310,74 @@ class NsiSgrSyncTest extends TestCase
             ->assertSee('Vertexco NV');
     }
 
+    public function test_nsi_sgr_page_uses_automatic_pagination(): void
+    {
+        DB::table('legal.nsi_sgr_records')
+            ->whereIn('sgr_number', ['BY.TEST.PAGE.000001', 'BY.TEST.PAGE.000002'])
+            ->delete();
+
+        DB::table('legal.nsi_sgr_records')->insert([
+            [
+                'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f101',
+                'sgr_number' => 'BY.TEST.PAGE.000001',
+                'product_name' => 'Pagination First Product',
+                'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+                'document_date' => '2026-06-29',
+                'list_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f102',
+                'sgr_number' => 'BY.TEST.PAGE.000002',
+                'product_name' => 'Pagination Second Product',
+                'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+                'document_date' => '2026-06-28',
+                'list_synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $user = User::query()->updateOrCreate(
+            ['email' => 'nsi-sgr-pagination@example.com'],
+            [
+                'name' => 'NSI SGR Pagination',
+                'password' => 'secret',
+                'is_admin' => false,
+                'is_active' => true,
+            ],
+        );
+        $this->grantGlobalModule($user, UserAccess::MODULE_NSI_SGR);
+
+        $this->actingAs($user)
+            ->get(route('nsi-sgr.index', ['q' => 'Pagination', 'per_page' => 1]))
+            ->assertOk()
+            ->assertSee('Pagination First Product')
+            ->assertDontSee('Pagination Second Product')
+            ->assertSee('data-ui-sticky-table-loader', false)
+            ->assertSee('data-next-page="2"', false);
+
+        $this->actingAs($user)
+            ->get(route('nsi-sgr.index', ['q' => 'Pagination', 'per_page' => 1, 'page' => 2]), [
+                'Accept' => 'application/json',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])
+            ->assertOk()
+            ->assertJsonPath('has_more', false)
+            ->assertJsonPath('next_page', null)
+            ->assertJson(fn ($json) => $json
+                ->whereType('html', 'string')
+                ->whereType('loader_html', 'string')
+                ->whereType('sticky_summary_html', 'string')
+                ->where('has_more', false)
+                ->where('next_page', null)
+                ->etc()
+            )
+            ->assertSee('Pagination Second Product', false)
+            ->assertDontSee('Pagination First Product', false);
+    }
+
     private function markExistingDetailsAsFresh(): void
     {
         DB::statement(<<<'SQL'
