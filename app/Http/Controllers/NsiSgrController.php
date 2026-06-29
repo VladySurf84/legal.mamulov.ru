@@ -117,6 +117,30 @@ class NsiSgrController extends Controller
         ]);
     }
 
+    public function show(Request $request, int $recordId): JsonResponse|View
+    {
+        abort_unless(UserAccess::canViewNsiSgr($request->user()), 403);
+
+        $record = DB::table('legal.nsi_sgr_records')
+            ->where('nsi_sgr_record_id', $recordId)
+            ->first();
+
+        abort_if($record === null, 404);
+
+        $view = view('nsi-sgr.partials.detail', [
+            'record' => $record,
+        ]);
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'html' => $view->render(),
+                'title' => (string) $record->sgr_number,
+            ]);
+        }
+
+        return $view;
+    }
+
     /**
      * @return array<string, string>
      */

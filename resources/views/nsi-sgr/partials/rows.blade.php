@@ -5,7 +5,13 @@
 @endphp
 
 @forelse ($records as $record)
-    <tr class="align-top hover:bg-gray-50 dark:hover:bg-white/5">
+    <tr
+        class="cursor-pointer align-top hover:bg-gray-50 dark:hover:bg-white/5"
+        data-nsi-sgr-context-row
+        data-nsi-sgr-detail-url="{{ route('nsi-sgr.show', ['recordId' => $record->nsi_sgr_record_id]) }}"
+        data-nsi-sgr-number="{{ $record->sgr_number }}"
+        data-nsi-sgr-product="{{ $record->product_name }}"
+    >
         <x-ui.sticky-table-td first :nowrap="false" class="min-w-72">
             <div class="font-mono text-sm font-semibold text-gray-900 dark:text-white">{{ $record->sgr_number }}</div>
             <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">

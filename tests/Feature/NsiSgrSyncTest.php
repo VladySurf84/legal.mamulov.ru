@@ -378,6 +378,73 @@ class NsiSgrSyncTest extends TestCase
             ->assertDontSee('Pagination First Product', false);
     }
 
+    public function test_nsi_sgr_detail_window_opens_from_row_and_context_menu(): void
+    {
+        DB::table('legal.nsi_sgr_records')
+            ->where('sgr_number', 'BY.TEST.DETAIL.000001')
+            ->delete();
+
+        $recordId = DB::table('legal.nsi_sgr_records')->insertGetId([
+            'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f201',
+            'version_id' => 'c537bda6-a20d-4778-b007-6e8a1d2c0da0',
+            'sgr_number' => 'BY.TEST.DETAIL.000001',
+            'status_name' => 'подписан и действует',
+            'serial_number' => 'DETAIL-1',
+            'product_name' => 'Detail Window Product',
+            'product_application' => 'Detail application',
+            'manufacturer_name' => 'Detail Manufacturer',
+            'recipient_name' => 'Detail Recipient',
+            'recipient_inn' => '123456789',
+            'source_list_payload' => json_encode(['list' => true], JSON_THROW_ON_ERROR),
+            'detail_payload' => json_encode(['detail' => true], JSON_THROW_ON_ERROR),
+            'list_synced_at' => now(),
+            'detail_synced_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'nsi_sgr_record_id');
+
+        $user = User::query()->updateOrCreate(
+            ['email' => 'nsi-sgr-detail@example.com'],
+            [
+                'name' => 'NSI SGR Detail',
+                'password' => 'secret',
+                'is_admin' => false,
+                'is_active' => true,
+            ],
+        );
+        $this->grantGlobalModule($user, UserAccess::MODULE_NSI_SGR);
+
+        $this->actingAs($user)
+            ->get(route('nsi-sgr.index', ['q' => 'Detail Window Product']))
+            ->assertOk()
+            ->assertSee('data-nsi-sgr-context-row', false)
+            ->assertSee('trigger-selector="[data-nsi-sgr-context-row]"', false)
+            ->assertSee(route('nsi-sgr.show', ['recordId' => $recordId]), false)
+            ->assertSee('data-nsi-sgr-open-detail', false)
+            ->assertSee('nsi-sgr-detail-dialog', false);
+
+        $response = $this->actingAs($user)
+            ->get(route('nsi-sgr.show', ['recordId' => $recordId]), [
+                'Accept' => 'application/json',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('title', 'BY.TEST.DETAIL.000001')
+            ->assertJson(fn ($json) => $json
+                ->whereType('html', 'string')
+                ->where('title', 'BY.TEST.DETAIL.000001')
+                ->etc()
+            );
+
+        $html = $response->json('html');
+
+        $this->assertStringContainsString('Detail Window Product', $html);
+        $this->assertStringContainsString('Detail Manufacturer', $html);
+        $this->assertStringContainsString('JSON карточки', $html);
+    }
+
     private function markExistingDetailsAsFresh(): void
     {
         DB::statement(<<<'SQL'
