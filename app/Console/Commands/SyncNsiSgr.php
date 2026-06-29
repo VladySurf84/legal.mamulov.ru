@@ -14,7 +14,7 @@ class SyncNsiSgr extends Command
         {--limit=1000 : List page size}
         {--start-offset= : Override saved list offset}
         {--max-pages=0 : Stop list sync after N pages, 0 means no page limit}
-        {--detail-limit=1000 : Stop detail sync after N cards, 0 means no limit}
+        {--detail-limit=500 : Stop detail sync after N cards, 0 means no limit}
         {--refresh-active-after-hours=24 : Refresh active signed SGR details older than this after the primary detail queue is empty, 0 disables}
         {--number= : Limit detail sync to one SGR number}
         {--pause-ms=300 : Pause between successful requests}

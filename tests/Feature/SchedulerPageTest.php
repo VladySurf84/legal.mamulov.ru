@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Console\ScheduleDefinitions;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -58,6 +60,23 @@ class SchedulerPageTest extends TestCase
             ->assertSessionHas('status', 'done');
     }
 
+    public function test_scheduled_tasks_use_available_signal_handlers_only(): void
+    {
+        $schedule = app(Schedule::class);
+
+        ScheduleDefinitions::define($schedule);
+
+        $expected = extension_loaded('pcntl')
+            && function_exists('pcntl_async_signals')
+            && function_exists('pcntl_signal');
+
+        $this->assertNotEmpty($schedule->events());
+
+        foreach ($schedule->events() as $event) {
+            $this->assertSame($expected, $event->releaseOnTerminationSignals);
+        }
+    }
+
     public function test_the_application_runs_nsi_sgr_list_scheduler_task(): void
     {
         $userId = $this->test_user()->getKey();
@@ -94,7 +113,7 @@ class SchedulerPageTest extends TestCase
             ->once()
             ->with('nsi:sgr-sync', [
                 '--mode' => 'details',
-                '--detail-limit' => 1000,
+                '--detail-limit' => 500,
                 '--refresh-active-after-hours' => 24,
                 '--pause-ms' => 300,
                 '--error-pause-ms' => 10000,

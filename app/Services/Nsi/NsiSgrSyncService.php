@@ -133,7 +133,7 @@ class NsiSgrSyncService
         $timeout = $this->positiveInt($options['timeout'] ?? 60, 60);
         $maxRetries = $this->nonNegativeInt($options['max_retries'] ?? 5);
         $errorPauseMs = $this->nonNegativeInt($options['error_pause_ms'] ?? 10000);
-        $detailLimit = $this->nonNegativeInt($options['detail_limit'] ?? 1000);
+        $detailLimit = $this->nonNegativeInt($options['detail_limit'] ?? 500);
         $refreshActiveAfterHours = $this->nonNegativeInt($options['refresh_active_after_hours'] ?? 24);
         $number = $this->text($options['number'] ?? null);
         $runId = $this->startRun('sgr_detail_sync', $options);

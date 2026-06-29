@@ -75,7 +75,7 @@ class SchedulerController extends Controller
                 'command' => 'nsi:sgr-sync',
                 'parameters' => [
                     '--mode' => 'details',
-                    '--detail-limit' => 1000,
+                    '--detail-limit' => 500,
                     '--refresh-active-after-hours' => 24,
                     '--pause-ms' => 300,
                     '--error-pause-ms' => 10000,
