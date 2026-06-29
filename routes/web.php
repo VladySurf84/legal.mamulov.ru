@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\BankAccountController;
+use App\Http\Controllers\BankStatementImportController;
 use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\CounterpartyController;
 use App\Http\Controllers\CurrencyController;
@@ -9,14 +10,14 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\ElectronicSignatureController;
 use App\Http\Controllers\ExchangeRateController;
-use App\Http\Controllers\HhResumeController;
 use App\Http\Controllers\HhBrowserCapturePageController;
+use App\Http\Controllers\HhResumeController;
 use App\Http\Controllers\InternalApiDocsController;
 use App\Http\Controllers\KassaController;
 use App\Http\Controllers\LegalEntityController;
 use App\Http\Controllers\MoneyLayerController;
-use App\Http\Controllers\BankStatementImportController;
 use App\Http\Controllers\NsiSgrController;
+use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\UserAccessController;
 use App\Http\Controllers\UserController;
@@ -29,11 +30,17 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('login', [AdminAuthController::class, 'create'])->name('login');
 Route::post('login', [AdminAuthController::class, 'store'])->name('login.store');
+Route::post('passkeys/login/options', [PasskeyController::class, 'loginOptions'])->name('passkeys.login.options');
+Route::post('passkeys/login', [PasskeyController::class, 'login'])->name('passkeys.login');
 Route::get('auth/google', [AdminAuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
 Route::get('auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
 Route::middleware('admin.session')->group(function (): void {
     Route::post('logout', [AdminAuthController::class, 'destroy'])->name('logout');
+    Route::get('passkeys', [PasskeyController::class, 'index'])->name('passkeys.index');
+    Route::post('passkeys/register/options', [PasskeyController::class, 'registerOptions'])->name('passkeys.register.options');
+    Route::post('passkeys/register', [PasskeyController::class, 'register'])->name('passkeys.register');
+    Route::delete('passkeys/{passkey}', [PasskeyController::class, 'destroy'])->name('passkeys.destroy');
 
     Route::get('/', function () {
         $route = UserAccess::firstViewableRoute(auth()->user());

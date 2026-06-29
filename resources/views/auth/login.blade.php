@@ -77,6 +77,20 @@
                     </div>
                 </form>
 
+                <div class="mt-4">
+                    <button
+                        type="button"
+                        id="passkey-login-button"
+                        class="flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50 focus-visible:inset-ring-transparent"
+                        data-options-url="{{ route('passkeys.login.options') }}"
+                        data-login-url="{{ route('passkeys.login') }}"
+                        data-csrf-token="{{ csrf_token() }}"
+                    >
+                        Войти по отпечатку или PIN
+                    </button>
+                    <p id="passkey-login-status" class="mt-2 hidden text-sm/6 text-gray-500"></p>
+                </div>
+
                 @if (config('services.google.client_id') && config('services.google.client_secret'))
                     <div class="mt-10">
                         <div class="relative">
@@ -116,5 +130,108 @@
         >
     </div>
 </main>
+<script>
+    (() => {
+        const button = document.getElementById('passkey-login-button');
+        const status = document.getElementById('passkey-login-status');
+        const loginInput = document.getElementById('login');
+
+        if (!button || !status || !loginInput) {
+            return;
+        }
+
+        const setStatus = (message, isError = false) => {
+            status.textContent = message;
+            status.classList.remove('hidden', 'text-gray-500', 'text-red-600');
+            status.classList.add(isError ? 'text-red-600' : 'text-gray-500');
+        };
+
+        const arrayBufferToBase64 = (buffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let index = 0; index < bytes.byteLength; index += 1) {
+                binary += String.fromCharCode(bytes[index]);
+            }
+
+            return window.btoa(binary);
+        };
+
+        const convertBinaryFields = (value) => {
+            const prefix = '=?BINARY?B?';
+            const suffix = '?=';
+
+            if (!value || typeof value !== 'object') {
+                return;
+            }
+
+            Object.keys(value).forEach((key) => {
+                const item = value[key];
+
+                if (typeof item === 'string' && item.startsWith(prefix) && item.endsWith(suffix)) {
+                    const raw = window.atob(item.slice(prefix.length, -suffix.length));
+                    const bytes = new Uint8Array(raw.length);
+                    for (let index = 0; index < raw.length; index += 1) {
+                        bytes[index] = raw.charCodeAt(index);
+                    }
+                    value[key] = bytes.buffer;
+                } else if (item && typeof item === 'object') {
+                    convertBinaryFields(item);
+                }
+            });
+        };
+
+        const postJson = async (url, payload) => {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': button.dataset.csrfToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(body.message || 'Не удалось выполнить вход по ключу.');
+            }
+
+            return body;
+        };
+
+        button.addEventListener('click', async () => {
+            try {
+                if (!window.PublicKeyCredential || !navigator.credentials) {
+                    throw new Error('Браузер не поддерживает вход по ключу.');
+                }
+
+                const login = loginInput.value.trim();
+                if (!login) {
+                    loginInput.focus();
+                    throw new Error('Введите email, чтобы найти ключи входа.');
+                }
+
+                button.disabled = true;
+                setStatus('Проверяем ключ входа...');
+
+                const options = await postJson(button.dataset.optionsUrl, {login});
+                convertBinaryFields(options);
+
+                const credential = await navigator.credentials.get(options);
+                const result = await postJson(button.dataset.loginUrl, {
+                    id: credential.rawId ? arrayBufferToBase64(credential.rawId) : null,
+                    clientDataJSON: credential.response.clientDataJSON ? arrayBufferToBase64(credential.response.clientDataJSON) : null,
+                    authenticatorData: credential.response.authenticatorData ? arrayBufferToBase64(credential.response.authenticatorData) : null,
+                    signature: credential.response.signature ? arrayBufferToBase64(credential.response.signature) : null,
+                });
+
+                window.location.href = result.redirect || '{{ route('bank-accounts.index') }}';
+            } catch (error) {
+                setStatus(error.message || 'Не удалось войти по ключу.', true);
+                button.disabled = false;
+            }
+        });
+    })();
+</script>
 </body>
 </html>

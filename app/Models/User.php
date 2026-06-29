@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasMany(UserUiSetting::class, 'user_id', 'id');
     }
 
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(UserPasskey::class, 'user_id', 'id');
+    }
+
     public function isAdmin(): bool
     {
         return (bool) $this->is_admin;

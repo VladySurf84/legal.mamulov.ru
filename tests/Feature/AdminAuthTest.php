@@ -58,6 +58,36 @@ class AdminAuthTest extends TestCase
             ->assertSee(route('auth.google.redirect'));
     }
 
+    public function test_login_page_has_passkey_entrypoint(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(route('passkeys.login.options'))
+            ->assertSee('Войти по отпечатку или PIN');
+    }
+
+    public function test_authenticated_user_can_open_passkey_page_and_request_registration_options(): void
+    {
+        AppUser::query()->where('email', 'passkey-owner@example.com')->delete();
+        $user = AppUser::query()->create([
+            'name' => 'Passkey Owner',
+            'email' => 'passkey-owner@example.com',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('passkeys.index'))
+            ->assertOk()
+            ->assertSee('Ключи входа');
+
+        $this->actingAs($user)
+            ->postJson(route('passkeys.register.options'))
+            ->assertOk()
+            ->assertJsonPath('publicKey.user.name', 'passkey-owner@example.com')
+            ->assertJsonPath('publicKey.authenticatorSelection.userVerification', 'required');
+    }
+
     public function test_google_login_rejects_email_that_is_not_allowed(): void
     {
         AppUser::query()->where('email', 'guest@example.com')->delete();

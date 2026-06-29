@@ -103,6 +103,9 @@
                                     <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $currentUser?->name ?: 'Пользователь' }}</div>
                                     <div class="truncate text-sm text-gray-500 dark:text-gray-400">{{ $currentUser?->email }}</div>
                                 </div>
+                                <a href="{{ route('passkeys.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
+                                    Ключи входа
+                                </a>
                                 <form class="m-0" method="post" action="{{ route('logout') }}">
                                     @csrf
                                     <button class="block w-full !min-h-0 !justify-start rounded-none !border-0 !bg-white px-4 py-2 text-left text-sm !font-normal !text-gray-700 shadow-none hover:!bg-gray-100 dark:!bg-gray-800 dark:!text-gray-300 dark:hover:!bg-white/5" type="submit">
@@ -155,6 +158,9 @@
                                 </div>
                             </div>
                             <div class="mt-3 space-y-1 px-2">
+                                <a href="{{ route('passkeys.index') }}" class="block rounded-md px-3 py-2 text-base font-medium text-gray-400 hover:bg-white/5 hover:text-white">
+                                    Ключи входа
+                                </a>
                                 <form method="post" action="{{ route('logout') }}">
                                     @csrf
                                     <button class="block w-full !min-h-0 !justify-start rounded-md !border-0 !bg-transparent px-3 py-2 text-left text-base font-medium !text-gray-400 shadow-none hover:!bg-white/5 hover:!text-white" type="submit">
@@ -242,6 +248,10 @@
                     <div class="truncate text-sm text-gray-500 dark:text-gray-400">{{ $currentUser?->email }}</div>
                 </div>
             </div>
+
+            <a href="{{ route('passkeys.index') }}" class="mt-4 block rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white">
+                Ключи входа
+            </a>
 
             <form class="mt-4" method="post" action="{{ route('logout') }}">
                 @csrf
