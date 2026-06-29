@@ -57,6 +57,34 @@ class SchedulerController extends Controller
                     '--started-from' => 'ui',
                 ],
             ],
+            'nsi-sgr-list' => [
+                'command' => 'nsi:sgr-sync',
+                'parameters' => [
+                    '--mode' => 'list',
+                    '--limit' => 1000,
+                    '--max-pages' => 20,
+                    '--pause-ms' => 300,
+                    '--error-pause-ms' => 10000,
+                    '--max-retries' => 5,
+                    '--started-by-type' => 'user',
+                    '--started-by-user-id' => auth()->id(),
+                    '--started-from' => 'ui',
+                ],
+            ],
+            'nsi-sgr-details' => [
+                'command' => 'nsi:sgr-sync',
+                'parameters' => [
+                    '--mode' => 'details',
+                    '--detail-limit' => 1000,
+                    '--refresh-active-after-hours' => 24,
+                    '--pause-ms' => 300,
+                    '--error-pause-ms' => 10000,
+                    '--max-retries' => 5,
+                    '--started-by-type' => 'user',
+                    '--started-by-user-id' => auth()->id(),
+                    '--started-from' => 'ui',
+                ],
+            ],
         ];
 
         if (! isset($commands[$task])) {
@@ -156,6 +184,14 @@ class SchedulerController extends Controller
             return route('scheduler.run', ['task' => 'kgs-exchange-rates']);
         }
 
+        if (str_contains($command, 'nsi:sgr-sync') && str_contains($command, '--mode=list')) {
+            return route('scheduler.run', ['task' => 'nsi-sgr-list']);
+        }
+
+        if (str_contains($command, 'nsi:sgr-sync') && str_contains($command, '--mode=details')) {
+            return route('scheduler.run', ['task' => 'nsi-sgr-details']);
+        }
+
         return null;
     }
 
@@ -172,6 +208,14 @@ class SchedulerController extends Controller
 
         if (str_contains($command, 'exchange-rates:sync-kgs-banks')) {
             return ['provider' => 'kgs_exchange_rates', 'type' => 'exchange_rates_sync'];
+        }
+
+        if (str_contains($command, 'nsi:sgr-sync') && str_contains($command, '--mode=list')) {
+            return ['provider' => 'nsi_eaeu', 'type' => 'sgr_list_sync'];
+        }
+
+        if (str_contains($command, 'nsi:sgr-sync') && str_contains($command, '--mode=details')) {
+            return ['provider' => 'nsi_eaeu', 'type' => 'sgr_detail_sync'];
         }
 
         return null;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Nsi;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,7 @@ class NsiSgrSyncService
     private const BASE_URL = 'https://nsi.eaeunion.org/portal/api';
     private const DICTIONARY_CODE = '1995';
     private const PROVIDER = 'nsi_eaeu';
+    private const ACTIVE_STATUS_ID = '0888035a-52fa-4e7e-bf59-348c6cc218d4';
 
     /**
      * @param array<string, mixed> $options
@@ -132,6 +134,7 @@ class NsiSgrSyncService
         $maxRetries = $this->nonNegativeInt($options['max_retries'] ?? 5);
         $errorPauseMs = $this->nonNegativeInt($options['error_pause_ms'] ?? 10000);
         $detailLimit = $this->nonNegativeInt($options['detail_limit'] ?? 1000);
+        $refreshActiveAfterHours = $this->nonNegativeInt($options['refresh_active_after_hours'] ?? 24);
         $number = $this->text($options['number'] ?? null);
         $runId = $this->startRun('sgr_detail_sync', $options);
 
@@ -143,19 +146,13 @@ class NsiSgrSyncService
         ];
 
         try {
-            $query = DB::table('legal.nsi_sgr_records')
-                ->where(function ($query): void {
-                    $query->whereNull('detail_payload')
-                        ->orWhereColumn('detail_synced_at', '<', 'list_synced_at');
-                })
-                ->when($number !== null, fn ($query) => $query->where('sgr_number', $number))
-                ->orderBy('nsi_sgr_record_id');
+            $records = $this->pendingDetailRecords($number, $detailLimit);
 
-            if ($detailLimit > 0) {
-                $query->limit($detailLimit);
+            if ($records->isEmpty() && $number === null && $refreshActiveAfterHours > 0) {
+                $records = $this->activeRefreshDetailRecords($refreshActiveAfterHours, $detailLimit);
             }
 
-            foreach ($query->get(['nsi_sgr_record_id', 'nsi_id', 'sgr_number']) as $record) {
+            foreach ($records as $record) {
                 $summary['records']++;
 
                 try {
@@ -184,6 +181,53 @@ class NsiSgrSyncService
 
             throw $exception;
         }
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function pendingDetailRecords(?string $number, int $detailLimit): \Illuminate\Support\Collection
+    {
+        $query = DB::table('legal.nsi_sgr_records')
+            ->where(function (Builder $query): void {
+                $query->whereNull('detail_payload')
+                    ->orWhereColumn('detail_synced_at', '<', 'list_synced_at');
+            })
+            ->when($number !== null, fn (Builder $query) => $query->where('sgr_number', $number))
+            ->orderBy('nsi_sgr_record_id');
+
+        return $this->limitedDetailRecords($query, $detailLimit);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function activeRefreshDetailRecords(int $refreshActiveAfterHours, int $detailLimit): \Illuminate\Support\Collection
+    {
+        $refreshBefore = now()->subHours($refreshActiveAfterHours);
+        $query = DB::table('legal.nsi_sgr_records')
+            ->where('status_id', self::ACTIVE_STATUS_ID)
+            ->whereNotNull('detail_payload')
+            ->where(function (Builder $query) use ($refreshBefore): void {
+                $query->whereNull('detail_synced_at')
+                    ->orWhere('detail_synced_at', '<=', $refreshBefore);
+            })
+            ->orderBy('detail_synced_at')
+            ->orderBy('nsi_sgr_record_id');
+
+        return $this->limitedDetailRecords($query, $detailLimit);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function limitedDetailRecords(Builder $query, int $detailLimit): \Illuminate\Support\Collection
+    {
+        if ($detailLimit > 0) {
+            $query->limit($detailLimit);
+        }
+
+        return $query->get(['nsi_sgr_record_id', 'nsi_id', 'sgr_number']);
     }
 
     private function fetchListTotal(int $runId, string $actualDate, int $timeout, int $maxRetries, int $errorPauseMs): int

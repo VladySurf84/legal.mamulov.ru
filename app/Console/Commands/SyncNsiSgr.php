@@ -15,6 +15,7 @@ class SyncNsiSgr extends Command
         {--start-offset= : Override saved list offset}
         {--max-pages=0 : Stop list sync after N pages, 0 means no page limit}
         {--detail-limit=1000 : Stop detail sync after N cards, 0 means no limit}
+        {--refresh-active-after-hours=24 : Refresh active signed SGR details older than this after the primary detail queue is empty, 0 disables}
         {--number= : Limit detail sync to one SGR number}
         {--pause-ms=300 : Pause between successful requests}
         {--error-pause-ms=10000 : Pause before retry after failed request}
@@ -90,6 +91,7 @@ class SyncNsiSgr extends Command
             'start_offset' => $this->option('start-offset'),
             'max_pages' => (int) $this->option('max-pages'),
             'detail_limit' => (int) $this->option('detail-limit'),
+            'refresh_active_after_hours' => (int) $this->option('refresh-active-after-hours'),
             'number' => $this->option('number'),
             'pause_ms' => (int) $this->option('pause-ms'),
             'error_pause_ms' => (int) $this->option('error-pause-ms'),
