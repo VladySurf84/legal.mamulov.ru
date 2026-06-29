@@ -208,6 +208,63 @@ class NsiSgrSyncTest extends TestCase
         ]);
     }
 
+    public function test_sync_details_stores_long_product_code_text(): void
+    {
+        $number = 'BY.TEST.LONGCODE.000001';
+        $longProductCode = implode(' ', array_fill(0, 8, 'Long classification segment'));
+
+        DB::table('legal.nsi_sgr_records')
+            ->where('sgr_number', $number)
+            ->delete();
+
+        DB::table('legal.nsi_sgr_records')->insert([
+            'nsi_id' => '11111111-1111-4111-8111-111111111111',
+            'version_id' => '22222222-2222-4222-8222-222222222222',
+            'sgr_number' => $number,
+            'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+            'list_synced_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::fake([
+            'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-view-card-data-on-date*' => Http::response([
+                'id' => '11111111-1111-4111-8111-111111111111',
+                'versionId' => '33333333-3333-4333-8333-333333333333',
+                'dateTimeFrom' => '2026-06-26T00:00:00.000Z',
+                'dateTimeTo' => '2100-01-01T00:00:00.000Z',
+                'updateDateTime' => '2026-06-26T18:03:54.055Z',
+                'data' => [
+                    'NUMB_DOC' => $number,
+                    'STATUS' => [
+                        'id' => self::ACTIVE_STATUS_ID,
+                        'name' => 'active',
+                        'type' => '1997',
+                    ],
+                    'OKP_PROD' => $longProductCode,
+                    'NAME_PROD' => 'Product With Long Classification',
+                ],
+                'dateFrom' => '2026-06-26',
+                'dateTo' => '2100-01-01',
+            ], 200),
+        ]);
+
+        $this->artisan('nsi:sgr-sync', [
+            '--mode' => 'details',
+            '--date' => '2026-06-29',
+            '--number' => $number,
+            '--detail-limit' => 1,
+            '--pause-ms' => 0,
+            '--error-pause-ms' => 0,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'sgr_number' => $number,
+            'product_code' => $longProductCode,
+            'detail_sync_error' => null,
+        ]);
+    }
+
     public function test_sync_details_refreshes_active_records_after_primary_queue_is_empty(): void
     {
         $this->markExistingDetailsAsFresh();

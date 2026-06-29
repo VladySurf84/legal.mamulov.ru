@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS legal.nsi_sgr_records (
     status_name text,
     serial_number varchar(100),
     document_date date,
-    product_code varchar(100),
+    product_code text,
     product_name text,
     product_application text,
     manufacturer_name text,
