@@ -44,7 +44,7 @@ class PasskeyController extends Controller
             (string) $user->email,
             (string) ($user->name ?: $user->email),
             120,
-            'preferred',
+            'required',
             'required',
             null,
             $excludeCredentialIds,
@@ -110,34 +110,40 @@ class PasskeyController extends Controller
     public function loginOptions(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'login' => ['required', 'string', 'email'],
+            'login' => ['nullable', 'string', 'email'],
         ]);
 
-        $user = User::query()
-            ->whereRaw('lower(email) = ?', [strtolower($data['login'])])
-            ->where('is_active', true)
-            ->first();
+        $user = null;
+        $credentialIds = [];
+        $login = trim((string) ($data['login'] ?? ''));
 
-        if (! $user) {
-            return response()->json(['message' => 'Пользователь не найден.'], 404);
-        }
+        if ($login !== '') {
+            $user = User::query()
+                ->whereRaw('lower(email) = ?', [strtolower($login)])
+                ->where('is_active', true)
+                ->first();
 
-        $credentialIds = $user->passkeys()
-            ->pluck('credential_id')
-            ->map(fn (string $credentialId): string|false => base64_decode($credentialId, true))
-            ->filter(fn (string|false $credentialId): bool => is_string($credentialId))
-            ->values()
-            ->all();
+            if (! $user) {
+                return response()->json(['message' => 'Пользователь не найден.'], 404);
+            }
 
-        if ($credentialIds === []) {
-            return response()->json(['message' => 'Для этого пользователя ключ входа еще не добавлен.'], 404);
+            $credentialIds = $user->passkeys()
+                ->pluck('credential_id')
+                ->map(fn (string $credentialId): string|false => base64_decode($credentialId, true))
+                ->filter(fn (string|false $credentialId): bool => is_string($credentialId))
+                ->values()
+                ->all();
+
+            if ($credentialIds === []) {
+                return response()->json(['message' => 'Для этого пользователя ключ входа еще не добавлен.'], 404);
+            }
         }
 
         $webAuthn = $this->webAuthn($request);
         $options = $webAuthn->getGetArgs($credentialIds, 120, true, true, true, true, true, 'required');
 
         $request->session()->put('passkey.login.challenge', base64_encode($webAuthn->getChallenge()->getBinaryString()));
-        $request->session()->put('passkey.login.user_id', $user->getKey());
+        $request->session()->put('passkey.login.user_id', $user?->getKey());
 
         return response()->json($options);
     }
@@ -155,13 +161,13 @@ class PasskeyController extends Controller
         $userId = $request->session()->pull('passkey.login.user_id');
         $credentialId = base64_encode(base64_decode($data['id'], true) ?: '');
 
-        if (! $challenge || ! $userId || $credentialId === '') {
+        if (! $challenge || $credentialId === '') {
             return response()->json(['message' => 'Сессия входа по ключу истекла.'], 419);
         }
 
         $passkey = UserPasskey::query()
             ->where('credential_id', $credentialId)
-            ->where('user_id', $userId)
+            ->when($userId, fn ($query) => $query->where('user_id', $userId))
             ->with('user')
             ->first();
 

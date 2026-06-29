@@ -85,7 +85,16 @@ class AdminAuthTest extends TestCase
             ->postJson(route('passkeys.register.options'))
             ->assertOk()
             ->assertJsonPath('publicKey.user.name', 'passkey-owner@example.com')
+            ->assertJsonPath('publicKey.authenticatorSelection.residentKey', 'required')
             ->assertJsonPath('publicKey.authenticatorSelection.userVerification', 'required');
+    }
+
+    public function test_passkey_login_options_can_start_without_email(): void
+    {
+        $this->postJson(route('passkeys.login.options'))
+            ->assertOk()
+            ->assertJsonPath('publicKey.userVerification', 'required')
+            ->assertJsonMissingPath('publicKey.allowCredentials');
     }
 
     public function test_google_login_rejects_email_that_is_not_allowed(): void

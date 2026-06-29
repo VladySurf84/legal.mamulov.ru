@@ -205,16 +205,11 @@
                     throw new Error('Браузер не поддерживает вход по ключу.');
                 }
 
-                const login = loginInput.value.trim();
-                if (!login) {
-                    loginInput.focus();
-                    throw new Error('Введите email, чтобы найти ключи входа.');
-                }
-
                 button.disabled = true;
-                setStatus('Проверяем ключ входа...');
+                setStatus('Откроется системное окно проверки...');
 
-                const options = await postJson(button.dataset.optionsUrl, {login});
+                const login = loginInput.value.trim();
+                const options = await postJson(button.dataset.optionsUrl, login ? {login} : {});
                 convertBinaryFields(options);
 
                 const credential = await navigator.credentials.get(options);
