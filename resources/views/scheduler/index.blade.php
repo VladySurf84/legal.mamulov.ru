@@ -121,15 +121,21 @@
                                     </summary>
 
                                     <div class="px-4 pb-4">
-                                        @if ($run->error)
-                                            <div class="mb-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-600/20">{{ $run->error }}</div>
+                                        @if ($run->error_label)
+                                            <div class="mb-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-600/20">{{ $run->error_label }}</div>
                                         @endif
 
                                         @if (count($run->requests) > 0)
                                             <div class="space-y-2">
+                                                @if ($run->requests_hidden_count > 0)
+                                                    <div class="rounded-md bg-white px-3 py-2 text-xs text-gray-500 ring-1 ring-gray-900/5">
+                                                        Показаны последние {{ $run->requests_shown_count }} из {{ $run->requests_count }} HTTP-запросов.
+                                                    </div>
+                                                @endif
+
                                                 @foreach ($run->requests as $request)
                                                     @php
-                                                        $requestFailed = ($request->http_status ?? 0) >= 400 || $request->error;
+                                                        $requestFailed = ($request->http_status ?? 0) >= 400 || $request->error_label;
                                                         $requestStatusClass = $requestFailed ? $statusClasses['failed'] : $statusClasses['success'];
                                                     @endphp
                                                     <div class="grid gap-3 rounded-md bg-white px-3 py-3 text-sm ring-1 ring-gray-900/5 sm:grid-cols-[90px_minmax(220px,1fr)_100px_120px_minmax(220px,1fr)]">
@@ -139,7 +145,7 @@
                                                         </div>
                                                         <div>
                                                             <div class="font-semibold text-gray-900">{{ $request->method }} {{ $request->endpoint }}</div>
-                                                            <div class="mt-1 font-mono text-xs text-gray-500">{{ $request->requested_at }}</div>
+                                                            <div class="mt-1 font-mono text-xs text-gray-500">{{ $request->requested_at_label }}</div>
                                                         </div>
                                                         <div>
                                                             <div class="text-xs font-medium text-gray-500">Провайдер</div>
@@ -151,9 +157,9 @@
                                                         </div>
                                                         <div>
                                                             <div class="text-xs font-medium text-gray-500">Параметры</div>
-                                                            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ $request->params ?: '{}' }}</div>
-                                                            @if ($request->error)
-                                                                <div class="mt-2 rounded-md bg-rose-50 px-2 py-1 text-xs text-rose-700 ring-1 ring-rose-600/20">{{ $request->error }}</div>
+                                                            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ $request->params_label }}</div>
+                                                            @if ($request->error_label)
+                                                                <div class="mt-2 rounded-md bg-rose-50 px-2 py-1 text-xs text-rose-700 ring-1 ring-rose-600/20">{{ $request->error_label }}</div>
                                                             @endif
                                                         </div>
                                                     </div>

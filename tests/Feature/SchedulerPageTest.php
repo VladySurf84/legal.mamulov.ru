@@ -6,6 +6,7 @@ use App\Console\ScheduleDefinitions;
 use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SchedulerPageTest extends TestCase
@@ -74,6 +75,51 @@ class SchedulerPageTest extends TestCase
 
         foreach ($schedule->events() as $event) {
             $this->assertSame($expected, $event->releaseOnTerminationSignals);
+        }
+    }
+
+    public function test_the_application_opens_scheduler_with_many_logged_requests(): void
+    {
+        $runId = DB::table('legal.api_sync_runs')->insertGetId([
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'status' => 'success',
+            'requests_count' => 7,
+            'started_by_type' => 'system',
+            'started_from' => 'scheduler',
+            'started_at' => now(),
+            'finished_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'api_sync_run_id');
+
+        try {
+            foreach (range(1, 7) as $index) {
+                DB::table('legal.api_sync_requests')->insert([
+                    'api_sync_run_id' => $runId,
+                    'provider' => 'nsi_eaeu',
+                    'method' => 'POST',
+                    'endpoint' => '/scheduler-test-'.$index,
+                    'url' => 'https://example.test/scheduler-test-'.$index,
+                    'params' => json_encode([
+                        'filter' => ['status' => ['signed', 'active']],
+                        'offset' => $index,
+                    ], JSON_THROW_ON_ERROR),
+                    'http_status' => 200,
+                    'duration_ms' => 10,
+                    'response_hash' => str_repeat((string) $index, 64),
+                    'requested_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $this->get(route('scheduler.index'))
+                ->assertOk()
+                ->assertSee('scheduler-test-7')
+                ->assertDontSee('scheduler-test-1');
+        } finally {
+            DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();
         }
     }
 

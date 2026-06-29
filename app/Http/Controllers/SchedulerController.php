@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\File;
 
 class SchedulerController extends Controller
 {
+    private const RECENT_REQUESTS_PER_RUN = 5;
+
     public function index(Schedule $schedule): View
     {
         abort_unless(UserAccess::canViewScheduler(request()->user()), 403);
@@ -154,15 +156,46 @@ class SchedulerController extends Controller
             return [];
         }
 
-        $requests = DB::table('legal.api_sync_requests')
-            ->whereIn('api_sync_run_id', $runs->pluck('api_sync_run_id'))
-            ->orderBy('api_sync_request_id')
+        $rankedRequests = DB::table('legal.api_sync_requests')
+            ->select([
+                'api_sync_request_id',
+                'api_sync_run_id',
+                'provider',
+                'method',
+                'endpoint',
+                'params',
+                'http_status',
+                'duration_ms',
+                'response_hash',
+                'error',
+                'requested_at',
+            ])
+            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY api_sync_run_id ORDER BY api_sync_request_id DESC) as scheduler_row_number')
+            ->whereIn('api_sync_run_id', $runs->pluck('api_sync_run_id'));
+
+        $requests = DB::query()
+            ->fromSub($rankedRequests, 'requests')
+            ->where('scheduler_row_number', '<=', self::RECENT_REQUESTS_PER_RUN)
+            ->orderBy('api_sync_run_id')
+            ->orderByDesc('api_sync_request_id')
             ->get()
             ->groupBy('api_sync_run_id');
 
         return $runs
             ->map(function (object $run) use ($requests): object {
-                $run->requests = $requests->get($run->api_sync_run_id, collect())->all();
+                $runRequests = $requests->get($run->api_sync_run_id, collect())
+                    ->map(function (object $request): object {
+                        $request->params_label = $this->formatDisplayValue($request->params, '{}', 500);
+                        $request->error_label = $this->formatDisplayValue($request->error, '', 500);
+                        $request->requested_at_label = $this->formatNullableDate($request->requested_at);
+
+                        return $request;
+                    });
+
+                $run->requests = $runRequests->all();
+                $run->requests_shown_count = $runRequests->count();
+                $run->requests_hidden_count = max(0, (int) $run->requests_count - $run->requests_shown_count);
+                $run->error_label = $this->formatDisplayValue($run->error, '', 1000);
                 $run->started_at_label = $this->formatNullableDate($run->started_at);
                 $run->finished_at_label = $this->formatNullableDate($run->finished_at);
                 $run->started_by_label = $this->startedByLabel($run);
@@ -289,6 +322,34 @@ class SchedulerController extends Controller
         return Carbon::parse((string) $date, 'UTC')
             ->timezone($this->displayTimezone())
             ->format('d.m.Y H:i:s');
+    }
+
+    private function formatDisplayValue(mixed $value, string $fallback, int $limit): string
+    {
+        if ($value === null || $value === '') {
+            return $fallback;
+        }
+
+        if (is_array($value) || is_object($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            $value = $encoded === false ? get_debug_type($value) : $encoded;
+        }
+
+        if (is_bool($value)) {
+            $value = $value ? 'true' : 'false';
+        }
+
+        $text = trim((string) $value);
+
+        if ($text === '') {
+            return $fallback;
+        }
+
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+
+        return rtrim(mb_substr($text, 0, max(0, $limit - 3))).'...';
     }
 
     private function displayTimezone(): string
