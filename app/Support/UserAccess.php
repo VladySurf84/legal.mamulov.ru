@@ -21,6 +21,7 @@ class UserAccess
     public const MODULE_VAT_BOOK_ENTRIES = 'vat_book_entries';
     public const MODULE_CURRENCIES = 'currencies';
     public const MODULE_EXCHANGE_RATES = 'exchange_rates';
+    public const MODULE_NSI_SGR = 'nsi_sgr';
     public const MODULE_DOCUMENT_TYPES = 'document_types';
     public const MODULE_ELECTRONIC_SIGNATURES = 'electronic_signatures';
     public const MODULE_HH_RESUMES = 'hh_resumes';
@@ -207,6 +208,7 @@ class UserAccess
             'vat-book-entries.index' => self::canViewModule($user, self::MODULE_VAT_BOOK_ENTRIES),
             'currencies.index' => self::canViewModule($user, self::MODULE_CURRENCIES),
             'exchange-rates.index' => self::canViewModule($user, self::MODULE_EXCHANGE_RATES),
+            'nsi-sgr.index' => self::canViewNsiSgr($user),
             'document-types.index' => self::canViewModule($user, self::MODULE_DOCUMENT_TYPES),
             'electronic-signatures.index' => self::canViewElectronicSignatures($user),
             'hh-resumes.index' => self::canViewHhResumes($user),
@@ -354,6 +356,11 @@ class UserAccess
     public static function canSyncExchangeRates(?User $user): bool
     {
         return self::canViewModule($user, self::ACTION_EXCHANGE_RATES_SYNC);
+    }
+
+    public static function canViewNsiSgr(?User $user): bool
+    {
+        return self::canViewModule($user, self::MODULE_NSI_SGR);
     }
 
     public static function canRebuildCounterpartyLinks(?User $user): bool

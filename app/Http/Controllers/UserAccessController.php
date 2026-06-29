@@ -20,6 +20,7 @@ class UserAccessController extends Controller
         UserAccess::MODULE_CURRENCIES,
         UserAccess::MODULE_EXCHANGE_RATES,
         UserAccess::ACTION_EXCHANGE_RATES_SYNC,
+        UserAccess::MODULE_NSI_SGR,
         UserAccess::MODULE_DOCUMENT_TYPES,
         UserAccess::ACTION_DOCUMENT_TYPES_CREATE,
         UserAccess::ACTION_DOCUMENT_TYPES_EDIT,

@@ -16,6 +16,7 @@ use App\Http\Controllers\KassaController;
 use App\Http\Controllers\LegalEntityController;
 use App\Http\Controllers\MoneyLayerController;
 use App\Http\Controllers\BankStatementImportController;
+use App\Http\Controllers\NsiSgrController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\UserAccessController;
 use App\Http\Controllers\UserController;
@@ -55,6 +56,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
     Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
     Route::post('exchange-rates/sync', [ExchangeRateController::class, 'sync'])->name('exchange-rates.sync');
+    Route::get('nsi/sgr', [NsiSgrController::class, 'index'])->name('nsi-sgr.index');
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('kassa', [KassaController::class, 'index'])->name('kassa.index');
     Route::post('kassa', [KassaController::class, 'store'])->name('kassa.store');
