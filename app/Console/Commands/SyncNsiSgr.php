@@ -42,12 +42,13 @@ class SyncNsiSgr extends Command
             if ($mode === 'list' || $mode === 'all') {
                 $summary = $service->syncList($options);
                 $this->info(sprintf(
-                    'NSI SGR list sync complete: run #%d, pages %d, records %d, inserted %d, updated %d, next offset %d of %d.',
+                    'NSI SGR list sync complete: run #%d, pages %d, records %d, inserted %d, updated %d, skipped %d, next offset %d of %d.',
                     $summary['sync_run_id'],
                     $summary['pages'],
                     $summary['records'],
                     $summary['inserted'],
                     $summary['updated'],
+                    $summary['skipped'],
                     $summary['next_offset'],
                     $summary['total_count'],
                 ));

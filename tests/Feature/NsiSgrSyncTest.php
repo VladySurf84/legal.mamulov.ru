@@ -84,6 +84,62 @@ class NsiSgrSyncTest extends TestCase
         ]);
     }
 
+    public function test_sync_list_skips_rows_without_sgr_number(): void
+    {
+        DB::table('legal.nsi_sgr_records')
+            ->where('sgr_number', 'BY.TEST.SKIP.000001')
+            ->delete();
+        DB::table('legal.nsi_sgr_import_state')
+            ->where('state_key', 'list')
+            ->delete();
+
+        Http::fake([
+            'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-list-data-total' => Http::response([
+                'totalCount' => 2,
+                'byFilterCount' => 2,
+            ], 200),
+            'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-list-data' => Http::response([
+                'value' => [
+                    [
+                        'id' => 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+                        'versionId' => 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+                        'data' => [
+                            'NAME_PROD' => 'Row Without Number',
+                        ],
+                    ],
+                    [
+                        'id' => 'cccccccc-cccc-4ccc-cccc-cccccccccccc',
+                        'versionId' => 'dddddddd-dddd-4ddd-dddd-dddddddddddd',
+                        'data' => [
+                            'NUMB_DOC' => 'BY.TEST.SKIP.000001',
+                            'NAME_PROD' => 'Valid Row After Missing Number',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $this->artisan('nsi:sgr-sync', [
+            '--mode' => 'list',
+            '--date' => '2026-06-29',
+            '--limit' => 2,
+            '--max-pages' => 1,
+            '--pause-ms' => 0,
+            '--error-pause-ms' => 0,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'sgr_number' => 'BY.TEST.SKIP.000001',
+            'product_name' => 'Valid Row After Missing Number',
+        ]);
+
+        $this->assertDatabaseHas('legal.nsi_sgr_import_state', [
+            'state_key' => 'list',
+            'next_offset' => 2,
+            'total_count' => 2,
+        ]);
+    }
+
     public function test_sync_details_updates_full_card_fields(): void
     {
         DB::table('legal.nsi_sgr_records')

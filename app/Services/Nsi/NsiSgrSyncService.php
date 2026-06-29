@@ -42,6 +42,7 @@ class NsiSgrSyncService
             'records' => 0,
             'inserted' => 0,
             'updated' => 0,
+            'skipped' => 0,
             'next_offset' => 0,
         ];
 
@@ -85,8 +86,14 @@ class NsiSgrSyncService
                 }
 
                 foreach ($items as $item) {
-                    $inserted = $this->upsertListItem($item);
                     $summary['records']++;
+                    $inserted = $this->upsertListItem($item);
+
+                    if ($inserted === null) {
+                        $summary['skipped']++;
+                        continue;
+                    }
+
                     $summary[$inserted ? 'inserted' : 'updated']++;
                 }
 
@@ -299,13 +306,13 @@ class NsiSgrSyncService
     /**
      * @param array<string, mixed> $item
      */
-    private function upsertListItem(array $item): bool
+    private function upsertListItem(array $item): ?bool
     {
         $data = Arr::get($item, 'data', []);
         $number = $this->text(Arr::get($data, 'NUMB_DOC'));
 
         if ($number === null) {
-            throw new RuntimeException('NSI SGR row without NUMB_DOC.');
+            return null;
         }
 
         $status = Arr::get($data, 'STATUS', []);
