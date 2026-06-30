@@ -152,6 +152,46 @@ class SchedulerPageTest extends TestCase
         }
     }
 
+    public function test_started_scheduler_run_shows_live_http_request_count(): void
+    {
+        $runId = DB::table('legal.api_sync_runs')->insertGetId([
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'status' => 'started',
+            'requests_count' => 0,
+            'started_by_type' => 'system',
+            'started_from' => 'scheduler',
+            'started_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'api_sync_run_id');
+
+        try {
+            foreach (range(1, 7) as $index) {
+                DB::table('legal.api_sync_requests')->insert([
+                    'api_sync_run_id' => $runId,
+                    'provider' => 'nsi_eaeu',
+                    'method' => 'GET',
+                    'endpoint' => '/scheduler-live-'.$index,
+                    'url' => 'https://example.test/scheduler-live-'.$index,
+                    'http_status' => 200,
+                    'duration_ms' => 10,
+                    'requested_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $this->get(route('scheduler.index'))
+                ->assertOk()
+                ->assertSee('scheduler-live-7')
+                ->assertDontSee('scheduler-live-1')
+                ->assertSee('Показаны последние 5 из 7 HTTP-запросов.');
+        } finally {
+            DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();
+        }
+    }
+
     public function test_scheduler_response_forces_json_content_type_for_plain_text_json_body(): void
     {
         $runId = DB::table('legal.api_sync_runs')->insertGetId([

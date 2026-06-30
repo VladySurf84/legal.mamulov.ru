@@ -197,6 +197,14 @@ class SchedulerController extends Controller
             return [];
         }
 
+        $runIds = $runs->pluck('api_sync_run_id');
+        $requestCounts = DB::table('legal.api_sync_requests')
+            ->select('api_sync_run_id')
+            ->selectRaw('COUNT(*) as requests_count')
+            ->whereIn('api_sync_run_id', $runIds)
+            ->groupBy('api_sync_run_id')
+            ->pluck('requests_count', 'api_sync_run_id');
+
         $rankedRequests = DB::table('legal.api_sync_requests')
             ->select([
                 'api_sync_request_id',
@@ -212,7 +220,7 @@ class SchedulerController extends Controller
                 'requested_at',
             ])
             ->selectRaw('ROW_NUMBER() OVER (PARTITION BY api_sync_run_id ORDER BY api_sync_request_id DESC) as scheduler_row_number')
-            ->whereIn('api_sync_run_id', $runs->pluck('api_sync_run_id'));
+            ->whereIn('api_sync_run_id', $runIds);
 
         $requests = DB::query()
             ->fromSub($rankedRequests, 'requests')
@@ -223,7 +231,7 @@ class SchedulerController extends Controller
             ->groupBy('api_sync_run_id');
 
         return $runs
-            ->map(function (object $run) use ($requests): object {
+            ->map(function (object $run) use ($requests, $requestCounts): object {
                 $runRequests = $requests->get($run->api_sync_run_id, collect())
                     ->map(function (object $request): object {
                         $request->params_label = $this->formatDisplayValue($request->params, '{}', 500);
@@ -236,6 +244,7 @@ class SchedulerController extends Controller
 
                 $run->requests = $runRequests->all();
                 $run->requests_shown_count = $runRequests->count();
+                $run->requests_count = (int) ($requestCounts->get($run->api_sync_run_id) ?? $run->requests_count);
                 $run->requests_hidden_count = max(0, (int) $run->requests_count - $run->requests_shown_count);
                 $run->error_label = $this->formatDisplayValue($run->error, '', 1000);
                 $run->started_at_label = $this->formatNullableDate($run->started_at);
