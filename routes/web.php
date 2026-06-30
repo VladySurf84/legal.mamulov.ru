@@ -64,6 +64,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
     Route::post('exchange-rates/sync', [ExchangeRateController::class, 'sync'])->name('exchange-rates.sync');
     Route::get('nsi/sgr', [NsiSgrController::class, 'index'])->name('nsi-sgr.index');
+    Route::post('nsi/sgr/{recordId}/refresh', [NsiSgrController::class, 'refresh'])->whereNumber('recordId')->name('nsi-sgr.refresh');
     Route::get('nsi/sgr/{recordId}', [NsiSgrController::class, 'show'])->whereNumber('recordId')->name('nsi-sgr.show');
     Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('kassa', [KassaController::class, 'index'])->name('kassa.index');

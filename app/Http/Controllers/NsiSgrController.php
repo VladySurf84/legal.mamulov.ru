@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Nsi\NsiSgrSyncService;
 use App\Support\UserAccess;
 use App\Support\UserUiSettings;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class NsiSgrController extends Controller
 {
@@ -139,6 +142,29 @@ class NsiSgrController extends Controller
         }
 
         return $view;
+    }
+
+    public function refresh(Request $request, int $recordId, NsiSgrSyncService $syncService): RedirectResponse
+    {
+        abort_unless(UserAccess::canViewNsiSgr($request->user()), 403);
+
+        $record = DB::table('legal.nsi_sgr_records')
+            ->where('nsi_sgr_record_id', $recordId)
+            ->first(['sgr_number']);
+
+        abort_if($record === null, 404);
+
+        try {
+            $syncService->syncDetailRecord($recordId, [
+                'started_by_type' => 'user',
+                'started_by_user_id' => $request->user()?->getKey(),
+                'started_from' => 'nsi_sgr_context_menu',
+            ]);
+        } catch (Throwable $exception) {
+            return back()->with('error', 'Не удалось обновить СГР: '.$exception->getMessage());
+        }
+
+        return back()->with('status', sprintf('СГР %s обновлена через API.', $record->sgr_number));
     }
 
     /**

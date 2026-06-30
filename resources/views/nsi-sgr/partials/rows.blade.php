@@ -9,6 +9,7 @@
         class="cursor-pointer align-top hover:bg-gray-50 dark:hover:bg-white/5"
         data-nsi-sgr-context-row
         data-nsi-sgr-detail-url="{{ route('nsi-sgr.show', ['recordId' => $record->nsi_sgr_record_id]) }}"
+        data-nsi-sgr-refresh-url="{{ route('nsi-sgr.refresh', ['recordId' => $record->nsi_sgr_record_id]) }}"
         data-nsi-sgr-number="{{ $record->sgr_number }}"
         data-nsi-sgr-product="{{ $record->product_name }}"
     >

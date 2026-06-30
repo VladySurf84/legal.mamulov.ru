@@ -186,6 +186,62 @@ class NsiSgrSyncService
     }
 
     /**
+     * @param array<string, mixed> $options
+     * @return array<string, int|string|null>
+     */
+    public function syncDetailRecord(int $recordId, array $options = []): array
+    {
+        $record = DB::table('legal.nsi_sgr_records')
+            ->where('nsi_sgr_record_id', $recordId)
+            ->first(['nsi_sgr_record_id', 'nsi_id', 'sgr_number']);
+
+        if ($record === null) {
+            throw new RuntimeException('SGR record not found.');
+        }
+
+        if (empty($record->nsi_id)) {
+            throw new RuntimeException('SGR record has no NSI identifier.');
+        }
+
+        $actualDate = $this->actualDate($options);
+        $timeout = $this->positiveInt($options['timeout'] ?? 60, 60);
+        $maxRetries = $this->nonNegativeInt($options['max_retries'] ?? 5);
+        $errorPauseMs = $this->nonNegativeInt($options['error_pause_ms'] ?? 10000);
+        $runId = $this->startRun('sgr_detail_sync', $options);
+
+        $summary = [
+            'sync_run_id' => $runId,
+            'records' => 1,
+            'details' => 0,
+            'failed' => 0,
+        ];
+
+        try {
+            $payload = $this->fetchDetail($runId, (string) $record->nsi_id, $actualDate, $timeout, $maxRetries, $errorPauseMs);
+            $this->applyDetailPayload($recordId, $payload);
+            $summary['details'] = 1;
+
+            $this->finishRun($runId, 'success', $summary);
+
+            return $summary;
+        } catch (Throwable $exception) {
+            $summary['failed'] = 1;
+
+            DB::table('legal.nsi_sgr_records')
+                ->where('nsi_sgr_record_id', $recordId)
+                ->update([
+                    'detail_attempts' => DB::raw('detail_attempts + 1'),
+                    'detail_sync_error' => $exception->getMessage(),
+                    'updated_at' => now(),
+                ]);
+
+            $this->finishRun($runId, 'failed', $summary, $exception);
+
+            throw $exception;
+        }
+    }
+
+    /**
      * @return \Illuminate\Support\Collection<int, object>
      */
     private function pendingDetailRecords(?string $number, int $detailLimit): \Illuminate\Support\Collection

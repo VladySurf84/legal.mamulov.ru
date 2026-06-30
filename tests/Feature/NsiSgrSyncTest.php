@@ -641,7 +641,9 @@ class NsiSgrSyncTest extends TestCase
             ->assertSee('data-nsi-sgr-context-row', false)
             ->assertSee('trigger-selector="[data-nsi-sgr-context-row]"', false)
             ->assertSee(route('nsi-sgr.show', ['recordId' => $recordId]), false)
+            ->assertSee(route('nsi-sgr.refresh', ['recordId' => $recordId]), false)
             ->assertSee('data-nsi-sgr-open-detail', false)
+            ->assertSee('data-nsi-sgr-refresh', false)
             ->assertSee('nsi-sgr-detail-dialog', false);
 
         $response = $this->actingAs($user)
@@ -664,6 +666,70 @@ class NsiSgrSyncTest extends TestCase
         $this->assertStringContainsString('Detail Window Product', $html);
         $this->assertStringContainsString('Detail Manufacturer', $html);
         $this->assertStringContainsString('JSON карточки', $html);
+    }
+
+    public function test_nsi_sgr_context_menu_refreshes_record_from_api(): void
+    {
+        $number = 'BY.TEST.REFRESH.000001';
+        $nsiId = '9dfb932d-4f5b-4d40-88e7-2f4c8942f301';
+
+        DB::table('legal.nsi_sgr_records')
+            ->where('sgr_number', $number)
+            ->delete();
+
+        $recordId = DB::table('legal.nsi_sgr_records')->insertGetId([
+            'nsi_id' => $nsiId,
+            'sgr_number' => $number,
+            'status_name' => 'old',
+            'product_name' => 'Old Refresh Product',
+            'source_list_payload' => json_encode(['list' => true], JSON_THROW_ON_ERROR),
+            'detail_payload' => json_encode(['old' => true], JSON_THROW_ON_ERROR),
+            'list_synced_at' => now(),
+            'detail_synced_at' => now()->subDay(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'nsi_sgr_record_id');
+
+        $user = User::query()->updateOrCreate(
+            ['email' => 'nsi-sgr-refresh@example.com'],
+            [
+                'name' => 'NSI SGR Refresh',
+                'password' => 'secret',
+                'is_admin' => false,
+                'is_active' => true,
+            ],
+        );
+        $this->grantGlobalModule($user, UserAccess::MODULE_NSI_SGR);
+
+        Http::fake([
+            'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-view-card-data-on-date*' => Http::response($this->detailPayload(
+                $nsiId,
+                $number,
+                'Fresh Refresh Product',
+            ), 200),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('nsi-sgr.index', ['q' => $number]))
+            ->post(route('nsi-sgr.refresh', ['recordId' => $recordId]))
+            ->assertRedirect(route('nsi-sgr.index', ['q' => $number]))
+            ->assertSessionHas('status', "СГР {$number} обновлена через API.");
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'nsi_sgr_record_id' => $recordId,
+            'sgr_number' => $number,
+            'product_name' => 'Fresh Refresh Product',
+            'detail_sync_error' => null,
+        ]);
+
+        $this->assertDatabaseHas('legal.api_sync_runs', [
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'started_by_type' => 'user',
+            'started_by_user_id' => $user->getKey(),
+            'started_from' => 'nsi_sgr_context_menu',
+            'status' => 'success',
+        ]);
     }
 
     private function markExistingDetailsAsFresh(): void

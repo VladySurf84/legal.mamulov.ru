@@ -8,6 +8,18 @@
 @endphp
 
 @section('content')
+    @if (session('status'))
+        <div class="mb-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+            {{ session('status') }}
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="mb-4 border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <x-ui.table-filters
         :action="route('nsi-sgr.index')"
         rows-id="nsi-sgr-rows"
@@ -119,8 +131,15 @@
             <x-ui.context-menu-item data-nsi-sgr-open-detail>
                 Открыть детализацию
             </x-ui.context-menu-item>
+            <x-ui.context-menu-item data-nsi-sgr-refresh>
+                Обновить
+            </x-ui.context-menu-item>
         </x-slot:menu>
     </x-ui.context-menu>
+
+    <form method="post" class="hidden" data-nsi-sgr-refresh-form>
+        @csrf
+    </form>
 
     <button type="button" class="hidden" data-ui-modal-open="nsi-sgr-detail-dialog" data-nsi-sgr-detail-open></button>
 
@@ -223,11 +242,24 @@
 
                         menu.dataset.row = JSON.stringify(row.dataset);
                         menu.querySelector('[data-nsi-sgr-open-detail]')?.toggleAttribute('disabled', !row.dataset.nsiSgrDetailUrl);
+                        menu.querySelector('[data-nsi-sgr-refresh]')?.toggleAttribute('disabled', !row.dataset.nsiSgrRefreshUrl);
                     });
 
                     menu.querySelector('[data-nsi-sgr-open-detail]')?.addEventListener('click', () => {
                         const data = JSON.parse(menu.dataset.row || '{}');
                         openDetail(data.nsiSgrDetailUrl);
+                    });
+
+                    menu.querySelector('[data-nsi-sgr-refresh]')?.addEventListener('click', () => {
+                        const data = JSON.parse(menu.dataset.row || '{}');
+                        const form = document.querySelector('[data-nsi-sgr-refresh-form]');
+
+                        if (!form || !data.nsiSgrRefreshUrl) {
+                            return;
+                        }
+
+                        form.action = data.nsiSgrRefreshUrl;
+                        form.requestSubmit();
                     });
                 };
 
