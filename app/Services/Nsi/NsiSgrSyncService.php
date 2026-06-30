@@ -6,6 +6,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -17,6 +18,8 @@ class NsiSgrSyncService
     private const DICTIONARY_CODE = '1995';
     private const PROVIDER = 'nsi_eaeu';
     private const ACTIVE_STATUS_ID = '0888035a-52fa-4e7e-bf59-348c6cc218d4';
+    private const DETAIL_SYNC_LOCK = 'nsi-sgr-sync-details-command';
+    private const DETAIL_RUN_STALE_AFTER_HOURS = 6;
 
     /**
      * @param array<string, mixed> $options
@@ -135,6 +138,31 @@ class NsiSgrSyncService
      */
     public function syncDetails(array $options = []): array
     {
+        $lock = Cache::lock(self::DETAIL_SYNC_LOCK, self::DETAIL_RUN_STALE_AFTER_HOURS * 3600);
+
+        if (! $lock->get()) {
+            return $this->skippedDetailSummary();
+        }
+
+        try {
+            $activeRun = $this->activeDetailRun();
+
+            if ($activeRun !== null) {
+                return $this->skippedDetailSummary((int) $activeRun->api_sync_run_id);
+            }
+
+            return $this->syncDetailsWithoutOverlap($options);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @return array<string, int|string|null>
+     */
+    private function syncDetailsWithoutOverlap(array $options = []): array
+    {
         $actualDate = $this->actualDate($options);
         $pauseMs = $this->nonNegativeInt($options['pause_ms'] ?? 300);
         $timeout = $this->positiveInt($options['timeout'] ?? 60, 60);
@@ -149,6 +177,7 @@ class NsiSgrSyncService
             'records' => 0,
             'details' => 0,
             'failed' => 0,
+            'skipped' => 0,
         ];
 
         try {
@@ -264,6 +293,32 @@ class NsiSgrSyncService
 
         return $this->limitedDetailRecords($query, $detailLimit);
     }
+
+    private function activeDetailRun(): ?object
+    {
+        return DB::table('legal.api_sync_runs')
+            ->where('provider', self::PROVIDER)
+            ->where('type', 'sgr_detail_sync')
+            ->where('status', 'started')
+            ->where('started_at', '>=', now()->subHours(self::DETAIL_RUN_STALE_AFTER_HOURS))
+            ->orderByDesc('started_at')
+            ->first(['api_sync_run_id', 'started_at']);
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    private function skippedDetailSummary(?int $activeRunId = null): array
+    {
+        return [
+            'sync_run_id' => $activeRunId,
+            'records' => 0,
+            'details' => 0,
+            'failed' => 0,
+            'skipped' => 1,
+        ];
+    }
+
     /**
      * @return \Illuminate\Support\Collection<int, object>
      */

@@ -56,13 +56,23 @@ class SyncNsiSgr extends Command
 
             if ($mode === 'details' || $mode === 'all') {
                 $summary = $service->syncDetails($options);
-                $this->info(sprintf(
-                    'NSI SGR detail sync complete: run #%d, selected %d, loaded %d, failed %d.',
-                    $summary['sync_run_id'],
-                    $summary['records'],
-                    $summary['details'],
-                    $summary['failed'],
-                ));
+
+                if (($summary['skipped'] ?? 0) > 0) {
+                    $activeRun = $summary['sync_run_id'] ?? null;
+
+                    $this->warn($activeRun !== null
+                        ? sprintf('NSI SGR detail sync skipped: run #%d is already started.', $activeRun)
+                        : 'NSI SGR detail sync skipped: another detail sync is already running.'
+                    );
+                } else {
+                    $this->info(sprintf(
+                        'NSI SGR detail sync complete: run #%d, selected %d, loaded %d, failed %d.',
+                        $summary['sync_run_id'],
+                        $summary['records'],
+                        $summary['details'],
+                        $summary['failed'],
+                    ));
+                }
             }
         } catch (\Throwable $exception) {
             $this->error($exception->getMessage());

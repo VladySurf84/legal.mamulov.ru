@@ -208,6 +208,44 @@ class NsiSgrSyncTest extends TestCase
         ]);
     }
 
+    public function test_sync_details_skips_when_fresh_detail_run_is_already_started(): void
+    {
+        $activeRunId = DB::table('legal.api_sync_runs')->insertGetId([
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'status' => 'started',
+            'started_by_type' => 'system',
+            'started_from' => 'scheduler',
+            'started_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'api_sync_run_id');
+
+        $runCount = DB::table('legal.api_sync_runs')
+            ->where('provider', 'nsi_eaeu')
+            ->where('type', 'sgr_detail_sync')
+            ->count();
+
+        Http::fake();
+
+        $this->artisan('nsi:sgr-sync', [
+            '--mode' => 'details',
+            '--date' => '2026-06-29',
+            '--detail-limit' => 1,
+            '--pause-ms' => 0,
+            '--error-pause-ms' => 0,
+        ])
+            ->expectsOutput("NSI SGR detail sync skipped: run #{$activeRunId} is already started.")
+            ->assertExitCode(0);
+
+        Http::assertNothingSent();
+
+        $this->assertSame($runCount, DB::table('legal.api_sync_runs')
+            ->where('provider', 'nsi_eaeu')
+            ->where('type', 'sgr_detail_sync')
+            ->count());
+    }
+
     public function test_sync_details_stores_long_product_code_text(): void
     {
         $number = 'BY.TEST.LONGCODE.000001';
