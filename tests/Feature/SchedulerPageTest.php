@@ -94,8 +94,10 @@ class SchedulerPageTest extends TestCase
         ], 'api_sync_run_id');
 
         try {
+            $latestRequestId = null;
+
             foreach (range(1, 7) as $index) {
-                DB::table('legal.api_sync_requests')->insert([
+                $requestId = DB::table('legal.api_sync_requests')->insertGetId([
                     'api_sync_run_id' => $runId,
                     'provider' => 'nsi_eaeu',
                     'method' => 'POST',
@@ -108,16 +110,28 @@ class SchedulerPageTest extends TestCase
                     'http_status' => 200,
                     'duration_ms' => 10,
                     'response_hash' => str_repeat((string) $index, 64),
+                    'response_body' => json_encode(['ok' => true, 'index' => $index], JSON_THROW_ON_ERROR),
                     'requested_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]);
+                ], 'api_sync_request_id');
+
+                if ($index === 7) {
+                    $latestRequestId = $requestId;
+                }
             }
 
             $this->get(route('scheduler.index'))
                 ->assertOk()
                 ->assertSee('scheduler-test-7')
+                ->assertSee(route('scheduler.requests.response', ['requestId' => $latestRequestId]))
+                ->assertSee('response')
                 ->assertDontSee('scheduler-test-1');
+
+            $this->get(route('scheduler.requests.response', ['requestId' => $latestRequestId]))
+                ->assertOk()
+                ->assertHeader('content-type', 'application/json; charset=UTF-8')
+                ->assertSee('"index":7', false);
         } finally {
             DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();
         }

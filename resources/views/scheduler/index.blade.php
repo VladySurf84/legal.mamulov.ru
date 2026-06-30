@@ -142,6 +142,14 @@
                                                         <div>
                                                             <span class="{{ $badge }} {{ $requestStatusClass }}">{{ $request->http_status ?? 'error' }}</span>
                                                             <div class="mt-1 text-xs text-gray-500">{{ $request->duration_ms }} ms</div>
+                                                            <a
+                                                                href="{{ $request->response_route }}"
+                                                                target="_blank"
+                                                                rel="noopener"
+                                                                class="mt-2 inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-indigo-700 shadow-xs ring-1 ring-indigo-200 hover:bg-indigo-50"
+                                                            >
+                                                                response
+                                                            </a>
                                                         </div>
                                                         <div>
                                                             <div class="font-semibold text-gray-900">{{ $request->method }} {{ $request->endpoint }}</div>

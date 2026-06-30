@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +106,41 @@ class SchedulerController extends Controller
             );
     }
 
+    public function response(int $requestId): Response
+    {
+        abort_unless(UserAccess::canViewScheduler(request()->user()), 403);
+
+        $request = DB::table('legal.api_sync_requests')
+            ->where('api_sync_request_id', $requestId)
+            ->first([
+                'api_sync_request_id',
+                'response_json',
+                'response_body',
+            ]);
+
+        abort_unless($request !== null, 404);
+
+        $body = (string) ($request->response_body ?? '');
+        $contentType = 'text/plain; charset=UTF-8';
+
+        if ($body === '' && $request->response_json !== null) {
+            $decoded = json_decode((string) $request->response_json, true);
+            $encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            $body = $encoded === false ? (string) $request->response_json : $encoded;
+            $contentType = 'application/json; charset=UTF-8';
+        } elseif ($this->looksLikeJson($body)) {
+            $contentType = 'application/json; charset=UTF-8';
+        }
+
+        if ($body === '') {
+            $body = 'Response body is empty.';
+        }
+
+        return response($body, 200, [
+            'Content-Type' => $contentType,
+        ]);
+    }
+
     private function taskFromEvent(Event $event): array
     {
         $outputPath = $event->output === $this->defaultOutputPath() ? null : $event->output;
@@ -188,6 +224,7 @@ class SchedulerController extends Controller
                         $request->params_label = $this->formatDisplayValue($request->params, '{}', 500);
                         $request->error_label = $this->formatDisplayValue($request->error, '', 500);
                         $request->requested_at_label = $this->formatNullableDate($request->requested_at);
+                        $request->response_route = route('scheduler.requests.response', ['requestId' => $request->api_sync_request_id]);
 
                         return $request;
                     });
@@ -350,6 +387,19 @@ class SchedulerController extends Controller
         }
 
         return rtrim(mb_substr($text, 0, max(0, $limit - 3))).'...';
+    }
+
+    private function looksLikeJson(string $body): bool
+    {
+        $body = trim($body);
+
+        if ($body === '' || ! str_starts_with($body, '{') && ! str_starts_with($body, '[')) {
+            return false;
+        }
+
+        json_decode($body);
+
+        return json_last_error() === JSON_ERROR_NONE;
     }
 
     private function displayTimezone(): string

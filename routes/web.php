@@ -112,5 +112,8 @@ Route::middleware('admin.session')->group(function (): void {
     Route::post('vat-layer/rebuild', [VatLayerController::class, 'rebuild'])->name('vat-layer.rebuild');
     Route::post('vat-layer/rebuild-bank', [VatLayerController::class, 'rebuildBank'])->name('vat-layer.rebuild-bank');
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
+    Route::get('scheduler/requests/{requestId}/response', [SchedulerController::class, 'response'])
+        ->whereNumber('requestId')
+        ->name('scheduler.requests.response');
     Route::post('scheduler/run/{task}', [SchedulerController::class, 'run'])->name('scheduler.run');
 });
