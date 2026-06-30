@@ -573,13 +573,14 @@ INSERT INTO legal.api_sync_requests (
     http_status,
     duration_ms,
     response_hash,
+    response_content_type,
     response_json,
     response_body,
     error,
     requested_at,
     created_at,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
 SQL, [
             $runId,
             self::PROVIDER,
@@ -590,6 +591,7 @@ SQL, [
             $response?->status(),
             $durationMs,
             $body !== null ? hash('sha256', $body) : null,
+            $response?->header('Content-Type'),
             $this->jsonBody($body),
             $body !== null ? mb_substr($body, 0, 100000) : null,
             $error,

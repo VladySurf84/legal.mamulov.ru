@@ -110,6 +110,7 @@ class SchedulerPageTest extends TestCase
                     'http_status' => 200,
                     'duration_ms' => 10,
                     'response_hash' => str_repeat((string) $index, 64),
+                    'response_content_type' => 'application/vnd.scheduler-test+json; charset=utf-8',
                     'response_body' => json_encode(['ok' => true, 'index' => $index], JSON_THROW_ON_ERROR),
                     'requested_at' => now(),
                     'created_at' => now(),
@@ -130,7 +131,7 @@ class SchedulerPageTest extends TestCase
 
             $this->get(route('scheduler.requests.response', ['requestId' => $latestRequestId]))
                 ->assertOk()
-                ->assertHeader('content-type', 'application/json; charset=UTF-8')
+                ->assertHeader('content-type', 'application/vnd.scheduler-test+json; charset=utf-8')
                 ->assertSee('"index":7', false);
         } finally {
             DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();

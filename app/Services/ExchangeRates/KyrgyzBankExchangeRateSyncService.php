@@ -193,6 +193,7 @@ class KyrgyzBankExchangeRateSyncService
         $startedAt = microtime(true);
         $status = null;
         $body = null;
+        $contentType = null;
 
         try {
             $response = Http::timeout(30)
@@ -204,8 +205,9 @@ class KyrgyzBankExchangeRateSyncService
 
             $status = $response->status();
             $body = $response->body();
+            $contentType = $response->header('Content-Type');
 
-            $this->logRequest($runId, $provider, $method, $endpoint, $url, $status, $body, $startedAt);
+            $this->logRequest($runId, $provider, $method, $endpoint, $url, $status, $body, $contentType, $startedAt);
 
             if ($status < 200 || $status >= 300) {
                 throw new RuntimeException("{$provider} exchange rates request failed with status {$status}.");
@@ -213,7 +215,7 @@ class KyrgyzBankExchangeRateSyncService
 
             return $body;
         } catch (Throwable $exception) {
-            $this->logRequest($runId, $provider, $method, $endpoint, $url, $status, $body, $startedAt, $exception);
+            $this->logRequest($runId, $provider, $method, $endpoint, $url, $status, $body, $contentType, $startedAt, $exception);
 
             throw $exception;
         }
@@ -227,6 +229,7 @@ class KyrgyzBankExchangeRateSyncService
         string $url,
         ?int $status,
         ?string $body,
+        ?string $contentType,
         float $startedAt,
         ?Throwable $exception = null,
     ): void {
@@ -253,6 +256,7 @@ INSERT INTO legal.api_sync_requests (
     http_status,
     duration_ms,
     response_hash,
+    response_content_type,
     response_body,
     response_json,
     error,
@@ -260,7 +264,7 @@ INSERT INTO legal.api_sync_requests (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
 )
 SQL, [
             $runId,
@@ -272,6 +276,7 @@ SQL, [
             $status,
             (int) round((microtime(true) - $startedAt) * 1000),
             $body !== null ? hash('sha256', $body) : null,
+            $contentType,
             $body,
             $jsonBody,
             $jsonBody,

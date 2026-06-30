@@ -101,12 +101,14 @@ class HhApiClient
         $startedAt = microtime(true);
         $status = null;
         $body = null;
+        $contentType = null;
 
         try {
             $response = $this->pending($payload)->accept('*/*')->get($url);
             $status = $response->status();
             $body = $response->body();
-            $this->logRequest($syncRunId, 'GET', $this->endpointFromUrl($url), $url, [], $status, $body, $startedAt);
+            $contentType = $response->header('Content-Type');
+            $this->logRequest($syncRunId, 'GET', $this->endpointFromUrl($url), $url, [], $status, $body, $contentType, $startedAt);
 
             if (! $response->successful()) {
                 throw new RuntimeException($body ?: "HH download failed with status {$status}.");
@@ -114,7 +116,7 @@ class HhApiClient
 
             return $body;
         } catch (Throwable $exception) {
-            $this->logRequest($syncRunId, 'GET', $this->endpointFromUrl($url), $url, [], $status, $body, $startedAt, $exception);
+            $this->logRequest($syncRunId, 'GET', $this->endpointFromUrl($url), $url, [], $status, $body, $contentType, $startedAt, $exception);
 
             throw $exception;
         }
@@ -180,12 +182,14 @@ class HhApiClient
         $startedAt = microtime(true);
         $status = null;
         $body = null;
+        $contentType = null;
 
         try {
             $response = $this->pending($tokenPayload)->send($method, $url, ['query' => $params]);
             $status = $response->status();
             $body = $response->body();
-            $this->logRequest($syncRunId, $method, $endpoint, $url, $params, $status, $body, $startedAt);
+            $contentType = $response->header('Content-Type');
+            $this->logRequest($syncRunId, $method, $endpoint, $url, $params, $status, $body, $contentType, $startedAt);
 
             if (! $response->successful()) {
                 throw new RuntimeException($body ?: "HH API request failed with status {$status}.");
@@ -196,7 +200,7 @@ class HhApiClient
 
             return is_array($json) ? $json : [];
         } catch (Throwable $exception) {
-            $this->logRequest($syncRunId, $method, $endpoint, $url, $params, $status, $body, $startedAt, $exception);
+            $this->logRequest($syncRunId, $method, $endpoint, $url, $params, $status, $body, $contentType, $startedAt, $exception);
 
             throw $exception;
         }
@@ -222,6 +226,7 @@ class HhApiClient
         array $params,
         ?int $status,
         ?string $body,
+        ?string $contentType,
         float $startedAt,
         ?Throwable $exception = null,
     ): void {
@@ -248,13 +253,14 @@ INSERT INTO legal.api_sync_requests (
     http_status,
     duration_ms,
     response_hash,
+    response_content_type,
     response_body,
     response_json,
     error,
     requested_at,
     created_at,
     updated_at
-) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?)
 SQL, [
             $syncRunId,
             'hh',
@@ -265,6 +271,7 @@ SQL, [
             $status,
             (int) round((microtime(true) - $startedAt) * 1000),
             $body !== null ? hash('sha256', $body) : null,
+            $contentType,
             $body,
             $jsonBody,
             $jsonBody,

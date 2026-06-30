@@ -114,6 +114,7 @@ class SchedulerController extends Controller
             ->where('api_sync_request_id', $requestId)
             ->first([
                 'api_sync_request_id',
+                'response_content_type',
                 'response_json',
                 'response_body',
             ]);
@@ -121,14 +122,14 @@ class SchedulerController extends Controller
         abort_unless($request !== null, 404);
 
         $body = (string) ($request->response_body ?? '');
-        $contentType = 'text/plain; charset=UTF-8';
+        $contentType = $this->responseContentType($request->response_content_type);
 
         if ($body === '' && $request->response_json !== null) {
             $decoded = json_decode((string) $request->response_json, true);
             $encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             $body = $encoded === false ? (string) $request->response_json : $encoded;
-            $contentType = 'application/json; charset=UTF-8';
-        } elseif ($this->looksLikeJson($body)) {
+            $contentType ??= 'application/json; charset=UTF-8';
+        } elseif ($contentType === null && $this->looksLikeJson($body)) {
             $contentType = 'application/json; charset=UTF-8';
         }
 
@@ -137,7 +138,7 @@ class SchedulerController extends Controller
         }
 
         return response($body, 200, [
-            'Content-Type' => $contentType,
+            'Content-Type' => $contentType ?? 'text/plain; charset=UTF-8',
         ]);
     }
 
@@ -400,6 +401,17 @@ class SchedulerController extends Controller
         json_decode($body);
 
         return json_last_error() === JSON_ERROR_NONE;
+    }
+
+    private function responseContentType(mixed $contentType): ?string
+    {
+        if (! is_string($contentType)) {
+            return null;
+        }
+
+        $contentType = trim($contentType);
+
+        return $contentType !== '' ? $contentType : null;
     }
 
     private function displayTimezone(): string

@@ -223,6 +223,7 @@ class EdoLightClient
         $startedAt = microtime(true);
         $status = null;
         $body = null;
+        $contentType = null;
 
         try {
             $pending = Http::accept($accept)->timeout(60)->retry(1, 500);
@@ -240,7 +241,8 @@ class EdoLightClient
 
             $status = $response->status();
             $body = $response->body();
-            $this->lastRequestId = $this->logRequest($syncRunId, $method, $endpoint, $url, $json ?? [], $status, $body, $startedAt);
+            $contentType = $response->header('Content-Type');
+            $this->lastRequestId = $this->logRequest($syncRunId, $method, $endpoint, $url, $json ?? [], $status, $body, $contentType, $startedAt);
 
             if (! $response->successful()) {
                 throw new RuntimeException($body !== '' ? $body : "EDO Light auth request failed with status {$status}.");
@@ -249,7 +251,7 @@ class EdoLightClient
             return $response;
         } catch (Throwable $exception) {
             if ($body === null) {
-                $this->lastRequestId = $this->logRequest($syncRunId, $method, $endpoint, $url, $json ?? [], $status, null, $startedAt, $exception);
+                $this->lastRequestId = $this->logRequest($syncRunId, $method, $endpoint, $url, $json ?? [], $status, null, $contentType, $startedAt, $exception);
             }
 
             throw $exception;
@@ -506,6 +508,7 @@ SQL, [
         array $params,
         ?int $status,
         ?string $body,
+        ?string $contentType,
         float $startedAt,
         ?Throwable $exception = null,
     ): int {
@@ -524,6 +527,7 @@ INSERT INTO legal.api_sync_requests (
     http_status,
     duration_ms,
     response_hash,
+    response_content_type,
     response_body,
     response_json,
     error,
@@ -531,7 +535,7 @@ INSERT INTO legal.api_sync_requests (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
 )
 RETURNING api_sync_request_id
 SQL, [
@@ -545,6 +549,7 @@ SQL, [
             $status,
             (int) round((microtime(true) - $startedAt) * 1000),
             $body !== null ? hash('sha256', $body) : null,
+            $contentType,
             $bodyForDatabase,
             $jsonBody,
             $jsonBody,

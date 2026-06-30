@@ -69,14 +69,16 @@ class TinkoffBusinessClient
         $url = $this->url($endpoint);
         $status = null;
         $body = null;
+        $contentType = null;
         $this->lastRequestId = null;
 
         try {
             $response = $this->request($token)->get($url, $params);
             $status = $response->status();
             $body = $response->body();
+            $contentType = $response->header('Content-Type');
 
-            $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $startedAt);
+            $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $contentType, $startedAt);
 
             if ($status < 200 || $status >= 300) {
                 throw new \RuntimeException($body !== '' ? $body : "Tinkoff API request failed with status {$status}.");
@@ -87,7 +89,7 @@ class TinkoffBusinessClient
             return is_array($json) ? $json : [];
         } catch (Throwable $exception) {
             if ($this->lastRequestId === null) {
-                $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $startedAt, $exception);
+                $this->lastRequestId = $this->logRequest($syncRunId, 'GET', $endpoint, $url, $params, $status, $body, $contentType, $startedAt, $exception);
             }
 
             throw $exception;
@@ -102,6 +104,7 @@ class TinkoffBusinessClient
         array $params,
         ?int $status,
         ?string $body,
+        ?string $contentType,
         float $startedAt,
         ?Throwable $exception = null,
     ): int {
@@ -118,6 +121,7 @@ INSERT INTO legal.api_sync_requests (
     http_status,
     duration_ms,
     response_hash,
+    response_content_type,
     response_body,
     response_json,
     error,
@@ -125,7 +129,7 @@ INSERT INTO legal.api_sync_requests (
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE ?::jsonb END, ?, ?, ?, ?
 )
 RETURNING api_sync_request_id
 SQL, [
@@ -138,6 +142,7 @@ SQL, [
             $status,
             (int) round((microtime(true) - $startedAt) * 1000),
             $body !== null ? hash('sha256', $body) : null,
+            $contentType,
             $body,
             $body,
             $body,
