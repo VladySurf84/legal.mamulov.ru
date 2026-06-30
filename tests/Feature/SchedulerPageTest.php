@@ -254,7 +254,7 @@ class SchedulerPageTest extends TestCase
             ->once()
             ->with('nsi:sgr-sync', [
                 '--mode' => 'details',
-                '--detail-limit' => 500,
+                '--detail-limit' => 2000,
                 '--refresh-active-after-hours' => 24,
                 '--pause-ms' => 300,
                 '--error-pause-ms' => 10000,

@@ -36,7 +36,7 @@ class ScheduleDefinitions
             ->onOneServer()
             ->appendOutputTo(storage_path('logs/scheduler.log'));
 
-        $schedule->command('nsi:sgr-sync --mode=details --detail-limit=500 --refresh-active-after-hours=24 --pause-ms=300 --error-pause-ms=10000 --max-retries=5 --started-by-type=system --started-from=scheduler')
+        $schedule->command('nsi:sgr-sync --mode=details --detail-limit=2000 --refresh-active-after-hours=24 --pause-ms=300 --error-pause-ms=10000 --max-retries=5 --started-by-type=system --started-from=scheduler')
             ->description('Sync EAEU NSI SGR details')
             ->cron('2,12,22,32,42,52 * * * *')
             ->withoutOverlapping(1440, self::canReleaseMutexOnTerminationSignals())

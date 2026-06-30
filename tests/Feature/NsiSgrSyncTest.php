@@ -265,7 +265,7 @@ class NsiSgrSyncTest extends TestCase
         ]);
     }
 
-    public function test_sync_details_refreshes_active_records_after_primary_queue_is_empty(): void
+    public function test_sync_details_refreshes_active_signed_records(): void
     {
         $this->markExistingDetailsAsFresh();
 
@@ -282,8 +282,8 @@ class NsiSgrSyncTest extends TestCase
             'product_name' => 'Old Active Product',
             'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
             'detail_payload' => json_encode(['old' => true], JSON_THROW_ON_ERROR),
-            'list_synced_at' => now()->subHours(30),
-            'detail_synced_at' => now()->subHours(25),
+            'list_synced_at' => now(),
+            'detail_synced_at' => now()->subDay(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -312,33 +312,33 @@ class NsiSgrSyncTest extends TestCase
         ]);
     }
 
-    public function test_sync_details_prioritizes_primary_queue_before_active_refresh(): void
+    public function test_sync_details_processes_missing_details_before_active_stale_records(): void
     {
         $this->markExistingDetailsAsFresh();
 
-        $pendingNumber = 'BY.TEST.PENDING.000001';
-        $activeNumber = 'BY.TEST.ACTIVE.000002';
+        $missingNumber = 'BY.TEST.PENDING.000001';
+        $staleActiveNumber = 'BY.TEST.ACTIVE.000002';
 
         DB::table('legal.nsi_sgr_records')
-            ->whereIn('sgr_number', [$pendingNumber, $activeNumber])
+            ->whereIn('sgr_number', [$missingNumber, $staleActiveNumber])
             ->delete();
 
         DB::table('legal.nsi_sgr_records')->insert([
             [
                 'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f002',
-                'sgr_number' => $activeNumber,
+                'sgr_number' => $staleActiveNumber,
                 'status_id' => self::ACTIVE_STATUS_ID,
                 'product_name' => 'Old Active Product',
                 'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
                 'detail_payload' => json_encode(['old' => true], JSON_THROW_ON_ERROR),
-                'list_synced_at' => now()->subHours(30),
-                'detail_synced_at' => now()->subHours(25),
+                'list_synced_at' => now(),
+                'detail_synced_at' => now()->subDay(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
                 'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f003',
-                'sgr_number' => $pendingNumber,
+                'sgr_number' => $missingNumber,
                 'status_id' => null,
                 'product_name' => null,
                 'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
@@ -353,7 +353,7 @@ class NsiSgrSyncTest extends TestCase
         Http::fake([
             'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-view-card-data-on-date*' => Http::response($this->detailPayload(
                 '9dfb932d-4f5b-4d40-88e7-2f4c8942f003',
-                $pendingNumber,
+                $missingNumber,
                 'Pending Fresh Product',
             ), 200),
         ]);
@@ -368,13 +368,121 @@ class NsiSgrSyncTest extends TestCase
         ])->assertExitCode(0);
 
         $this->assertDatabaseHas('legal.nsi_sgr_records', [
-            'sgr_number' => $pendingNumber,
+            'sgr_number' => $missingNumber,
             'product_name' => 'Pending Fresh Product',
         ]);
 
         $this->assertDatabaseHas('legal.nsi_sgr_records', [
-            'sgr_number' => $activeNumber,
+            'sgr_number' => $staleActiveNumber,
             'product_name' => 'Old Active Product',
+        ]);
+    }
+
+    public function test_sync_details_skips_non_active_stale_records(): void
+    {
+        $this->markExistingDetailsAsFresh();
+
+        $number = 'BY.TEST.NONACTIVE.STALE.000001';
+
+        DB::table('legal.nsi_sgr_records')
+            ->where('sgr_number', $number)
+            ->delete();
+
+        DB::table('legal.nsi_sgr_records')->insert([
+            'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f006',
+            'sgr_number' => $number,
+            'status_id' => null,
+            'product_name' => 'Old Non Active Product',
+            'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+            'detail_payload' => json_encode(['old' => true], JSON_THROW_ON_ERROR),
+            'list_synced_at' => now(),
+            'detail_synced_at' => now()->subDay(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::fake();
+
+        $this->artisan('nsi:sgr-sync', [
+            '--mode' => 'details',
+            '--date' => '2026-06-29',
+            '--detail-limit' => 1,
+            '--refresh-active-after-hours' => 24,
+            '--pause-ms' => 0,
+            '--error-pause-ms' => 0,
+        ])->assertExitCode(0);
+
+        Http::assertNothingSent();
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'sgr_number' => $number,
+            'product_name' => 'Old Non Active Product',
+        ]);
+    }
+
+    public function test_sync_details_prioritizes_missing_details_before_stale_details(): void
+    {
+        $this->markExistingDetailsAsFresh();
+
+        $staleNumber = 'BY.TEST.STALE.000001';
+        $missingNumber = 'BY.TEST.MISSING.000001';
+
+        DB::table('legal.nsi_sgr_records')
+            ->whereIn('sgr_number', [$staleNumber, $missingNumber])
+            ->delete();
+
+        DB::table('legal.nsi_sgr_records')->insert([
+            [
+                'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f004',
+                'sgr_number' => $staleNumber,
+                'status_id' => self::ACTIVE_STATUS_ID,
+                'product_name' => 'Stale Product',
+                'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+                'detail_payload' => json_encode(['old' => true], JSON_THROW_ON_ERROR),
+                'list_synced_at' => now(),
+                'detail_synced_at' => now()->subDay(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'nsi_id' => '9dfb932d-4f5b-4d40-88e7-2f4c8942f005',
+                'sgr_number' => $missingNumber,
+                'status_id' => self::ACTIVE_STATUS_ID,
+                'product_name' => null,
+                'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
+                'detail_payload' => null,
+                'list_synced_at' => now(),
+                'detail_synced_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        Http::fake([
+            'https://nsi.eaeunion.org/portal/api/dictionaries/1995/get-view-card-data-on-date*' => Http::response($this->detailPayload(
+                '9dfb932d-4f5b-4d40-88e7-2f4c8942f005',
+                $missingNumber,
+                'Missing Fresh Product',
+            ), 200),
+        ]);
+
+        $this->artisan('nsi:sgr-sync', [
+            '--mode' => 'details',
+            '--date' => '2026-06-29',
+            '--detail-limit' => 1,
+            '--refresh-active-after-hours' => 24,
+            '--pause-ms' => 0,
+            '--error-pause-ms' => 0,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'sgr_number' => $missingNumber,
+            'product_name' => 'Missing Fresh Product',
+        ]);
+
+        $this->assertDatabaseHas('legal.nsi_sgr_records', [
+            'sgr_number' => $staleNumber,
+            'product_name' => 'Stale Product',
         ]);
     }
 

@@ -140,8 +140,7 @@ class NsiSgrSyncService
         $timeout = $this->positiveInt($options['timeout'] ?? 60, 60);
         $maxRetries = $this->nonNegativeInt($options['max_retries'] ?? 5);
         $errorPauseMs = $this->nonNegativeInt($options['error_pause_ms'] ?? 10000);
-        $detailLimit = $this->nonNegativeInt($options['detail_limit'] ?? 500);
-        $refreshActiveAfterHours = $this->nonNegativeInt($options['refresh_active_after_hours'] ?? 24);
+        $detailLimit = $this->nonNegativeInt($options['detail_limit'] ?? 2000);
         $number = $this->text($options['number'] ?? null);
         $runId = $this->startRun('sgr_detail_sync', $options);
 
@@ -154,10 +153,6 @@ class NsiSgrSyncService
 
         try {
             $records = $this->pendingDetailRecords($number, $detailLimit);
-
-            if ($records->isEmpty() && $number === null && $refreshActiveAfterHours > 0) {
-                $records = $this->activeRefreshDetailRecords($refreshActiveAfterHours, $detailLimit);
-            }
 
             foreach ($records as $record) {
                 $summary['records']++;
@@ -198,33 +193,21 @@ class NsiSgrSyncService
         $query = DB::table('legal.nsi_sgr_records')
             ->where(function (Builder $query): void {
                 $query->whereNull('detail_payload')
-                    ->orWhereColumn('detail_synced_at', '<', 'list_synced_at');
+                    ->orWhere(function (Builder $query): void {
+                        $query->where('status_id', self::ACTIVE_STATUS_ID)
+                            ->whereNotNull('detail_payload')
+                            ->where(function (Builder $query): void {
+                                $query->whereNull('detail_synced_at')
+                                    ->orWhereColumn('detail_synced_at', '<', 'list_synced_at');
+                            });
+                    });
             })
             ->when($number !== null, fn (Builder $query) => $query->where('sgr_number', $number))
+            ->orderByRaw('CASE WHEN detail_payload IS NULL THEN 0 ELSE 1 END')
             ->orderBy('nsi_sgr_record_id');
 
         return $this->limitedDetailRecords($query, $detailLimit);
     }
-
-    /**
-     * @return \Illuminate\Support\Collection<int, object>
-     */
-    private function activeRefreshDetailRecords(int $refreshActiveAfterHours, int $detailLimit): \Illuminate\Support\Collection
-    {
-        $refreshBefore = now()->subHours($refreshActiveAfterHours);
-        $query = DB::table('legal.nsi_sgr_records')
-            ->where('status_id', self::ACTIVE_STATUS_ID)
-            ->whereNotNull('detail_payload')
-            ->where(function (Builder $query) use ($refreshBefore): void {
-                $query->whereNull('detail_synced_at')
-                    ->orWhere('detail_synced_at', '<=', $refreshBefore);
-            })
-            ->orderBy('detail_synced_at')
-            ->orderBy('nsi_sgr_record_id');
-
-        return $this->limitedDetailRecords($query, $detailLimit);
-    }
-
     /**
      * @return \Illuminate\Support\Collection<int, object>
      */
