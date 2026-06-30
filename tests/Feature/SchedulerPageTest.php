@@ -78,6 +78,20 @@ class SchedulerPageTest extends TestCase
         }
     }
 
+    public function test_nsi_sgr_detail_task_uses_stable_mutex_name(): void
+    {
+        $schedule = app(Schedule::class);
+
+        ScheduleDefinitions::define($schedule);
+
+        $detailEvent = collect($schedule->events())->first(
+            fn ($event) => str_contains((string) $event->command, 'nsi:sgr-sync --mode=details')
+        );
+
+        $this->assertNotNull($detailEvent);
+        $this->assertSame('nsi-sgr-sync-details', $detailEvent->mutexName());
+    }
+
     public function test_the_application_opens_scheduler_with_many_logged_requests(): void
     {
         $runId = DB::table('legal.api_sync_runs')->insertGetId([
