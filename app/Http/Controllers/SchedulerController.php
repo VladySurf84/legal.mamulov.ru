@@ -129,7 +129,7 @@ class SchedulerController extends Controller
             $encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             $body = $encoded === false ? (string) $request->response_json : $encoded;
             $contentType ??= 'application/json; charset=UTF-8';
-        } elseif ($contentType === null && $this->looksLikeJson($body)) {
+        } elseif (($contentType === null || $this->isPlainTextContentType($contentType)) && $this->looksLikeJson($body)) {
             $contentType = 'application/json; charset=UTF-8';
         }
 
@@ -412,6 +412,11 @@ class SchedulerController extends Controller
         $contentType = trim($contentType);
 
         return $contentType !== '' ? $contentType : null;
+    }
+
+    private function isPlainTextContentType(string $contentType): bool
+    {
+        return strtolower(trim(strtok($contentType, ';') ?: $contentType)) === 'text/plain';
     }
 
     private function displayTimezone(): string

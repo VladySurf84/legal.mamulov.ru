@@ -138,6 +138,44 @@ class SchedulerPageTest extends TestCase
         }
     }
 
+    public function test_scheduler_response_forces_json_content_type_for_plain_text_json_body(): void
+    {
+        $runId = DB::table('legal.api_sync_runs')->insertGetId([
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'status' => 'success',
+            'requests_count' => 1,
+            'started_at' => now(),
+            'finished_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'api_sync_run_id');
+
+        try {
+            $requestId = DB::table('legal.api_sync_requests')->insertGetId([
+                'api_sync_run_id' => $runId,
+                'provider' => 'nsi_eaeu',
+                'method' => 'GET',
+                'endpoint' => '/plain-json',
+                'url' => 'https://example.test/plain-json',
+                'http_status' => 200,
+                'duration_ms' => 10,
+                'response_content_type' => 'text/plain; charset=utf-8',
+                'response_body' => '{"ok":true}',
+                'requested_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], 'api_sync_request_id');
+
+            $this->get(route('scheduler.requests.response', ['requestId' => $requestId]))
+                ->assertOk()
+                ->assertHeader('content-type', 'application/json; charset=UTF-8')
+                ->assertSee('{"ok":true}', false);
+        } finally {
+            DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();
+        }
+    }
+
     public function test_the_application_runs_nsi_sgr_list_scheduler_task(): void
     {
         $userId = $this->test_user()->getKey();
