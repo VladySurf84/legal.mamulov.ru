@@ -176,6 +176,48 @@ class SchedulerPageTest extends TestCase
         }
     }
 
+    public function test_scheduler_response_uses_full_json_payload_when_body_is_truncated(): void
+    {
+        $runId = DB::table('legal.api_sync_runs')->insertGetId([
+            'provider' => 'nsi_eaeu',
+            'type' => 'sgr_detail_sync',
+            'status' => 'success',
+            'requests_count' => 1,
+            'started_at' => now(),
+            'finished_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'api_sync_run_id');
+
+        try {
+            $requestId = DB::table('legal.api_sync_requests')->insertGetId([
+                'api_sync_run_id' => $runId,
+                'provider' => 'nsi_eaeu',
+                'method' => 'GET',
+                'endpoint' => '/truncated-json',
+                'url' => 'https://example.test/truncated-json',
+                'http_status' => 200,
+                'duration_ms' => 10,
+                'response_body' => '[{"id":1,"name":"cut',
+                'response_json' => json_encode([
+                    ['id' => 1, 'name' => 'full'],
+                    ['id' => 2, 'name' => 'tail'],
+                ], JSON_THROW_ON_ERROR),
+                'requested_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], 'api_sync_request_id');
+
+            $this->get(route('scheduler.requests.response', ['requestId' => $requestId]))
+                ->assertOk()
+                ->assertHeader('content-type', 'application/json; charset=UTF-8')
+                ->assertSee('"name": "tail"', false)
+                ->assertDontSee('cut', false);
+        } finally {
+            DB::table('legal.api_sync_runs')->where('api_sync_run_id', $runId)->delete();
+        }
+    }
+
     public function test_the_application_runs_nsi_sgr_list_scheduler_task(): void
     {
         $userId = $this->test_user()->getKey();

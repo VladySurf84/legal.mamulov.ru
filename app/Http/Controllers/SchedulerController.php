@@ -123,8 +123,12 @@ class SchedulerController extends Controller
 
         $body = (string) ($request->response_body ?? '');
         $contentType = $this->responseContentType($request->response_content_type);
+        $shouldUseJsonPayload = $request->response_json !== null
+            && ($body === ''
+                || $this->isJsonContentType($contentType)
+                || (($contentType === null || $this->isPlainTextContentType($contentType)) && $this->startsLikeJson($body)));
 
-        if ($body === '' && $request->response_json !== null) {
+        if ($shouldUseJsonPayload) {
             $decoded = json_decode((string) $request->response_json, true);
             $encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             $body = $encoded === false ? (string) $request->response_json : $encoded;
@@ -414,9 +418,27 @@ class SchedulerController extends Controller
         return $contentType !== '' ? $contentType : null;
     }
 
+    private function isJsonContentType(?string $contentType): bool
+    {
+        if ($contentType === null) {
+            return false;
+        }
+
+        $mediaType = strtolower(trim(strtok($contentType, ';') ?: $contentType));
+
+        return $mediaType === 'application/json' || str_ends_with($mediaType, '+json');
+    }
+
     private function isPlainTextContentType(string $contentType): bool
     {
         return strtolower(trim(strtok($contentType, ';') ?: $contentType)) === 'text/plain';
+    }
+
+    private function startsLikeJson(string $body): bool
+    {
+        $body = ltrim($body);
+
+        return str_starts_with($body, '{') || str_starts_with($body, '[');
     }
 
     private function displayTimezone(): string
