@@ -18,6 +18,8 @@ class ExchangeRateController extends Controller
             'rate_type' => ['nullable', 'string', 'max:50'],
             'currency_code' => ['nullable', 'string', 'size:3'],
             'show_history' => ['nullable', 'boolean'],
+            'sort' => ['nullable', 'string', 'in:valid_to'],
+            'direction' => ['nullable', 'string', 'in:asc,desc'],
         ]);
 
         $query = DB::table('legal.exchange_rates as rates')
@@ -39,6 +41,20 @@ class ExchangeRateController extends Controller
 
         if (! empty($filters['currency_code'])) {
             $query->where('rates.currency_code', strtoupper($filters['currency_code']));
+        }
+
+        if (($filters['sort'] ?? null) === 'valid_to') {
+            $direction = ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+            if ($direction === 'desc') {
+                $query
+                    ->orderByRaw('rates.valid_to IS NULL DESC')
+                    ->orderByDesc('rates.valid_to');
+            } else {
+                $query
+                    ->orderByRaw('rates.valid_to IS NULL')
+                    ->orderBy('rates.valid_to');
+            }
         }
 
         $rates = $query

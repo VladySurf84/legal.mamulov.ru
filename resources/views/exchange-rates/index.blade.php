@@ -16,6 +16,14 @@
         'mbank' => 'MBank',
         'obank' => 'Obank',
     ];
+    $sort = $filters['sort'] ?? null;
+    $direction = ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+    $validToSortDirection = $sort === 'valid_to' && $direction === 'asc' ? 'desc' : 'asc';
+    $validToSortUrl = route('exchange-rates.index', array_filter(array_merge(request()->query(), [
+        'sort' => 'valid_to',
+        'direction' => $validToSortDirection,
+    ]), fn ($value) => $value !== null && $value !== ''));
+    $validToSortMark = $sort === 'valid_to' ? ($direction === 'desc' ? '↓' : '↑') : '↕';
     $interval = static function ($from, $to, $lastSeenAt): string {
         if (! $from) {
             return '—';
@@ -50,6 +58,11 @@
 
     <div class="mb-4 border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
         <form method="get" action="{{ route('exchange-rates.index') }}">
+            @if ($sort)
+                <input type="hidden" name="sort" value="{{ $sort }}">
+                <input type="hidden" name="direction" value="{{ $direction }}">
+            @endif
+
             <div class="grid gap-4 lg:grid-cols-4">
                 <x-ui.select
                     label="Банк"
@@ -115,7 +128,16 @@
                 <x-ui.sticky-table-th align="right">Продажа</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th align="right">Офиц.</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Действует с</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Действует до</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>
+                    <a
+                        href="{{ $validToSortUrl }}"
+                        class="inline-flex items-center gap-1 text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white"
+                        wire:navigate
+                    >
+                        <span>Действует до</span>
+                        <span class="text-xs text-gray-400">{{ $validToSortMark }}</span>
+                    </a>
+                </x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Интервал</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Последний раз</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last>Источник</x-ui.sticky-table-th>
