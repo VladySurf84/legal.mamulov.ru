@@ -100,7 +100,7 @@
 
         <x-slot:stickySummary>
             <tr>
-                <th scope="row" colspan="7" class="border-t border-gray-300 px-3 py-2.5 text-left text-sm font-semibold text-gray-900 dark:border-white/15 dark:text-white">
+                <th scope="row" colspan="7" class="border-t border-gray-300 bg-white/75 px-3 py-2.5 text-left text-sm font-semibold text-gray-900 backdrop-blur-sm backdrop-filter dark:border-white/15 dark:bg-gray-900/75 dark:text-white">
                     Всего счетов: {{ $accounts->count() }}
                 </th>
                 <x-ui.sticky-table-td summary last align="right" class="tabular-nums">
