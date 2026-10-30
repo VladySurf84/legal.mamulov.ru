@@ -21,11 +21,7 @@
 
 @section('content')
     @php
-        $balanceTotal = $accounts->sum(function ($account) {
-            $snapshot = $account->latest_balance ? json_decode($account->latest_balance, true) : null;
-
-            return (float) ($snapshot['amount'] ?? $account->balance_otb ?? 0);
-        });
+        $balanceTotal = $accounts->sum('transaction_total');
     @endphp
 
     <x-ui.sticky-table
@@ -51,8 +47,7 @@
 
         @forelse ($accounts as $account)
             @php
-                $latestBalance = $account->latest_balance ? json_decode($account->latest_balance, true) : null;
-                $balanceAmount = $latestBalance['amount'] ?? $account->balance_otb;
+                $balanceAmount = $account->transaction_total;
             @endphp
             <tr class="align-top hover:bg-gray-50">
                 <td

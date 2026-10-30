@@ -239,7 +239,7 @@
                             'value' => $account->account_number,
                             'label' => $account->name ?: ($account->account_type ?: 'Счет'),
                             'secondary' => '',
-                            'amount' => $formatAccountBalance($account->balance_otb, $account->currency),
+                            'amount' => $formatAccountBalance($account->transaction_total, $account->currency),
                             'indent' => 1,
                         ]);
                     });

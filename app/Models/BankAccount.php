@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -45,6 +46,14 @@ class BankAccount extends Model
     public function bank(): BelongsTo
     {
         return $this->belongsTo(Bank::class, 'bank_id', 'bank_id');
+    }
+
+    public function scopeWithTransactionTotal(Builder $query): Builder
+    {
+        return $query->addSelect(['transaction_total' => \Illuminate\Support\Facades\DB::table('legal.document_bank_transaction as bt')
+            ->selectRaw('COALESCE(SUM(bt.signed_amount), 0)')
+            ->whereColumn('bt.bank_account_id', 'legal.bank_account.bank_account_id'),
+        ]);
     }
 
     public function legalEntity(): BelongsTo

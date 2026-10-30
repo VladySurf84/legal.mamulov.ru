@@ -80,6 +80,8 @@ class BankTransactionController extends Controller
         }
 
         $accountsQuery = UserAccess::bankAccountsQuery($request)
+            ->select('legal.bank_account.*')
+            ->withTransactionTotal()
             ->with(['bank', 'legalEntity'])
             ->orderBy('legal_id')
             ->orderBy('bank_id')
