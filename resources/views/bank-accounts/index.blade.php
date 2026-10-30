@@ -29,7 +29,7 @@
     >
         <x-slot:head>
             <tr>
-                <x-ui.sticky-table-th first>Юрлицо</x-ui.sticky-table-th>
+                <th scope="col" aria-label="Юрлицо" style="width: 5px; min-width: 5px; max-width: 5px; padding: 0;"></th>
                 <x-ui.sticky-table-th>Счет</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Банк</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Тип</x-ui.sticky-table-th>
@@ -41,12 +41,11 @@
 
         @forelse ($accounts as $account)
             <tr class="align-top hover:bg-gray-50">
-                <x-ui.sticky-table-td first :nowrap="false">
-                    <div class="font-medium text-gray-900">{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}</div>
-                    @if ($account->legalEntity?->legal_inn)
-                        <div class="mt-1 text-xs text-gray-500">ИНН {{ $account->legalEntity->legal_inn }}</div>
-                    @endif
-                </x-ui.sticky-table-td>
+                <td
+                    title="{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}"
+                    aria-label="{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}"
+                    style="width: 5px; min-width: 5px; max-width: 5px; padding: 0; background-color: {{ $account->legalEntity?->legal_color ?: '#e5e7eb' }};"
+                ></td>
 
                 <x-ui.sticky-table-td>
                     <div class="font-mono text-gray-900">{{ $account->account_number }}</div>
