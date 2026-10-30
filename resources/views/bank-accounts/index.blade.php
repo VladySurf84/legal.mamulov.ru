@@ -20,6 +20,14 @@
 @endsection
 
 @section('content')
+    @php
+        $balanceTotals = $accounts->groupBy('currency')->map(fn ($currencyAccounts) => $currencyAccounts->sum(function ($account) {
+            $snapshot = $account->latest_balance ? json_decode($account->latest_balance, true) : null;
+
+            return (float) ($snapshot['amount'] ?? $account->balance_otb ?? 0);
+        }));
+    @endphp
+
     <x-ui.sticky-table
         :contained="false"
         :scrollable="true"
@@ -79,14 +87,6 @@
 
                 <x-ui.sticky-table-td class="font-semibold tabular-nums" last align="right" strong>
                     {{ $balanceAmount !== null ? number_format((float) $balanceAmount, 2, ',', ' ') : '—' }}
-                    @if ($latestBalance)
-                        <div class="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">
-                            На {{ \Illuminate\Support\Carbon::parse($latestBalance['balance_on'])->format('d.m.Y') }}
-                            · {{ $latestBalance['source'] === 'tinkoff_api' ? 'API Т-Банка' : 'Выписка' }}
-                        </div>
-                    @elseif ($balanceAmount !== null)
-                        <div class="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Дата и источник не зафиксированы</div>
-                    @endif
                 </x-ui.sticky-table-td>
             </tr>
         @empty
@@ -96,5 +96,22 @@
                 </td>
             </tr>
         @endforelse
+
+        <x-slot:foot>
+            <tr>
+                <th scope="row" colspan="7" class="border-t border-gray-300 px-3 py-2.5 text-left text-sm font-semibold text-gray-900 dark:border-white/15 dark:text-white">
+                    Всего счетов: {{ $accounts->count() }}
+                </th>
+                <x-ui.sticky-table-td summary last align="right" class="tabular-nums">
+                    @forelse ($balanceTotals as $currency => $total)
+                        <div>
+                            {{ number_format($total, 2, ',', ' ') }}@if ($balanceTotals->count() > 1) {{ $currency ?: '—' }}@endif
+                        </div>
+                    @empty
+                        0,00
+                    @endforelse
+                </x-ui.sticky-table-td>
+            </tr>
+        </x-slot:foot>
     </x-ui.sticky-table>
 @endsection
