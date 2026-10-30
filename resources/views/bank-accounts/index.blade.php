@@ -29,7 +29,7 @@
     >
         <x-slot:head>
             <tr>
-                <th scope="col" aria-label="Юрлицо" style="width: 5px; min-width: 5px; max-width: 5px; padding: 0;"></th>
+                <x-ui.sticky-table-th padding="p-0" aria-label="Юрлицо" style="width: 5px; min-width: 5px; max-width: 5px; padding: 0;"></x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Счет</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Банк</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Название счета</x-ui.sticky-table-th>
@@ -43,6 +43,7 @@
         @forelse ($accounts as $account)
             <tr class="align-top hover:bg-gray-50">
                 <td
+                    class="border-b border-gray-200 dark:border-white/10"
                     title="{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}"
                     aria-label="{{ $account->legalEntity?->legal_name ?? 'Юрлицо #' . $account->legal_id }}"
                     style="width: 5px; min-width: 5px; max-width: 5px; padding: 0; background-color: {{ $account->legalEntity?->legal_color ?: '#e5e7eb' }};"
