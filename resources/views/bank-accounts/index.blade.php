@@ -21,11 +21,11 @@
 
 @section('content')
     @php
-        $balanceTotals = $accounts->groupBy('currency')->map(fn ($currencyAccounts) => $currencyAccounts->sum(function ($account) {
+        $balanceTotal = $accounts->sum(function ($account) {
             $snapshot = $account->latest_balance ? json_decode($account->latest_balance, true) : null;
 
             return (float) ($snapshot['amount'] ?? $account->balance_otb ?? 0);
-        }));
+        });
     @endphp
 
     <x-ui.sticky-table
@@ -104,13 +104,7 @@
                     Всего счетов: {{ $accounts->count() }}
                 </th>
                 <x-ui.sticky-table-td summary last align="right" class="tabular-nums">
-                    @forelse ($balanceTotals as $currency => $total)
-                        <div>
-                            {{ number_format($total, 2, ',', ' ') }}@if ($balanceTotals->count() > 1) {{ $currency ?: '—' }}@endif
-                        </div>
-                    @empty
-                        0,00
-                    @endforelse
+                    {{ number_format($balanceTotal, 2, ',', ' ') }}
                 </x-ui.sticky-table-td>
             </tr>
         </x-slot:stickySummary>
