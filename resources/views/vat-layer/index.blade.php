@@ -1,54 +1,48 @@
-@extends('layouts.app', ['title' => 'VAT layer'])
+@extends('layouts.app', ['title' => 'VAT layer', 'titleAttribute' => 'Интерпретационный слой НДС из книг бухгалтера и банковских назначений платежа.'])
 
-@section('content')
-    <div class="page-head">
-        <div>
-            <h1>VAT layer</h1>
-            <div class="subtle">Интерпретационный слой НДС из книг бухгалтера и банковских назначений платежа.</div>
-        </div>
-        <div class="actions">
+@section('page_actions')
+    <div class="flex flex-wrap items-center gap-2">
             @if (\App\Support\UserAccess::canRebuildVatLayer(auth()->user()))
             <form method="post" action="{{ route('vat-layer.rebuild') }}">
                 @csrf
-                <button type="submit">Пересчитать книги</button>
+                <x-ui.button type="submit" size="md" variant="ghost">Пересчитать книги</x-ui.button>
             </form>
             @endif
             @if (\App\Support\UserAccess::canRebuildBankVatLayer(auth()->user()))
             <form method="post" action="{{ route('vat-layer.rebuild-bank') }}">
                 @csrf
-                <button type="submit">Пересчитать банк</button>
+                <x-ui.button type="submit" size="md" variant="ghost">Пересчитать банк</x-ui.button>
             </form>
             @endif
-        </div>
     </div>
+@endsection
 
+@section('content')
     @if (session('status'))
-        <div class="notice">{{ session('status') }}</div>
+        <div class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-500/10 dark:text-green-300">{{ session('status') }}</div>
     @endif
 
-    <div class="panel" style="margin-bottom: 16px;">
-        <form class="form" method="get" action="{{ route('vat-layer.index') }}">
-            <div class="grid">
-                <div class="field">
-                    <label for="source_system">Источник</label>
-                    <select id="source_system" name="source_system">
+
+        <x-ui.table-filters :action="route('vat-layer.index')" :ajax="false" columns="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+
+                <div class="min-w-0">
+                    <x-ui.select id="source_system" name="source_system" label="Источник">
                         <option value="">Все источники</option>
                         <option value="accountant_vat_book" @selected(($filters['source_system'] ?? '') === 'accountant_vat_book')>Книги бухгалтера</option>
                         <option value="bank_payment_vat" @selected(($filters['source_system'] ?? '') === 'bank_payment_vat')>Наш расчет по банку</option>
-                    </select>
+                    </x-ui.select>
                 </div>
-                <div class="field">
-                    <label for="legal_id">Наше юрлицо</label>
-                    <select id="legal_id" name="legal_id">
+                <div class="min-w-0">
+                    <x-ui.select id="legal_id" name="legal_id" label="Наше юрлицо">
                         <option value="">Все юрлица</option>
                         @foreach ($legalEntities as $legalEntity)
                             <option value="{{ $legalEntity->legal_id }}" @selected((string) ($filters['legal_id'] ?? '') === (string) $legalEntity->legal_id)>
                                 {{ $legalEntity->legal_name }}@if ($legalEntity->legal_inn) · ИНН {{ $legalEntity->legal_inn }}@endif
                             </option>
                         @endforeach
-                    </select>
+                    </x-ui.select>
                 </div>
-                <div class="field">
+                <div class="min-w-0">
                     <x-ui.input
                         id="contractor_inn"
                         name="contractor_inn"
@@ -57,86 +51,79 @@
                         inputmode="numeric"
                     />
                 </div>
-                <div class="field">
-                    <label>Период</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div class="min-w-0">
+                    <div class="block text-sm/6 font-medium text-gray-900 dark:text-white">Период</div>
+                    <div class="mt-2 grid grid-cols-2 gap-2">
                         <x-ui.input
-                            name="year"
+                            name="year" aria-label="Год"
                             :value="$filters['year'] ?? ''"
                             placeholder="2026"
                             inputmode="numeric"
                         />
-                        <select name="quarter">
+                        <x-ui.select name="quarter" aria-label="Квартал">
                             <option value="">Все кварталы</option>
                             @foreach ([1, 2, 3, 4] as $quarter)
                                 <option value="{{ $quarter }}" @selected((string) ($filters['quarter'] ?? '') === (string) $quarter)>Q{{ $quarter }}</option>
                             @endforeach
-                        </select>
+                        </x-ui.select>
                     </div>
                 </div>
-                <div class="field">
-                    <label for="direction">Направление</label>
-                    <select id="direction" name="direction">
+                <div class="min-w-0">
+                    <x-ui.select id="direction" name="direction" label="Направление">
                         <option value="">Все</option>
                         <option value="output" @selected(($filters['direction'] ?? '') === 'output')>Начисленный НДС</option>
                         <option value="input" @selected(($filters['direction'] ?? '') === 'input')>Вычет НДС</option>
-                    </select>
+                    </x-ui.select>
                 </div>
-            </div>
-            <div class="form-actions">
-                <a class="button secondary" href="{{ route('vat-layer.index') }}" wire:navigate>Сбросить</a>
-                <button type="submit">Показать</button>
-            </div>
-        </form>
+            <x-slot:actions>
+                <x-ui.button href="{{ route('vat-layer.index') }}" size="lg" variant="ghost" wire:navigate>Сбросить</x-ui.button>
+                <x-ui.button type="submit" size="lg" variant="soft">Показать</x-ui.button>
+            </x-slot:actions>
+        </x-ui.table-filters>
+
+    <div class="mb-4 flex flex-wrap gap-2">
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">Событий: {{ $summary['count'] }}</span>
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">Начислено: {{ number_format($summary['output_vat'], 2, ',', ' ') }}</span>
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">Вычет: {{ number_format($summary['input_vat'], 2, ',', ' ') }}</span>
+        <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">Итого к уплате: {{ number_format($summary['vat_balance'], 2, ',', ' ') }}</span>
     </div>
 
-    <div class="badges" style="margin-bottom: 16px;">
-        <span class="badge">Событий: {{ $summary['count'] }}</span>
-        <span class="badge">Начислено: {{ number_format($summary['output_vat'], 2, ',', ' ') }}</span>
-        <span class="badge">Вычет: {{ number_format($summary['input_vat'], 2, ',', ' ') }}</span>
-        <span class="badge">Итого к уплате: {{ number_format($summary['vat_balance'], 2, ',', ' ') }}</span>
-    </div>
-
-    <div class="panel">
-        <table>
-            <thead>
+    <x-ui.sticky-table :contained="false" :scrollable="true" :viewport-sticky="true" :bottom-scrollbar="true" scroll-class="overflow-x-auto overflow-y-visible">
+        <x-slot:head>
             <tr>
-                <th>Источник</th>
-                <th>Период</th>
-                <th>Дата</th>
-                <th>Тип</th>
-                <th>Юрлицо</th>
-                <th>Контрагент</th>
-                <th>Документ</th>
-                <th class="money">Сумма</th>
-                <th class="money">НДС</th>
+                <x-ui.sticky-table-th first>Источник</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Период</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Дата</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Тип</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Юрлицо</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Контрагент</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th>Документ</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th align="right">Сумма</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th last align="right">НДС</x-ui.sticky-table-th>
             </tr>
-            </thead>
-            <tbody>
+        </x-slot:head>
             @forelse ($events as $event)
-                <tr>
-                    <td>{{ $event->source_system === 'bank_payment_vat' ? 'Банк' : 'Книга' }}</td>
-                    <td>{{ $event->year }} Q{{ $event->quarter }}</td>
-                    <td>{{ $event->occurred_on ?? '—' }}</td>
-                    <td>{{ $event->vat_direction === 'input' ? 'Вычет' : 'Начисление' }}</td>
-                    <td>{{ $event->legal_name }}</td>
-                    <td>
+                <tr class="align-top hover:bg-gray-50 dark:hover:bg-white/5">
+                    <x-ui.sticky-table-td first nowrap>{{ $event->source_system === 'bank_payment_vat' ? 'Банк' : 'Книга' }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td nowrap>{{ $event->year }} Q{{ $event->quarter }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td nowrap>{{ $event->occurred_on ?? '—' }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td :nowrap="false">{{ $event->vat_direction === 'input' ? 'Вычет' : 'Начисление' }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td :nowrap="false">{{ $event->legal_name }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td :nowrap="false">
                         <strong>{{ $event->contractor_name ?? '—' }}</strong>
-                        <div class="subtle">{{ $event->contractor_inn ?? '' }}</div>
-                    </td>
-                    <td>
-                        <span class="code">{{ $event->invoice_number ?? '—' }}</span>
-                        <div class="subtle">{{ $event->invoice_date ?? '' }}</div>
-                    </td>
-                    <td class="money">{{ $event->amount_total !== null ? number_format((float) $event->amount_total, 2, ',', ' ') : '—' }}</td>
-                    <td class="money">{{ number_format((float) $event->signed_vat_amount, 2, ',', ' ') }}</td>
+                        <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $event->contractor_inn ?? '' }}</div>
+                    </x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td :nowrap="false">
+                        <span class="font-mono text-xs">{{ $event->invoice_number ?? '—' }}</span>
+                        <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $event->invoice_date ?? '' }}</div>
+                    </x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td align="right" nowrap class="tabular-nums">{{ $event->amount_total !== null ? number_format((float) $event->amount_total, 2, ',', ' ') : '—' }}</x-ui.sticky-table-td>
+                    <x-ui.sticky-table-td align="right" nowrap last class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $event->signed_vat_amount, 2, ',', ' ') }}</x-ui.sticky-table-td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9">VAT layer пока пуст. Пересчитай слой после импорта книг НДС или банковских документов.</td>
+                    <td colspan="9" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">VAT layer пока пуст. Пересчитай слой после импорта книг НДС или банковских документов.</td>
                 </tr>
             @endforelse
-            </tbody>
-        </table>
-    </div>
+    </x-ui.sticky-table>
 @endsection
