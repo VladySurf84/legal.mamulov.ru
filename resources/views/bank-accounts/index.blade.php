@@ -32,6 +32,7 @@
         :contained="false"
         :scrollable="true"
         :viewport-sticky="true"
+        :sticky-summary-enabled="true"
         :bottom-scrollbar="true"
         scroll-class="overflow-x-auto overflow-y-visible"
     >
@@ -97,7 +98,7 @@
             </tr>
         @endforelse
 
-        <x-slot:foot>
+        <x-slot:stickySummary>
             <tr>
                 <th scope="row" colspan="7" class="border-t border-gray-300 px-3 py-2.5 text-left text-sm font-semibold text-gray-900 dark:border-white/15 dark:text-white">
                     Всего счетов: {{ $accounts->count() }}
@@ -112,6 +113,6 @@
                     @endforelse
                 </x-ui.sticky-table-td>
             </tr>
-        </x-slot:foot>
+        </x-slot:stickySummary>
     </x-ui.sticky-table>
 @endsection
