@@ -41,6 +41,10 @@
         </x-slot:head>
 
         @forelse ($accounts as $account)
+            @php
+                $latestBalance = $account->latest_balance ? json_decode($account->latest_balance, true) : null;
+                $balanceAmount = $latestBalance['amount'] ?? $account->balance_otb;
+            @endphp
             <tr class="align-top hover:bg-gray-50">
                 <td
                     class="border-b border-gray-200 dark:border-white/10"
@@ -74,7 +78,15 @@
                 </x-ui.sticky-table-td>
 
                 <x-ui.sticky-table-td class="font-semibold tabular-nums" last align="right" strong>
-                    {{ $account->balance_otb !== null ? number_format((float) $account->balance_otb, 2, ',', ' ') : '—' }}
+                    {{ $balanceAmount !== null ? number_format((float) $balanceAmount, 2, ',', ' ') : '—' }}
+                    @if ($latestBalance)
+                        <div class="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                            На {{ \Illuminate\Support\Carbon::parse($latestBalance['balance_on'])->format('d.m.Y') }}
+                            · {{ $latestBalance['source'] === 'tinkoff_api' ? 'API Т-Банка' : 'Выписка' }}
+                        </div>
+                    @elseif ($balanceAmount !== null)
+                        <div class="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">Дата и источник не зафиксированы</div>
+                    @endif
                 </x-ui.sticky-table-td>
             </tr>
         @empty

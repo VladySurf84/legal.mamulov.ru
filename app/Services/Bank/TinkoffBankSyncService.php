@@ -70,9 +70,9 @@ class TinkoffBankSyncService
                 $accounts = $this->client->accounts($credential['token'], $syncRunId);
                 $summary['accounts'] += count($accounts);
 
-                DB::transaction(function () use ($accounts, $credential): void {
+                DB::transaction(function () use ($accounts, $credential, $syncRunId): void {
                     foreach ($accounts as $account) {
-                        $this->upsertAccount($account, (string) $credential['legal_id']);
+                        $this->upsertAccount($account, (string) $credential['legal_id'], $syncRunId);
                     }
                 });
 
@@ -144,9 +144,9 @@ class TinkoffBankSyncService
                 $accounts = $this->client->accounts($credential['token'], $syncRunId);
                 $summary['accounts'] += count($accounts);
 
-                DB::transaction(function () use ($accounts, $credential): void {
+                DB::transaction(function () use ($accounts, $credential, $syncRunId): void {
                     foreach ($accounts as $account) {
-                        $this->upsertAccount($account, (string) $credential['legal_id']);
+                        $this->upsertAccount($account, (string) $credential['legal_id'], $syncRunId);
                     }
                 });
 
@@ -363,7 +363,7 @@ class TinkoffBankSyncService
             ]);
     }
 
-    private function upsertAccount(array $account, string $legalId): void
+    private function upsertAccount(array $account, string $legalId, int $syncRunId): void
     {
         $bankId = (string) data_get($account, 'bankBik', self::BANK_ID_TINKOFF);
         $accountNumber = (string) data_get($account, 'accountNumber');
@@ -401,6 +401,18 @@ class TinkoffBankSyncService
             'balance_pending_payments',
             'balance_pending_requisitions',
         ]);
+
+        if (is_numeric(data_get($account, 'balance.otb'))) {
+            $accountId = DB::table('legal.bank_account')
+                ->where('account_number', $accountNumber)
+                ->where('bank_id', $bankId)
+                ->value('bank_account_id');
+            app(BankAccountBalanceService::class)->record(
+                (int) $accountId, 'tinkoff_api', $syncRunId,
+                (string) data_get($account, 'balance.otb'), now()->toDateString(),
+                now()->toDateTimeString(), $account,
+            );
+        }
     }
 
     private function operationsFromStatement(array $statement): array

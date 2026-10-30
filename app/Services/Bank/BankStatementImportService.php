@@ -36,7 +36,8 @@ class BankStatementImportService
         $fileSize = filesize($file);
         $now = now();
 
-        ['account_number' => $accountNumber, 'rows' => $rows] = $this->parse1CClientBankExchangeFile($file);
+        $parsed = $this->parse1CClientBankExchangeFile($file);
+        ['account_number' => $accountNumber, 'rows' => $rows] = $parsed;
 
         if ($bankId === null) {
             $bankId = $this->bankIdByAccountNumber($accountNumber, $rows, $autoCreateBankAccount);
@@ -79,6 +80,8 @@ class BankStatementImportService
                 ],
             );
 
+            app(BankAccountBalanceService::class)->recordStatement($parsed, $bankId, $uploadedFileId, $now->toDateTimeString());
+
             if ($rebuildMoneyLayer) {
                 app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
                 app(\App\Services\Layers\CashLayerBuilder::class)->rebuild();
@@ -110,7 +113,7 @@ class BankStatementImportService
     }
 
     /**
-     * @return array{account_number: string, rows: array<int, array<string, string>>}
+     * @return array{account_number: string, rows: array<int, array<string, string>>, closing_balance: array|null}
      */
     public function parse1CClientBankExchangeFile(string $file): array
     {
@@ -128,6 +131,8 @@ class BankStatementImportService
         $accountNumber = null;
         $insideAccountSection = false;
         $document = null;
+        $accountSection = [];
+        $closingBalance = null;
 
         try {
             while (($line = fgets($handle)) !== false) {
@@ -138,11 +143,22 @@ class BankStatementImportService
                 }
 
                 if ($insideAccountSection && str_starts_with($line, 'РасчСчет=')) {
-                    $accountNumber = trim(explode('=', $line, 2)[1] ?? '');
+                    $sectionAccount = trim(explode('=', $line, 2)[1] ?? '');
+                    if ($accountNumber !== null && $accountNumber !== $sectionAccount) {
+                        throw new RuntimeException('Statements containing multiple accounts must be imported as separate files.');
+                    }
+                    $accountNumber = $sectionAccount;
+                }
+
+                if ($insideAccountSection && str_contains($line, '=')) {
+                    [$key, $value] = $this->splitKeyValue($line);
+                    $accountSection[$key] = $value;
                 }
 
                 if (str_starts_with($line, 'КонецРасчСчет')) {
                     $insideAccountSection = false;
+                    $closingBalance = $this->closingBalanceFromSection($accountSection);
+                    $accountSection = [];
                 }
 
                 if ($insideAccountSection || $accountNumber === null) {
@@ -185,7 +201,35 @@ class BankStatementImportService
         return [
             'account_number' => $accountNumber,
             'rows' => $rows,
+            'closing_balance' => $closingBalance,
         ];
+    }
+
+    private function closingBalanceFromSection(array $section): ?array
+    {
+        $rawAmount = $section['КонечныйОстаток'] ?? null;
+        $rawDate = $section['ДатаКонца'] ?? null;
+        if ($rawAmount === null || $rawDate === null) {
+            return null;
+        }
+
+        $amount = str_replace(["\u{00A0}", "\u{202F}", ' ', ','], ['', '', '', '.'], trim($rawAmount));
+        if (! preg_match('/^-?\d+(?:\.\d{1,2})?$/D', $amount)) {
+            return null;
+        }
+
+        foreach (['d.m.Y', 'Y-m-d'] as $format) {
+            try {
+                $date = Carbon::createFromFormat('!'.$format, trim($rawDate));
+                if ($date->format($format) === trim($rawDate)) {
+                    return ['amount' => $amount, 'balance_on' => $date->toDateString(), 'raw_data' => $section];
+                }
+            } catch (Throwable) {
+                // An unusable balance must not prevent importing the operations.
+            }
+        }
+
+        return null;
     }
 
     /**
