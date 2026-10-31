@@ -354,9 +354,17 @@ class KassaController extends Controller
 
     private function articles()
     {
-        return DB::table('legal.kassa_article')
-            ->orderBy('article')
-            ->get(['article_id', 'article']);
+        $usage = DB::table('legal.cash_entries')
+            ->select('article_id')
+            ->selectRaw('COUNT(*) as usage_count')
+            ->groupBy('article_id');
+
+        return DB::table('legal.kassa_article as article')
+            ->leftJoinSub($usage, 'usage', 'usage.article_id', '=', 'article.article_id')
+            ->orderBy('article.article')
+            ->select(['article.article_id', 'article.article'])
+            ->selectRaw('COALESCE(usage.usage_count, 0) as usage_count')
+            ->get();
     }
 
     private function articleExists(int $articleId): bool

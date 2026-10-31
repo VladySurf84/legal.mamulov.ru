@@ -9,9 +9,11 @@
     $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value, 'UTC')->timezone($displayTimezone)->format('d.m.Y H:i') : '—';
     $shouldOpenKassaCreateDialog = session('open_modal') === 'kassa-create-dialog' || (($errors ?? null)?->any() && old('_form') === 'kassa-create');
     $articleFilterOptions = $articles
+        ->sortByDesc('usage_count')
         ->map(fn ($article) => [
             'value' => (string) $article->article_id,
             'label' => $article->article,
+            'amount' => number_format((int) $article->usage_count, 0, ',', ' '),
         ])
         ->values();
 @endphp
