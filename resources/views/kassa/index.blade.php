@@ -172,7 +172,13 @@
                     />
                 </div>
 
-                @include('kassa.partials.article-dropdown')
+                <x-ui.animated-multi-select
+                    name="article_id"
+                    :value="$filters['article_id'] ?? []"
+                    :options="$articleFilterOptions"
+                    placeholder="Все статьи"
+                    sync-with="input[data-multi-select-option][name='article_id[]']"
+                />
 
                 <div>
                     <x-ui.airdatepicker.date-range
