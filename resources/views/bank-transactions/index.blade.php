@@ -255,7 +255,7 @@
         loader-id="bank-transactions-loader"
         table-selector="[data-bank-transactions-table]"
         head-selector="[data-bank-transactions-table] thead"
-        columns="lg:grid-cols-4"
+        columns="md:grid-cols-2 xl:grid-cols-5"
     >
                 <x-ui.multi-select-with-secondary-text
                     label="Счет"
@@ -263,6 +263,15 @@
                     :value="$selectedAccountNumbersForFilter"
                     :options="$accountFilterOptions"
                     placeholder="Все счета"
+                />
+
+                <x-ui.animated-multi-select
+                    label="Счет"
+                    name="account_numbers"
+                    :value="$selectedAccountNumbersForFilter"
+                    :options="$accountFilterOptions"
+                    placeholder="Все счета"
+                    sync-with="input[data-multi-select-option][name='account_numbers[]']"
                 />
 
                 <x-ui.select-with-secondary-text
