@@ -12,7 +12,7 @@
         <div class="py-1">
             @foreach ($articleFilterOptions as $option)
                 <button type="button" role="menuitemcheckbox" aria-checked="{{ in_array((int) $option['value'], $filters['article_id'] ?? [], true) ? 'true' : 'false' }}" data-kassa-article-option="{{ $option['value'] }}" class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-hidden dark:text-gray-300 dark:focus:bg-white/5 dark:focus:text-white">
-                    <span class="w-4 shrink-0 text-[1.1em]" aria-hidden="true" data-kassa-article-check>{{ in_array((int) $option['value'], $filters['article_id'] ?? [], true) ? '✓' : '' }}</span>
+                    <span class="inline-flex h-5 w-4 shrink-0 items-center text-[1.2em] leading-none" aria-hidden="true" data-kassa-article-check>{{ in_array((int) $option['value'], $filters['article_id'] ?? [], true) ? '✓' : '' }}</span>
                     <span class="min-w-0 flex-1 truncate">{{ $option['label'] }}</span>
                     <span class="shrink-0 text-gray-500 dark:text-gray-400">{{ $option['amount'] }}</span>
                 </button>
@@ -42,11 +42,14 @@
             dropdown.addEventListener('click', event => {
                 const button = event.target.closest('[data-kassa-article-option]');
                 if (!button) return;
+                // Handle selection before Elements' item listener closes the menu.
+                event.preventDefault();
+                event.stopPropagation();
                 const input = inputs().find(input => input.value === button.dataset.kassaArticleOption);
                 if (!input) return;
                 input.checked = !input.checked;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
-            });
+            }, true);
             form.addEventListener('change', sync);
             form.addEventListener('reset', () => setTimeout(sync, 0));
             sync();
