@@ -62,7 +62,7 @@
                     suppressClick = button;
                     selected.dispatchEvent(new Event('change', { bubbles: true }));
                     cancelHold();
-                }, 1001);
+                }, 501);
             }, true);
             document.addEventListener('pointerup', cancelHold, true);
             document.addEventListener('pointercancel', () => {
