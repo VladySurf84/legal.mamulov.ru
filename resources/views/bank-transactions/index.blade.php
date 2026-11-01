@@ -274,9 +274,11 @@
                     sync-with="input[data-multi-select-option][name='account_numbers[]']"
                 />
 
-                <x-ui.select-with-secondary-text
+                <x-ui.animated-multi-select
                     label="Тип"
                     name="type"
+                    :multiple="false"
+                    placeholder="Все движения"
                     :value="$filters['type'] ?? ''"
                     :options="[
                         [
