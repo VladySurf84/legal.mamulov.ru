@@ -282,19 +282,12 @@
                     :value="$filters['type'] ?? ''"
                     :options="[
                         [
-                            'value' => '',
-                            'label' => 'Все движения',
-                            'secondary' => '',
-                        ],
-                        [
                             'value' => 'income',
                             'label' => 'Приход',
-                            'secondary' => 'Поступления на счет',
                         ],
                         [
                             'value' => 'expense',
                             'label' => 'Расход',
-                            'secondary' => 'Списания со счета',
                         ],
                     ]"
                 />
