@@ -39,12 +39,51 @@
                     button.querySelector('[data-kassa-article-check]').textContent = checked ? '✓' : '';
                 });
             };
+            let holdTimer = null;
+            let heldButton = null;
+            let suppressClick = null;
+            const cancelHold = () => {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+                heldButton = null;
+            };
+            dropdown.addEventListener('pointerdown', event => {
+                cancelHold();
+                suppressClick = null;
+                if (event.pointerType !== 'mouse' || event.button !== 0) return;
+                const button = event.target.closest('[data-kassa-article-option]');
+                if (!button) return;
+                heldButton = button;
+                holdTimer = setTimeout(() => {
+                    const options = inputs();
+                    const selected = options.find(input => input.value === button.dataset.kassaArticleOption);
+                    if (!selected) return;
+                    options.forEach(input => { input.checked = input === selected; });
+                    suppressClick = button;
+                    selected.dispatchEvent(new Event('change', { bubbles: true }));
+                    cancelHold();
+                }, 1001);
+            }, true);
+            document.addEventListener('pointerup', cancelHold, true);
+            document.addEventListener('pointercancel', () => {
+                cancelHold();
+                suppressClick = null;
+            }, true);
+            document.addEventListener('pointermove', event => {
+                if (heldButton && !heldButton.contains(event.target)) cancelHold();
+            }, true);
+            window.addEventListener('blur', cancelHold);
+            dropdown.addEventListener('keydown', () => { suppressClick = null; });
             dropdown.addEventListener('click', event => {
                 const button = event.target.closest('[data-kassa-article-option]');
                 if (!button) return;
                 // Handle selection before Elements' item listener closes the menu.
                 event.preventDefault();
                 event.stopPropagation();
+                if (suppressClick === button) {
+                    suppressClick = null;
+                    return;
+                }
                 const input = inputs().find(input => input.value === button.dataset.kassaArticleOption);
                 if (!input) return;
                 input.checked = !input.checked;
