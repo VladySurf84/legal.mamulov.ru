@@ -162,7 +162,7 @@
         columns="grid-cols-1"
     >
         <div class="min-w-0 max-w-full">
-            <div class="grid max-w-full grid-cols-1 gap-4 md:grid-cols-[minmax(0,240px)_minmax(0,240px)] xl:grid-cols-[minmax(0,240px)_minmax(0,240px)_minmax(280px,1fr)]">
+            <div class="grid max-w-full grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,240px)_minmax(0,240px)_minmax(0,240px)_minmax(280px,1fr)]">
                 <div>
                     <x-ui.multi-select-with-secondary-text
                         name="article_id"
@@ -171,6 +171,8 @@
                         placeholder="Все статьи"
                     />
                 </div>
+
+                @include('kassa.partials.article-dropdown')
 
                 <div>
                     <x-ui.airdatepicker.date-range
