@@ -162,7 +162,7 @@
         columns="grid-cols-1"
     >
         <div class="min-w-0 max-w-full">
-            <div class="grid max-w-full grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,240px)_minmax(0,240px)_minmax(0,240px)_minmax(280px,1fr)]">
+            <div class="grid max-w-full grid-cols-1 gap-4 md:grid-cols-[max-content_minmax(0,1fr)] xl:grid-cols-[minmax(0,240px)_max-content_max-content_minmax(280px,1fr)]">
                 <div>
                     <x-ui.multi-select-with-secondary-text
                         name="article_id"

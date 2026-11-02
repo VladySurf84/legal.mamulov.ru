@@ -255,7 +255,7 @@
         loader-id="bank-transactions-loader"
         table-selector="[data-bank-transactions-table]"
         head-selector="[data-bank-transactions-table] thead"
-        columns="md:grid-cols-2 xl:grid-cols-4"
+        columns="md:grid-cols-[max-content_minmax(0,1fr)] xl:grid-cols-[max-content_max-content_minmax(180px,1fr)_max-content]"
     >
                 <x-ui.animated-multi-select
                     label="Счет"
