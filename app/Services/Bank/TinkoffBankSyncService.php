@@ -4,6 +4,7 @@ namespace App\Services\Bank;
 
 use App\Models\ApiCredential;
 use App\Services\Currency\CurrencyNormalizer;
+use App\Services\Layers\BankVatLayerBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -105,6 +106,8 @@ class TinkoffBankSyncService
                 $this->markCredentialUsed((int) $credential['api_credential_id']);
             }
 
+            app(BankVatLayerBuilder::class)->rebuild();
+
             $this->finishRun($syncRunId, 'success', $summary);
 
             return $summary;
@@ -186,6 +189,8 @@ class TinkoffBankSyncService
 
                 $this->markCredentialUsed((int) $credential['api_credential_id']);
             }
+
+            app(BankVatLayerBuilder::class)->rebuild();
 
             $this->finishRun($syncRunId, 'success', $summary);
 

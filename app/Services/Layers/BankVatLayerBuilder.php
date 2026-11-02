@@ -12,6 +12,8 @@ class BankVatLayerBuilder
     public function rebuild(): int
     {
         return DB::transaction(function (): int {
+            // Serialize automatic and manual rebuilds before replacing the derived layer.
+            DB::statement('LOCK TABLE legal.vat_events IN SHARE ROW EXCLUSIVE MODE');
             DB::table('legal.vat_events')
                 ->where('source_system', self::SOURCE_SYSTEM)
                 ->delete();

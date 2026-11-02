@@ -2,6 +2,7 @@
 
 namespace App\Services\Bank;
 
+use App\Services\Layers\BankVatLayerBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -81,6 +82,7 @@ class BankStatementImportService
             );
 
             app(BankAccountBalanceService::class)->recordStatement($parsed, $bankId, $uploadedFileId, $now->toDateTimeString());
+            app(BankVatLayerBuilder::class)->rebuild();
 
             if ($rebuildMoneyLayer) {
                 app(\App\Services\Layers\MoneyLayerBuilder::class)->rebuild();
