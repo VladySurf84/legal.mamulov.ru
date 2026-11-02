@@ -182,7 +182,6 @@
 
                 <div>
                     <x-ui.airdatepicker.date-range
-                        class="[&_input]:shadow-xs dark:[&_input]:shadow-none"
                         name-from="date_from"
                         name-to="date_to"
                         :value-from="$filters['date_from'] ?? null"
@@ -193,7 +192,6 @@
                 <div class="md:col-span-2 xl:col-span-1">
                     <x-ui.input
                         name="q"
-                        class="shadow-xs dark:shadow-none"
                         :value="$filters['q'] ?? ''"
                         placeholder="Описание, статья, юрлицо или ИНН"
                         data-ui-table-filter-input
