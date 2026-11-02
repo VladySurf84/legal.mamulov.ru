@@ -28,6 +28,7 @@ class BankTransactionController extends Controller
             'account_numbers.*' => ['nullable', 'string', 'max:20'],
             'type' => ['nullable', 'in:income,expense'],
             'contractor' => ['nullable', 'string', 'max:255'],
+            'payment_purpose' => ['nullable', 'string', 'max:255'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -343,6 +344,12 @@ SQL, $bindings);
 
         if (($filters['type'] ?? null) === 'expense') {
             $where[] = 'dbt.signed_amount < 0';
+        }
+
+        $paymentPurpose = trim((string) ($filters['payment_purpose'] ?? ''));
+        if ($paymentPurpose !== '') {
+            $where[] = 'dbt.payment_purpose ILIKE :payment_purpose';
+            $bindings['payment_purpose'] = '%'.$paymentPurpose.'%';
         }
 
         if (! empty($filters['contractor'])) {
