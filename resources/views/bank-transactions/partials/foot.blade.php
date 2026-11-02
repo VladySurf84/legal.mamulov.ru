@@ -3,7 +3,7 @@
         $signedSummary = $summary['income'] - $summary['expense'];
     @endphp
 
-    <x-ui.sticky-table-summary-label first :columns="$showAccountColumn ? 2 : 1">
+    <x-ui.sticky-table-summary-label first :columns="$showAccountColumn ? 3 : 2">
         Всего: {{ $summary['count'] }}
     </x-ui.sticky-table-summary-label>
     <x-ui.money-columns

@@ -42,15 +42,19 @@
         data-bank-transaction-vat="{{ (int) $transaction->has_vat === 1 ? 'Да' : 'Нет' }}"
         data-bank-transaction-kassa="{{ $transaction->k_id ?: '—' }}"
     >
-        <x-ui.sticky-table-td first nowrap>
+        <td
+            class="border-b border-gray-200 dark:border-white/10"
+            style="width: 5px; min-width: 5px; max-width: 5px; padding: 0; background-color: {{ $transaction->legal_color ?: '#e5e7eb' }};"
+            title="{{ $transaction->legal_name ?? 'Юрлицо #' . $transaction->legal_id }}"
+        ><span class="sr-only">{{ $transaction->legal_name ?? 'Юрлицо #' . $transaction->legal_id }}</span></td>
+        <x-ui.sticky-table-td nowrap>
             <div class="font-medium tabular-nums text-gray-900 dark:text-white">
                 {{ $transactionDate }}
             </div>
         </x-ui.sticky-table-td>
         @if ($showAccountColumn)
             <x-ui.sticky-table-td :nowrap="false">
-                <div class="font-semibold text-gray-900 dark:text-white">{{ $transaction->legal_name ?? 'Юрлицо #' . $transaction->legal_id }}</div>
-                <div class="mt-1 text-sm text-gray-500">{{ $transaction->bank_account_name }}</div>
+                <div class="text-sm text-gray-500">{{ $transaction->bank_account_name }}</div>
                 <div class="mt-1 font-mono text-xs text-gray-400">{{ $transaction->account_number }} · {{ $transaction->bank_id }}</div>
             </x-ui.sticky-table-td>
         @endif

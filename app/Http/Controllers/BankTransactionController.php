@@ -54,7 +54,7 @@ class BankTransactionController extends Controller
             ? $filters['account_numbers']
             : array_filter([(string) ($filters['account_number'] ?? '')]);
         $showAccountColumn = count($selectedAccountNumbers) !== 1;
-        $tableColspan = $showAccountColumn ? 8 : 7;
+        $tableColspan = $showAccountColumn ? 9 : 8;
 
         if ($request->ajax()) {
             return response()->json([
