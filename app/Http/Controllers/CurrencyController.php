@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CurrencyController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View|JsonResponse
     {
+        $filters = $request->validate(['q' => ['nullable', 'string', 'max:255']]);
+        $search = trim((string) ($filters['q'] ?? ''));
         $currencies = DB::select(<<<'SQL'
 WITH raw_source_rows AS (
     SELECT btrim(currency::text) AS raw_currency, 'bank_accounts' AS source_name
@@ -76,11 +80,24 @@ SELECT
 FROM legal.currencies c
 LEFT JOIN aggregated a
     ON a.currency_code = c.currency_code
+WHERE c.name_ru ILIKE :search
+    OR c.name_en ILIKE :search
+    OR c.currency_code::text ILIKE :search
+    OR c.alpha_code ILIKE :search
 ORDER BY c.currency_code
-SQL);
+SQL, ['search' => '%'.$search.'%']);
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('currencies.partials.rows', compact('currencies', 'search'))->render(),
+                'has_more' => false,
+                'next_page' => null,
+            ]);
+        }
 
         return view('currencies.index', [
             'currencies' => $currencies,
+            'search' => $search,
         ]);
     }
 }
