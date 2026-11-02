@@ -258,7 +258,6 @@
         columns="md:grid-cols-[max-content_minmax(0,1fr)] xl:grid-cols-[max-content_max-content_minmax(180px,1fr)_max-content]"
     >
                 <x-ui.animated-multi-select
-                    label="Счет"
                     name="account_numbers"
                     :value="$selectedAccountNumbersForFilter"
                     :options="$accountFilterOptions"
@@ -266,7 +265,6 @@
                 />
 
                 <x-ui.animated-multi-select
-                    label="Тип"
                     name="type"
                     :multiple="false"
                     placeholder="Все движения"
@@ -284,14 +282,13 @@
                 />
 
                 <x-ui.input
-                    label="Контрагент / ИНН"
+                    placeholder="Контрагент / ИНН"
                     name="contractor"
                     :value="$filters['contractor'] ?? ''"
                     data-ui-table-filter-input
                 />
 
                 <x-ui.airdatepicker.date-range
-                    label="Период"
                     name-from="date_from"
                     name-to="date_to"
                     :value-from="$filters['date_from'] ?? null"
