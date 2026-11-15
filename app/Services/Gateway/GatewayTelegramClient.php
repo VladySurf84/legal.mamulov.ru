@@ -3,7 +3,6 @@
 namespace App\Services\Gateway;
 
 use App\Models\User;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -20,11 +19,24 @@ class GatewayTelegramClient
         string $parseMode = 'HTML',
         bool $disableWebPagePreview = false,
     ): GatewayTelegramResult {
+        $result = $this->sendToRecipient($user->email, $message, $parseMode, $disableWebPagePreview);
+        $this->syncTelegramStatus($user, $result->status, $result->payload);
+
+        return $result;
+    }
+
+    /** @param string|array<int, string> $message */
+    public function sendToRecipient(
+        string $recipient,
+        string|array $message,
+        string $parseMode = 'HTML',
+        bool $disableWebPagePreview = false,
+    ): GatewayTelegramResult {
         $response = Http::timeout((int) config('services.mamulov_gateway.timeout', 10))
             ->withToken($this->token())
             ->acceptJson()
             ->post($this->endpoint('/api/telegram/messages'), [
-                'user' => $user->email,
+                'user' => $recipient,
                 'message' => is_array($message) ? implode("\n", $message) : $message,
                 'parse_mode' => $parseMode,
                 'disable_web_page_preview' => $disableWebPagePreview,
@@ -33,17 +45,15 @@ class GatewayTelegramClient
         $payload = $response->json();
         $payload = is_array($payload) ? $payload : [];
 
-        $this->syncTelegramStatus($user, $response, $payload);
-
         return new GatewayTelegramResult($response->status(), $payload);
     }
 
     /**
      * @param array<string, mixed> $payload
      */
-    private function syncTelegramStatus(User $user, Response $response, array $payload): void
+    private function syncTelegramStatus(User $user, int $status, array $payload): void
     {
-        if ($response->created() && is_array($payload['data'] ?? null)) {
+        if ($status === 201 && is_array($payload['data'] ?? null)) {
             $chatId = $payload['data']['telegram_chat_id'] ?? null;
 
             if (is_string($chatId) && trim($chatId) !== '') {
@@ -53,7 +63,7 @@ class GatewayTelegramClient
             return;
         }
 
-        if ($response->status() === 409 && ($payload['code'] ?? null) === self::CODE_TELEGRAM_NOT_CONNECTED) {
+        if ($status === 409 && ($payload['code'] ?? null) === self::CODE_TELEGRAM_NOT_CONNECTED) {
             $user->forceFill(['telegram_chat_id' => null])->save();
         }
     }

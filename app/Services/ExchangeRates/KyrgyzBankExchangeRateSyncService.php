@@ -57,6 +57,14 @@ class KyrgyzBankExchangeRateSyncService
 
             $this->finishRun($runId, 'success', $summary);
 
+            if (in_array('kompanion', array_map(fn ($provider) => strtolower(trim((string) $provider)), $providers), true)) {
+                try {
+                    app(KompanionRubAlertService::class)->check();
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
+
             return $summary;
         } catch (Throwable $exception) {
             $this->finishRun($runId, 'failed', $summary, $exception);
