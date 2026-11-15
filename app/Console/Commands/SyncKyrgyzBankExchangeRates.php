@@ -9,12 +9,12 @@ use InvalidArgumentException;
 class SyncKyrgyzBankExchangeRates extends Command
 {
     protected $signature = 'exchange-rates:sync-kgs-banks
-        {--provider=* : Provider to sync: mbank, obank, kompanion, bakai, capitalbank}
+        {--provider=* : Provider to sync: mbank, obank, kompanion, bakai, capitalbank, baitushum}
         {--started-by-type=console : Run initiator type: system, user, console}
         {--started-by-user-id= : User id when started-by-type=user}
         {--started-from=cli : Run source label: scheduler, ui, cli}';
 
-    protected $description = 'Sync MBank, Obank, Kompanion, Bakai and Capital Bank exchange rates with observed validity intervals.';
+    protected $description = 'Sync MBank, Obank, Kompanion, Bakai, Capital Bank and Baitushum exchange rates with observed validity intervals.';
 
     public function handle(KyrgyzBankExchangeRateSyncService $service): int
     {
@@ -52,7 +52,7 @@ class SyncKyrgyzBankExchangeRates extends Command
             (array) $this->option('provider'),
         )));
 
-        return $providers === [] ? ['mbank', 'obank', 'kompanion', 'bakai', 'capitalbank'] : $providers;
+        return $providers === [] ? ['mbank', 'obank', 'kompanion', 'bakai', 'capitalbank', 'baitushum'] : $providers;
     }
 
     /**

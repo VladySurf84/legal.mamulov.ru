@@ -15,7 +15,7 @@ class KyrgyzBankExchangeRateSyncService
     /**
      * @return array{sync_run_id: int, providers: int, quotes: int, intervals_opened: int, intervals_updated: int, intervals_closed: int}
      */
-    public function sync(array $providers = ['mbank', 'obank', 'kompanion', 'bakai', 'capitalbank'], array $runContext = []): array
+    public function sync(array $providers = ['mbank', 'obank', 'kompanion', 'bakai', 'capitalbank', 'baitushum'], array $runContext = []): array
     {
         $runId = $this->startRun($runContext);
         $summary = [
@@ -42,6 +42,7 @@ class KyrgyzBankExchangeRateSyncService
                     'kompanion' => $this->fetchKompanion($runId, $observedAt),
                     'bakai' => $this->fetchBakai($runId, $observedAt),
                     'capitalbank' => $this->fetchCapitalBank($runId, $observedAt),
+                    'baitushum' => $this->fetchBaitushum($runId, $observedAt),
                     default => throw new RuntimeException("Unknown exchange rate provider [{$provider}]."),
                 };
 
@@ -189,6 +190,23 @@ class KyrgyzBankExchangeRateSyncService
         }
 
         return $quotes;
+    }
+
+    private function fetchBaitushum(int $runId, Carbon $observedAt): array
+    {
+        $body = $this->request($runId, 'baitushum', 'GET', '/ru/', 'https://www.baitushum.kg/ru/');
+
+        return array_map(fn (array $item) => $this->quote(
+            provider: 'baitushum',
+            rateType: $item['type'],
+            currencyCode: $item['currency'],
+            buyRate: $item['buy'],
+            sellRate: $item['sell'],
+            officialRate: $item['official'],
+            bankValidFrom: null,
+            observedAt: $observedAt,
+            rawItem: $item['raw'],
+        ), (new BaitushumExchangeRateParser)->parse($body));
     }
 
     private function fetchCapitalBank(int $runId, Carbon $observedAt): array
