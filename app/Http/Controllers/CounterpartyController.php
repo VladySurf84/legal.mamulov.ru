@@ -327,6 +327,9 @@ SQL, $bindings);
 
         if ($request->ajax()) {
             return response()->json([
+                'head_html' => view('counterparties.partials.head', [
+                    'showLegalEntitiesCount' => $showLegalEntitiesCount,
+                ])->render(),
                 'summary_html' => view('counterparties.partials.summary', [
                     'summary' => $summaryData,
                 ])->render(),

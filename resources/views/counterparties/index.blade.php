@@ -26,27 +26,28 @@
         rows-id="counterparties-rows"
         loader-id="counterparties-loader"
         table-selector="[data-counterparties-table]"
+        head-selector="[data-counterparties-table] thead"
         summary-selector="#counterparties-summary"
-        columns="lg:grid-cols-3"
+        columns="lg:grid-cols-[max-content_minmax(180px,1fr)_max-content]"
         form-id="counterparties-filters"
     >
-                <x-ui.select-with-secondary-text
-                    label="Наше юрлицо"
+                <label for="counterparties-legal-id" class="sr-only">Наше юрлицо</label>
+                <x-ui.animated-multi-select
+                    id="counterparties-legal-id"
                     name="legal_id"
+                    :multiple="false"
+                    placeholder="Все юрлица"
                     :value="$filters['legal_id'] ?? ''"
                     :options="$legalEntities->map(fn ($legalEntity) => [
                         'value' => $legalEntity->legal_id,
                         'label' => $legalEntity->legal_name,
                         'secondary' => $legalEntity->legal_inn ? 'ИНН ' . $legalEntity->legal_inn : '',
-                    ])->prepend([
-                        'value' => '',
-                        'label' => 'Все юрлица',
-                        'secondary' => '',
                     ])->values()"
                 />
 
                 <x-ui.input
-                    label="ИНН контрагента"
+                    placeholder="ИНН контрагента"
+                    aria-label="ИНН контрагента"
                     name="contractor_inn"
                     :value="$filters['contractor_inn'] ?? ''"
                     inputmode="numeric"
@@ -54,21 +55,13 @@
                     data-ui-table-filter-input
                 />
 
-                <label class="flex items-end gap-3 pb-1 text-sm font-medium text-gray-900 dark:text-white">
-                    <span class="grid size-5 shrink-0 place-items-center">
-                        <input
-                            type="checkbox"
-                            name="only_negative_diff"
-                            value="1"
-                            @checked((bool) ($filters['only_negative_diff'] ?? false))
-                            class="peer col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:border-white/10 dark:bg-white/5 dark:checked:border-indigo-500 dark:checked:bg-indigo-500"
-                        >
-                        <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 stroke-white opacity-0 peer-checked:opacity-100">
-                            <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </span>
-                    Только с отрицательной разницей
-                </label>
+                <div class="flex items-center">
+                    <x-ui.native-checkbox
+                        name="only_negative_diff"
+                        :checked="(bool) ($filters['only_negative_diff'] ?? false)"
+                        label="Только с отрицательной разницей"
+                    />
+                </div>
     </x-ui.table-filters>
 
     <div class="mb-4 flex flex-wrap gap-2" id="counterparties-summary">
@@ -86,9 +79,10 @@
                         return;
                     }
 
-                    rebuildForm.querySelector('[data-rebuild-legal-id]').value = filterForm.querySelector('[name="legal_id"]')?.value || '';
-                    rebuildForm.querySelector('[data-rebuild-contractor-inn]').value = filterForm.querySelector('[name="contractor_inn"]')?.value || '';
-                    rebuildForm.querySelector('[data-rebuild-only-negative-diff]').value = filterForm.querySelector('[name="only_negative_diff"]')?.checked ? '1' : '';
+                    const filters = new FormData(filterForm);
+                    rebuildForm.querySelector('[data-rebuild-legal-id]').value = filters.get('legal_id') || '';
+                    rebuildForm.querySelector('[data-rebuild-contractor-inn]').value = filters.get('contractor_inn') || '';
+                    rebuildForm.querySelector('[data-rebuild-only-negative-diff]').value = filters.get('only_negative_diff') === '1' ? '1' : '';
                 };
 
                 document.addEventListener('change', (event) => {
@@ -125,21 +119,7 @@
         data-counterparties-table
     >
         <x-slot:head>
-            <tr>
-                <x-ui.sticky-table-th first>Контрагент</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>ИНН</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Входящее</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Наше сальдо</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Книги покупок</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Разница</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th align="right">Разница НДС</x-ui.sticky-table-th>
-                <x-ui.money-columns-head />
-                <x-ui.sticky-table-th align="right">Операций</x-ui.sticky-table-th>
-                @if ($showLegalEntitiesCount)
-                    <x-ui.sticky-table-th align="right">Наших юрлиц</x-ui.sticky-table-th>
-                @endif
-                <x-ui.sticky-table-th last align="right"></x-ui.sticky-table-th>
-            </tr>
+            @include('counterparties.partials.head', ['showLegalEntitiesCount' => $showLegalEntitiesCount])
         </x-slot:head>
 
         @include('counterparties.partials.rows', [
