@@ -1,6 +1,6 @@
 @extends('layouts.app', [
     'title' => 'Курсы валют',
-    'titleDescription' => 'Интервалы действия курсов MBank, Obank и банка «Компаньон»: внутри периода valid_from — valid_to курс не менялся.',
+    'titleDescription' => 'Интервалы действия курсов MBank, Obank, банков «Компаньон» и Bakai: внутри периода valid_from — valid_to курс не менялся.',
 ])
 
 @php
@@ -11,11 +11,13 @@
         'cash' => 'Наличные',
         'non_cash' => 'Безналичные',
         'official' => 'Официальный',
+        'transfer' => 'Онлайн-переводы',
     ];
     $providerLabels = [
         'mbank' => 'MBank',
         'obank' => 'Obank',
         'kompanion' => 'Компаньон',
+        'bakai' => 'Bakai',
     ];
     $sort = $filters['sort'] ?? null;
     $direction = ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
