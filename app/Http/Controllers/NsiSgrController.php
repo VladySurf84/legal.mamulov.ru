@@ -132,6 +132,10 @@ class NsiSgrController extends Controller
 
         $view = view('nsi-sgr.partials.detail', [
             'record' => $record,
+            'statusHistory' => DB::table('legal.nsi_sgr_status_history')
+                ->where('nsi_sgr_record_id', $recordId)
+                ->orderByDesc('nsi_sgr_status_history_id')
+                ->get(),
         ]);
 
         if ($request->ajax() || $request->expectsJson()) {

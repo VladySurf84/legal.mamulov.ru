@@ -2,6 +2,9 @@
     $date = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value)->format('d.m.Y') : '—';
     $dateTime = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse((string) $value)->format('d.m.Y H:i') : '—';
     $text = static fn ($value) => $value !== null && $value !== '' ? $value : '—';
+    $historyTime = static fn ($value) => $value
+        ? \Illuminate\Support\Carbon::parse((string) $value, 'UTC')->timezone(config('app.display_timezone', 'Europe/Moscow'))->format('d.m.Y H:i:s')
+        : '—';
     $jsonArray = static function ($value): array {
         if ($value === null || $value === '') {
             return [];
@@ -31,6 +34,42 @@
 @endphp
 
 <div class="space-y-5 px-6 py-5 text-sm">
+    <section>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">История статусов</h3>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Время наблюдения указано в часовом поясе {{ config('app.display_timezone', 'Europe/Moscow') }}.
+            Обновление записи в НСИ не обязательно совпадает с датой решения о статусе.
+        </p>
+        <div class="mt-3 overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-900 dark:text-white">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-white/10">
+                        <th scope="col" class="px-2 py-2 font-semibold">Зафиксировано у нас</th>
+                        <th scope="col" class="px-2 py-2 font-semibold">Статус</th>
+                        <th scope="col" class="px-2 py-2 font-semibold">Обновление записи в НСИ</th>
+                        <th scope="col" class="px-2 py-2 font-semibold">Наблюдение</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($statusHistory as $entry)
+                        <tr class="border-b border-gray-200 dark:border-white/10">
+                            <td class="whitespace-nowrap px-2 py-2">{{ $historyTime($entry->observed_at) }}</td>
+                            <td class="px-2 py-2">{{ $entry->status_name ?: 'Не указан' }}</td>
+                            <td class="whitespace-nowrap px-2 py-2">{{ $historyTime($entry->source_update_date_time) }}</td>
+                            <td class="px-2 py-2">{{ match ($entry->observation_kind) {
+                                'baseline' => 'Последнее известное до включения истории',
+                                'initial' => 'Первая загрузка',
+                                default => 'Изменение · '.match ($entry->source_kind) { 'list' => 'список', 'detail' => 'детализация', default => 'запись' },
+                            } }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="px-2 py-3 text-gray-500 dark:text-gray-400">История появится после очередной загрузки записи.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <section>
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Документ</h3>
         <dl class="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">

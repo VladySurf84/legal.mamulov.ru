@@ -7,6 +7,7 @@ use App\Support\UserAccess;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class NsiSgrSyncTest extends TestCase
@@ -14,6 +15,14 @@ class NsiSgrSyncTest extends TestCase
     use DatabaseTransactions;
 
     private const ACTIVE_STATUS_ID = '0888035a-52fa-4e7e-bf59-348c6cc218d4';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        if (! Schema::hasTable('legal.nsi_sgr_status_history')) {
+            (require database_path('migrations/2026_11_16_120000_create_nsi_sgr_status_history.php'))->up();
+        }
+    }
 
     public function test_sync_list_stores_sgr_rows(): void
     {
