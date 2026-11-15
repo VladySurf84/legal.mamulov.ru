@@ -25,42 +25,39 @@
         rows-id="nsi-sgr-rows"
         loader-id="nsi-sgr-loader"
         table-selector="[data-nsi-sgr-table]"
-        columns="lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+        columns="md:grid-cols-[max-content_max-content_minmax(0,1fr)]"
     >
-        <x-ui.input
-            label="Поиск"
-            name="q"
-            :value="$filters['q'] ?? ''"
-            placeholder="Номер СГР, продукция, изготовитель, получатель"
-            autocomplete="off"
-            data-ui-table-filter-input
-        />
-
-        <x-ui.select
-            label="Статус"
+        <label for="nsi-sgr-status" class="sr-only">Статус</label>
+        <x-ui.animated-multi-select
+            id="nsi-sgr-status"
             name="status"
+            :multiple="false"
             :value="$filters['status'] ?? ''"
-            :options="$statuses"
+            :options="collect($statuses)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values()->all()"
             placeholder="Все статусы"
         />
 
-        <x-ui.select
-            label="Детализация"
+        <label for="nsi-sgr-details" class="sr-only">Детализация</label>
+        <x-ui.animated-multi-select
+            id="nsi-sgr-details"
             name="details"
+            :multiple="false"
             :value="$filters['details'] ?? ''"
-            :options="['yes' => 'Загружена', 'no' => 'Не загружена']"
+            :options="[
+                ['value' => 'yes', 'label' => 'Детализация загружена'],
+                ['value' => 'no', 'label' => 'Детализация не загружена'],
+            ]"
             placeholder="Все записи"
         />
 
-        <x-slot:actions>
-            <x-ui.button :href="route('nsi-sgr.index')" variant="ghost" wire:navigate>
-                Сбросить
-            </x-ui.button>
-
-            <x-ui.button type="submit" variant="soft">
-                Показать
-            </x-ui.button>
-        </x-slot:actions>
+        <x-ui.input
+            name="q"
+            :value="$filters['q'] ?? ''"
+            placeholder="Номер СГР, продукция, изготовитель, получатель"
+            aria-label="Поиск по СГР"
+            autocomplete="off"
+            data-ui-table-filter-input
+        />
     </x-ui.table-filters>
 
     <div class="mb-4 grid gap-3 md:grid-cols-4">
