@@ -1,6 +1,6 @@
 @extends('layouts.app', [
     'title' => 'Курсы валют',
-    'titleDescription' => 'Интервалы действия курсов MBank, Obank, банков «Компаньон» и Bakai: внутри периода valid_from — valid_to курс не менялся.',
+    'titleDescription' => 'Интервалы действия курсов MBank, Obank, банков «Компаньон», Bakai и Capital Bank: внутри периода valid_from — valid_to курс не менялся.',
 ])
 
 @php
@@ -18,6 +18,7 @@
         'obank' => 'Obank',
         'kompanion' => 'Компаньон',
         'bakai' => 'Bakai',
+        'capitalbank' => 'Capital Bank',
     ];
     $sort = $filters['sort'] ?? null;
     $direction = ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';

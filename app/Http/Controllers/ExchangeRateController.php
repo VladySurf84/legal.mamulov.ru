@@ -98,7 +98,7 @@ class ExchangeRateController extends Controller
     {
         abort_unless(UserAccess::canSyncExchangeRates(request()->user()), 403);
 
-        $summary = $service->sync(['mbank', 'obank', 'kompanion', 'bakai'], [
+        $summary = $service->sync(['mbank', 'obank', 'kompanion', 'bakai', 'capitalbank'], [
             'started_by_type' => 'user',
             'started_by_user_id' => auth()->id(),
             'started_from' => 'ui',
