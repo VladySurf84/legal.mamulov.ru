@@ -62,6 +62,7 @@ Route::middleware('admin.session')->group(function (): void {
     Route::put('ui-settings', [UserUiSettingController::class, 'update'])->name('ui-settings.update');
     Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
     Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
+    Route::put('exchange-rates/bank-settings', [ExchangeRateController::class, 'updateBankSettings'])->name('exchange-rates.bank-settings.update');
     Route::post('exchange-rates/sync', [ExchangeRateController::class, 'sync'])->name('exchange-rates.sync');
     Route::get('nsi/sgr', [NsiSgrController::class, 'index'])->name('nsi-sgr.index');
     Route::post('nsi/sgr/{recordId}/refresh', [NsiSgrController::class, 'refresh'])->whereNumber('recordId')->name('nsi-sgr.refresh');

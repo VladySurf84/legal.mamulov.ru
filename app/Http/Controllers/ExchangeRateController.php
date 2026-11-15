@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ExchangeRates\KyrgyzBankExchangeRateSyncService;
 use App\Support\UserAccess;
+use App\Support\ExchangeRateBanks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,7 +92,32 @@ class ExchangeRateController extends Controller
             'providers' => $this->distinct('provider'),
             'rateTypes' => $this->distinct('rate_type'),
             'currencyCodes' => $this->distinct('currency_code'),
+            'bankSettings' => DB::table('legal.exchange_rate_bank_settings')->get()->keyBy('provider'),
         ]);
+    }
+
+    public function updateBankSettings(Request $request): RedirectResponse
+    {
+        abort_unless(UserAccess::canEditModule($request->user(), UserAccess::MODULE_EXCHANGE_RATES), 403);
+
+        $rules = ['banks' => ['required', 'array:'.implode(',', array_keys(ExchangeRateBanks::LABELS))]];
+        foreach (ExchangeRateBanks::LABELS as $provider => $label) {
+            $rules["banks.$provider"] = ['required', 'array:'.implode(',', array_keys(ExchangeRateBanks::SETTINGS))];
+            foreach (ExchangeRateBanks::SETTINGS as $setting => $settingLabel) {
+                $rules["banks.$provider.$setting"] = ['required', 'boolean'];
+            }
+        }
+        $validated = $request->validateWithBag('bankSettings', $rules);
+
+        DB::transaction(function () use ($validated): void {
+            foreach ($validated['banks'] as $provider => $settings) {
+                DB::table('legal.exchange_rate_bank_settings')->upsert([
+                    ['provider' => $provider, ...$settings, 'created_at' => now(), 'updated_at' => now()],
+                ], ['provider'], [...array_keys(ExchangeRateBanks::SETTINGS), 'updated_at']);
+            }
+        });
+
+        return back()->with('status', 'Настройки банков сохранены.');
     }
 
     public function sync(KyrgyzBankExchangeRateSyncService $service): RedirectResponse

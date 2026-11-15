@@ -14,14 +14,8 @@
         'transfer' => 'Онлайн-переводы',
         'mobile' => 'Мобильный банкинг',
     ];
-    $providerLabels = [
-        'mbank' => 'MBank',
-        'obank' => 'Obank',
-        'kompanion' => 'Компаньон',
-        'bakai' => 'Bakai',
-        'capitalbank' => 'Capital Bank',
-        'baitushum' => 'Бай-Тушум',
-    ];
+    $providerLabels = \App\Support\ExchangeRateBanks::LABELS;
+    $canEditBankSettings = \App\Support\UserAccess::canEditModule(auth()->user(), \App\Support\UserAccess::MODULE_EXCHANGE_RATES);
     $sort = $filters['sort'] ?? null;
     $direction = ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
     $validToSortDirection = $sort === 'valid_to' && $direction === 'asc' ? 'desc' : 'asc';
@@ -45,6 +39,9 @@
 @endphp
 
 @section('page_actions')
+    <x-ui.button type="button" size="lg" variant="ghost" data-ui-modal-open="exchange-rate-bank-settings">
+        Настройки банков
+    </x-ui.button>
     @if (\App\Support\UserAccess::canSyncExchangeRates(auth()->user()))
     <form method="post" action="{{ route('exchange-rates.sync') }}">
         @csrf
@@ -56,6 +53,51 @@
 @endsection
 
 @section('content')
+    <x-ui.modal id="exchange-rate-bank-settings" title="Настройки банков" size="2xl" :open="$errors->bankSettings->any()">
+        <form method="post" action="{{ route('exchange-rates.bank-settings.update') }}">
+            @csrf
+            @method('PUT')
+            @if ($errors->bankSettings->any())
+                <p class="px-6 pt-4 text-sm text-red-600">{{ $errors->bankSettings->first() }}</p>
+            @endif
+            <div class="overflow-x-auto px-6 py-4">
+                <table class="w-full text-sm text-gray-900 dark:text-gray-100">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-white/10">
+                            <th scope="col" class="px-3 py-3 text-left font-semibold">Банк</th>
+                            @foreach (\App\Support\ExchangeRateBanks::SETTINGS as $label)
+                                <th scope="col" class="px-3 py-3 text-center font-semibold">{{ $label }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($providerLabels as $provider => $bankLabel)
+                            <tr class="border-b border-gray-200 dark:border-white/10">
+                                <th scope="row" class="whitespace-nowrap px-3 py-3 text-left font-medium">{{ $bankLabel }}</th>
+                                @foreach (\App\Support\ExchangeRateBanks::SETTINGS as $setting => $label)
+                                    <td class="px-3 py-3 text-center">
+                                        <input type="hidden" name="banks[{{ $provider }}][{{ $setting }}]" value="0">
+                                        <x-ui.native-checkbox
+                                            name="banks[{{ $provider }}][{{ $setting }}]"
+                                            :checked="(bool) old('banks.'.$provider.'.'.$setting, $bankSettings->get($provider)?->{$setting} ?? false)"
+                                            :disabled="! $canEditBankSettings"
+                                            aria-label="{{ $bankLabel }}: {{ $label }}"
+                                        />
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4 dark:border-white/10">
+                <x-ui.button type="button" variant="ghost" data-ui-modal-close>Закрыть</x-ui.button>
+                @if ($canEditBankSettings)
+                    <x-ui.button type="submit">Сохранить</x-ui.button>
+                @endif
+            </div>
+        </form>
+    </x-ui.modal>
     @if (session('status'))
         <div class="mb-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-600/20">
             {{ session('status') }}
