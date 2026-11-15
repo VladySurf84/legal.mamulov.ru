@@ -56,61 +56,44 @@
         </div>
     @endif
 
-    <div class="mb-4 border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-        <form method="get" action="{{ route('exchange-rates.index') }}">
-            @if ($sort)
-                <input type="hidden" name="sort" value="{{ $sort }}">
-                <input type="hidden" name="direction" value="{{ $direction }}">
-            @endif
+    <x-ui.table-filters :action="route('exchange-rates.index')" :ajax="false" columns="sm:grid-cols-2 lg:grid-cols-[max-content_max-content_max-content_max-content]">
+    @if ($sort)
+        <input type="hidden" name="sort" value="{{ $sort }}">
+        <input type="hidden" name="direction" value="{{ $direction }}">
+    @endif
 
-            <div class="grid gap-4 lg:grid-cols-4">
-                <x-ui.select
-                    label="Банк"
-                    name="provider"
-                    :value="$filters['provider'] ?? ''"
-                    :options="collect($providers)->mapWithKeys(fn ($provider, $key) => [$key => $providerLabels[$key] ?? $provider])->all()"
-                    placeholder="Все банки"
-                />
+        <x-ui.animated-multi-select :multiple="false"
+            name="provider"
+            :value="$filters['provider'] ?? ''"
+            :options="collect($providers)->map(fn ($provider, $key) => ['value' => $key, 'label' => $providerLabels[$key] ?? $provider])->values()->all()"
+            placeholder="Все банки"
+        />
 
-                <x-ui.select
-                    label="Тип курса"
-                    name="rate_type"
-                    :value="$filters['rate_type'] ?? ''"
-                    :options="collect($rateTypes)->mapWithKeys(fn ($type, $key) => [$key => $rateTypeLabels[$key] ?? $type])->all()"
-                    placeholder="Все типы"
-                />
+        <x-ui.animated-multi-select :multiple="false"
+            name="rate_type"
+            :value="$filters['rate_type'] ?? ''"
+            :options="collect($rateTypes)->map(fn ($type, $key) => ['value' => $key, 'label' => $rateTypeLabels[$key] ?? $type])->values()->all()"
+            placeholder="Все типы"
+        />
 
-                <x-ui.select
-                    label="Валюта"
-                    name="currency_code"
-                    :value="$filters['currency_code'] ?? ''"
-                    :options="$currencyCodes"
-                    placeholder="Все валюты"
-                />
+        <x-ui.animated-multi-select :multiple="false"
+            name="currency_code"
+            :value="$filters['currency_code'] ?? ''"
+            :options="collect($currencyCodes)->map(fn ($code, $key) => ['value' => $key, 'label' => $code])->values()->all()"
+            placeholder="Все валюты"
+        />
 
-                <label class="flex items-end gap-3 pb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    <input
-                        type="checkbox"
-                        name="show_history"
-                        value="1"
-                        class="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                        @checked(! empty($filters['show_history']))
-                    >
-                    <span>Показать историю</span>
-                </label>
-            </div>
-
-            <div class="mt-4 flex flex-wrap justify-end gap-2">
-                <x-ui.button :href="route('exchange-rates.index')" variant="ghost" wire:navigate>
-                    Сбросить
-                </x-ui.button>
-
-                <x-ui.button type="submit" variant="soft">
-                    Показать
-                </x-ui.button>
-            </div>
-        </form>
-    </div>
+        <label class="flex items-center gap-3 text-sm font-medium text-gray-900 dark:text-white">
+            <input
+                type="checkbox"
+                name="show_history"
+                value="1"
+                class="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                @checked(! empty($filters['show_history']))
+            >
+            <span>Показать историю</span>
+        </label>
+    </x-ui.table-filters>
 
     <x-ui.sticky-table
         :contained="false"
