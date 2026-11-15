@@ -262,7 +262,11 @@ class KyrgyzBankExchangeRateSyncService
         $contentType = null;
 
         try {
-            $response = Http::timeout(30)
+            $client = Http::timeout(30);
+            if ($provider === 'capitalbank' && config('services.capitalbank.ca_bundle')) {
+                $client = $client->withOptions(['verify' => config('services.capitalbank.ca_bundle')]);
+            }
+            $response = $client
                 ->withHeaders([
                     'User-Agent' => 'legal.mamulov.ru exchange-rates sync',
                     'Accept' => '*/*',

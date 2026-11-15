@@ -61,6 +61,10 @@ return [
         'timeout' => (int) env('OPENAI_TIMEOUT', 120),
     ],
 
+    'capitalbank' => [
+        'ca_bundle' => env('CAPITALBANK_CA_BUNDLE'),
+    ],
+
     'hh' => [
         'client_id' => env('HH_CLIENT_ID'),
         'client_secret' => env('HH_CLIENT_SECRET'),
