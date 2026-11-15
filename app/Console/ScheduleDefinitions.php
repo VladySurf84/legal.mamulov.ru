@@ -16,7 +16,7 @@ class ScheduleDefinitions
             ->appendOutputTo(storage_path('logs/scheduler.log'));
 
         $schedule->command('exchange-rates:sync-kgs-banks --started-by-type=system --started-from=scheduler')
-            ->description('Sync MBank and Obank exchange rates')
+            ->description('Sync MBank, Obank and Kompanion exchange rates')
             ->everyTenMinutes()
             ->withoutOverlapping(1440, self::canReleaseMutexOnTerminationSignals())
             ->onOneServer()

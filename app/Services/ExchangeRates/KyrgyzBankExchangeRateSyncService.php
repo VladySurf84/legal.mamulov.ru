@@ -15,7 +15,7 @@ class KyrgyzBankExchangeRateSyncService
     /**
      * @return array{sync_run_id: int, providers: int, quotes: int, intervals_opened: int, intervals_updated: int, intervals_closed: int}
      */
-    public function sync(array $providers = ['mbank', 'obank'], array $runContext = []): array
+    public function sync(array $providers = ['mbank', 'obank', 'kompanion'], array $runContext = []): array
     {
         $runId = $this->startRun($runContext);
         $summary = [
@@ -39,6 +39,7 @@ class KyrgyzBankExchangeRateSyncService
                 $quotes = match ($provider) {
                     'mbank' => $this->fetchMbank($runId, $observedAt),
                     'obank' => $this->fetchObank($runId, $observedAt),
+                    'kompanion' => $this->fetchKompanion($runId, $observedAt),
                     default => throw new RuntimeException("Unknown exchange rate provider [{$provider}]."),
                 };
 
@@ -181,6 +182,34 @@ class KyrgyzBankExchangeRateSyncService
                     bankValidFrom: $this->parseBankDate(data_get($item, 'actualDate')),
                     observedAt: $observedAt,
                     rawItem: $item
+                );
+            }
+        }
+
+        return $quotes;
+    }
+
+    private function fetchKompanion(int $runId, Carbon $observedAt): array
+    {
+        $quotes = [];
+
+        foreach ([1 => 'cash', 2 => 'non_cash'] as $type => $rateType) {
+            $endpoint = '/apioffice-rates?type=' . $type;
+            $body = $this->request($runId, 'kompanion', 'GET', $endpoint, 'https://www.kompanion.kg' . $endpoint);
+
+            foreach ((new KompanionExchangeRateParser)->parse($body, $type) as $item) {
+                $quotes[] = $this->quote(
+                    provider: 'kompanion',
+                    rateType: $rateType,
+                    currencyCode: $item['currencySymbol'],
+                    buyRate: $this->decimal($item['buyRate']),
+                    sellRate: $this->decimal($item['sellRate']),
+                    officialRate: null,
+                    // The API supplies a local date array without a timezone.
+                    // Preserve it in rawItem; use observation time for validity.
+                    bankValidFrom: null,
+                    observedAt: $observedAt,
+                    rawItem: $item,
                 );
             }
         }
