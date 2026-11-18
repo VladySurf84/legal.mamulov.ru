@@ -22,6 +22,7 @@ class NsiSgrController extends Controller
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
+            'manufacturer' => ['nullable', 'string', 'max:200'],
             'status' => ['nullable', 'string', 'max:255'],
             'details' => ['nullable', 'in:yes,no'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -40,10 +41,14 @@ class NsiSgrController extends Controller
             $query->where(function ($query) use ($like): void {
                 $query->where('sgr_number', 'ilike', $like)
                     ->orWhere('product_name', 'ilike', $like)
-                    ->orWhere('manufacturer_name', 'ilike', $like)
                     ->orWhere('recipient_name', 'ilike', $like)
                     ->orWhere('recipient_inn', 'ilike', $like);
             });
+        }
+
+        $manufacturer = trim((string) ($filters['manufacturer'] ?? ''));
+        if ($manufacturer !== '') {
+            $query->where('manufacturer_name', 'ilike', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $manufacturer).'%');
         }
 
         if (! empty($filters['status'])) {

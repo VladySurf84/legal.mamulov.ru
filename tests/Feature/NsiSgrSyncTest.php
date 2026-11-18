@@ -576,6 +576,23 @@ class NsiSgrSyncTest extends TestCase
             ->assertSee('BY.60.61.01.008.E.000040.06.26')
             ->assertSee('Эмульгатор AVI CON EMU')
             ->assertSee('Vertexco NV');
+
+        $this->get(route('nsi-sgr.index', ['q' => 'Vertexco NV']))
+            ->assertOk()
+            ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
+
+        $this->get(route('nsi-sgr.index', ['manufacturer' => '  vertexco  ']))
+            ->assertOk()
+            ->assertSee('name="manufacturer"', false)
+            ->assertSee('BY.60.61.01.008.E.000040.06.26');
+
+        $this->get(route('nsi-sgr.index', ['q' => 'AVI CON', 'manufacturer' => 'Vertexco']))
+            ->assertOk()
+            ->assertSee('BY.60.61.01.008.E.000040.06.26');
+
+        $this->get(route('nsi-sgr.index', ['q' => 'AVI CON', 'manufacturer' => 'Other Manufacturer']))
+            ->assertOk()
+            ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
     }
 
     public function test_nsi_sgr_page_uses_automatic_pagination(): void

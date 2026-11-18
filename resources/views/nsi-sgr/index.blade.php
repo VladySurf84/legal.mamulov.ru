@@ -25,7 +25,7 @@
         rows-id="nsi-sgr-rows"
         loader-id="nsi-sgr-loader"
         table-selector="[data-nsi-sgr-table]"
-        columns="md:grid-cols-[max-content_max-content_minmax(0,1fr)]"
+        columns="md:grid-cols-[max-content_max-content_minmax(0,1fr)_minmax(0,1fr)]"
     >
         <label for="nsi-sgr-status" class="sr-only">Статус</label>
         <x-ui.animated-multi-select
@@ -53,8 +53,16 @@
         <x-ui.input
             name="q"
             :value="$filters['q'] ?? ''"
-            placeholder="Номер СГР, продукция, изготовитель, получатель"
+            placeholder="Номер СГР, продукция, получатель"
             aria-label="Поиск по СГР"
+            autocomplete="off"
+            data-ui-table-filter-input
+        />
+        <x-ui.input
+            name="manufacturer"
+            :value="$filters['manufacturer'] ?? ''"
+            placeholder="Поиск по изготовителю"
+            aria-label="Поиск по изготовителю"
             autocomplete="off"
             data-ui-table-filter-input
         />
