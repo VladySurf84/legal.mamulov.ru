@@ -23,6 +23,10 @@ class NsiSgrController extends Controller
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
             'manufacturer' => ['nullable', 'string', 'max:200'],
+            'number' => ['nullable', 'string', 'max:200'],
+            'product' => ['nullable', 'string', 'max:200'],
+            'recipient' => ['nullable', 'string', 'max:200'],
+            'use_area' => ['nullable', 'string', 'max:200'],
             'status' => ['nullable', 'string', 'max:255'],
             'details' => ['nullable', 'in:yes,no'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -46,9 +50,24 @@ class NsiSgrController extends Controller
             });
         }
 
-        $manufacturer = trim((string) ($filters['manufacturer'] ?? ''));
-        if ($manufacturer !== '') {
-            $query->where('manufacturer_name', 'ilike', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $manufacturer).'%');
+        foreach ([
+            'number' => ['sgr_number', 'serial_number'],
+            'product' => ['product_name', 'product_code'],
+            'manufacturer' => ['manufacturer_name', 'manufacturer_address'],
+            'recipient' => ['recipient_name', 'recipient_inn', 'recipient_address'],
+            'use_area' => ['use_area'],
+        ] as $filter => $columns) {
+            $value = trim((string) ($filters[$filter] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $value).'%';
+            $query->where(function ($query) use ($columns, $like): void {
+                foreach ($columns as $column) {
+                    $query->orWhere($column, 'ilike', $like);
+                }
+            });
         }
 
         if (! empty($filters['status'])) {

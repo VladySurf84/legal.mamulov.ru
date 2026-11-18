@@ -545,6 +545,10 @@ class NsiSgrSyncTest extends TestCase
             'status_name' => 'подписан и действует',
             'product_name' => 'Эмульгатор AVI CON EMU',
             'manufacturer_name' => 'Vertexco NV',
+            'manufacturer_address' => 'Manufacturer Filter Street',
+            'recipient_name' => 'Recipient Filter Company',
+            'recipient_inn' => '1234509876',
+            'use_area' => 'Food Filter Context',
             'source_list_payload' => json_encode([], JSON_THROW_ON_ERROR),
             'list_synced_at' => now(),
             'created_at' => now(),
@@ -584,6 +588,7 @@ class NsiSgrSyncTest extends TestCase
         $this->get(route('nsi-sgr.index', ['manufacturer' => '  vertexco  ']))
             ->assertOk()
             ->assertSee('name="manufacturer"', false)
+            ->assertSee('data-ui-column-filter-name="manufacturer"', false)
             ->assertSee('BY.60.61.01.008.E.000040.06.26');
 
         $this->get(route('nsi-sgr.index', ['q' => 'AVI CON', 'manufacturer' => 'Vertexco']))
@@ -593,6 +598,31 @@ class NsiSgrSyncTest extends TestCase
         $this->get(route('nsi-sgr.index', ['q' => 'AVI CON', 'manufacturer' => 'Other Manufacturer']))
             ->assertOk()
             ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
+
+        foreach ([
+            ['number' => '000040.06.26'],
+            ['product' => 'avi con'],
+            ['manufacturer' => 'filter street'],
+            ['recipient' => '1234509876'],
+            ['use_area' => 'food filter'],
+            ['product' => 'AVI CON', 'recipient' => 'Filter Company', 'use_area' => 'Context'],
+        ] as $filters) {
+            $this->get(route('nsi-sgr.index', $filters))
+                ->assertOk()
+                ->assertSee('BY.60.61.01.008.E.000040.06.26');
+        }
+
+        foreach (['number', 'product', 'recipient', 'use_area'] as $filter) {
+            $this->get(route('nsi-sgr.index', [$filter => 'Nonexistent Column Value']))
+                ->assertOk()
+                ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
+        }
+
+        $this->getJson(route('nsi-sgr.index', ['product' => 'AVI CON', 'use_area' => 'Food']), [
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->assertOk()->assertJsonPath('has_more', false)
+            ->assertJsonPath('next_page', null)
+            ->assertSee('BY.60.61.01.008.E.000040.06.26');
     }
 
     public function test_nsi_sgr_page_uses_automatic_pagination(): void

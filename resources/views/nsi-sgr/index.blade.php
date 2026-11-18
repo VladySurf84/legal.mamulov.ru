@@ -22,10 +22,11 @@
 
     <x-ui.table-filters
         :action="route('nsi-sgr.index')"
+        form-id="nsi-sgr-filters"
         rows-id="nsi-sgr-rows"
         loader-id="nsi-sgr-loader"
         table-selector="[data-nsi-sgr-table]"
-        columns="md:grid-cols-[max-content_max-content_minmax(0,1fr)_minmax(0,1fr)]"
+        columns="md:grid-cols-[max-content_max-content]"
     >
         <label for="nsi-sgr-status" class="sr-only">Статус</label>
         <x-ui.animated-multi-select
@@ -50,22 +51,9 @@
             placeholder="Все записи"
         />
 
-        <x-ui.input
-            name="q"
-            :value="$filters['q'] ?? ''"
-            placeholder="Номер СГР, продукция, получатель"
-            aria-label="Поиск по СГР"
-            autocomplete="off"
-            data-ui-table-filter-input
-        />
-        <x-ui.input
-            name="manufacturer"
-            :value="$filters['manufacturer'] ?? ''"
-            placeholder="Поиск по изготовителю"
-            aria-label="Поиск по изготовителю"
-            autocomplete="off"
-            data-ui-table-filter-input
-        />
+        @foreach (['number', 'product', 'manufacturer', 'recipient', 'use_area'] as $columnFilter)
+            <input type="hidden" name="{{ $columnFilter }}" value="{{ $filters[$columnFilter] ?? '' }}" data-ui-table-filter-input>
+        @endforeach
     </x-ui.table-filters>
 
     <div class="mb-4 grid gap-3 md:grid-cols-4">
@@ -102,13 +90,13 @@
     >
         <x-slot:head>
             <tr>
-                <x-ui.sticky-table-th first>Номер</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th first auto-filter="number" filter-form="nsi-sgr-filters">Номер</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Статус</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Дата</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Продукция</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Изготовитель</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Получатель</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Применение</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th auto-filter="product" filter-form="nsi-sgr-filters">Продукция</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th auto-filter="manufacturer" filter-form="nsi-sgr-filters">Изготовитель</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th auto-filter="recipient" filter-form="nsi-sgr-filters">Получатель</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th auto-filter="use_area" filter-form="nsi-sgr-filters">Применение</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th last>Обновлено</x-ui.sticky-table-th>
             </tr>
         </x-slot:head>
