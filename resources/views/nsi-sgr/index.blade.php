@@ -26,18 +26,8 @@
         rows-id="nsi-sgr-rows"
         loader-id="nsi-sgr-loader"
         table-selector="[data-nsi-sgr-table]"
-        columns="md:grid-cols-[max-content_max-content]"
+        columns="md:grid-cols-[max-content]"
     >
-        <label for="nsi-sgr-status" class="sr-only">Статус</label>
-        <x-ui.animated-multi-select
-            id="nsi-sgr-status"
-            name="status"
-            :multiple="false"
-            :value="$filters['status'] ?? ''"
-            :options="collect($statuses)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values()->all()"
-            placeholder="Все статусы"
-        />
-
         <label for="nsi-sgr-details" class="sr-only">Детализация</label>
         <x-ui.animated-multi-select
             id="nsi-sgr-details"
@@ -91,7 +81,7 @@
         <x-slot:head>
             <tr>
                 <x-ui.sticky-table-th first auto-filter="number" filter-form="nsi-sgr-filters">Номер</x-ui.sticky-table-th>
-                <x-ui.sticky-table-th>Статус</x-ui.sticky-table-th>
+                <x-ui.sticky-table-th auto-filter="status" filter-mode="select" :filter-options="$statuses" filter-form="nsi-sgr-filters">Статус</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th>Дата</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th auto-filter="product" filter-form="nsi-sgr-filters">Продукция</x-ui.sticky-table-th>
                 <x-ui.sticky-table-th auto-filter="manufacturer" filter-form="nsi-sgr-filters">Изготовитель</x-ui.sticky-table-th>

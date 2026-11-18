@@ -601,6 +601,8 @@ class NsiSgrSyncTest extends TestCase
 
         foreach ([
             ['number' => '000040.06.26'],
+            ['status' => ['прекращён', 'подписан и действует']],
+            ['status' => 'подписан и действует'],
             ['product' => 'avi con'],
             ['manufacturer' => 'filter street'],
             ['recipient' => '1234509876'],
@@ -617,6 +619,16 @@ class NsiSgrSyncTest extends TestCase
                 ->assertOk()
                 ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
         }
+
+        $this->get(route('nsi-sgr.index', ['status' => ['прекращён', 'приостановлен']]))
+            ->assertOk()
+            ->assertDontSee('BY.60.61.01.008.E.000040.06.26');
+
+        $this->get(route('nsi-sgr.index', ['status' => ['подписан и действует']]))
+            ->assertOk()
+            ->assertSee('data-ui-column-filter-choice', false)
+            ->assertSee('name="status[]"', false)
+            ->assertDontSee('id="nsi-sgr-status"', false);
 
         $this->getJson(route('nsi-sgr.index', ['product' => 'AVI CON', 'use_area' => 'Food']), [
             'X-Requested-With' => 'XMLHttpRequest',

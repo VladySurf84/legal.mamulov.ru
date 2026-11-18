@@ -7,9 +7,14 @@
     'autoFilter' => null,
     'filterForm' => null,
     'filterLabel' => null,
+    'filterMode' => 'search',
+    'filterOptions' => [],
 ])
 
 @php
+    if (! in_array($filterMode, ['search', 'select'], true)) {
+        throw new InvalidArgumentException('Column filter mode must be search or select.');
+    }
     $alignClass = [
         'left' => 'text-left',
         'center' => 'text-center',
@@ -48,6 +53,18 @@
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4h14v2l-5.5 6v4l-3 1v-5L3 6V4Z"/></svg>
             </button>
             <div id="{{ $filterId }}" popover="auto" class="m-0 w-72 rounded-lg border border-gray-200 bg-white p-3 text-sm font-normal text-gray-900 shadow-lg dark:border-white/15 dark:bg-gray-900 dark:text-white" data-ui-column-filter-popover>
+                @if ($filterMode === 'select')
+                    <fieldset class="max-h-72 overflow-y-auto" data-ui-column-filter-select>
+                        <legend class="mb-2 font-medium">{{ $filterLabel ?? trim(strip_tags((string) $slot)) }}</legend>
+                        @foreach ($filterOptions as $optionValue => $optionLabel)
+                            <label class="flex cursor-pointer items-start gap-2 py-1">
+                                <input type="checkbox" name="{{ $autoFilter }}[]" value="{{ $optionValue }}" form="{{ $filterForm }}" @checked(in_array((string) $optionValue, Illuminate\Support\Arr::wrap(request($autoFilter, [])), true)) class="mt-1 rounded border-gray-300 text-indigo-600" data-ui-column-filter-choice>
+                                <span>{{ $optionLabel }}</span>
+                            </label>
+                        @endforeach
+                        <p class="mt-2 text-xs text-gray-500">Ничего не выбрано — все значения.</p>
+                    </fieldset>
+                @else
                 <label for="{{ $filterId }}-input" class="mb-2 block font-medium">{{ $filterLabel ?? trim(strip_tags((string) $slot)) }}</label>
                 <x-ui.input
                     id="{{ $filterId }}-input"
@@ -59,6 +76,7 @@
                     :data-ui-column-filter-name="$autoFilter"
                     :data-ui-column-filter-form="$filterForm"
                 />
+                @endif
             </div>
         @endif
     </span>
@@ -112,6 +130,17 @@
                         button.classList.toggle('dark:text-indigo-400', input.value.trim() !== '');
                     });
                 });
+            });
+            document.addEventListener('change', (event) => {
+                const input = event.target.closest('[data-ui-column-filter-choice]');
+                if (!input) return;
+                const panel = input.closest('[popover]');
+                const active = !!panel.querySelector('input:checked');
+                document.querySelectorAll(`[popovertarget="${panel.id}"]`).forEach((button) => {
+                    button.classList.toggle('text-indigo-600', active);
+                    button.classList.toggle('dark:text-indigo-400', active);
+                });
+                input.form?.dispatchEvent(new Event('change', { bubbles: true }));
             });
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' && event.target.matches('[data-ui-column-filter-name]')) event.preventDefault();

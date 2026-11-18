@@ -20,6 +20,10 @@ class NsiSgrController extends Controller
     {
         abort_unless(UserAccess::canViewNsiSgr($request->user()), 403);
 
+        if (is_string($request->input('status'))) {
+            $request->merge(['status' => array_values(array_filter([$request->input('status')], fn ($value) => $value !== ''))]);
+        }
+
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
             'manufacturer' => ['nullable', 'string', 'max:200'],
@@ -27,7 +31,8 @@ class NsiSgrController extends Controller
             'product' => ['nullable', 'string', 'max:200'],
             'recipient' => ['nullable', 'string', 'max:200'],
             'use_area' => ['nullable', 'string', 'max:200'],
-            'status' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'array', 'max:100'],
+            'status.*' => ['required', 'string', 'max:255'],
             'details' => ['nullable', 'in:yes,no'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:0', 'max:1000'],
@@ -71,7 +76,7 @@ class NsiSgrController extends Controller
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status_name', $filters['status']);
+            $query->whereIn('status_name', $filters['status']);
         }
 
         if (($filters['details'] ?? null) === 'yes') {
